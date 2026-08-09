@@ -157,18 +157,24 @@ Ablation deltas at one year (`you2 eval --ablate`, ~8 min, ~60 s a variant):
 
 | removing | costs |
 |---|---|
-| fan effect | focus 0.89 → 0.23, **visited 14 → 433** |
-| inhibition | diversity 0.91 → 0.38 |
-| spreading (top-k only) | diversity 0.91 → 0.37, and the *highest* focus of any variant |
+| fan effect | focus 0.89 → 0.34, **visited 14 → 380** |
+| inhibition | **diversity 0.91 → 0.33** |
+| spreading (top-k only) | diversity 0.91 → 0.38, and the *highest* focus of any variant |
 | base-level decay | **stale leakage 0.00 → 0.50** |
-| downscaling | edges 2,084 → 4,217 |
-| the block cap | tokens 118 → 401, focus 0.89 → 0.84 — pure cost |
-| **the salience gate** | **nothing but storage** (neurons 1,085 → 1,209) |
+| downscaling | edges 2,024 → 4,283 |
+| the block cap | tokens 132 → 400, focus 0.89 → 0.84 — pure cost |
+| **the salience gate** | **nothing but storage** |
 
 Probe precision is 1.00 in every variant, which is why it is not the column
 to read. `top-k-only` scoring the best focus and nearly the worst diversity is
 naive RAG's failure mode measured rather than asserted: it returns the most
 on-topic set and the least informative one.
+
+The salience gate's case has got weaker, not stronger. Its only measured
+benefit was ever storage, and two years of daily use is **8.9 MB on disk**
+against a 512 MB budget — so it is buying something that is not scarce, while
+having caused four separate bugs (HANDOFF traps #3 and #10). The burden of
+proof was on it before; it has not met it.
 
 ---
 
