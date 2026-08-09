@@ -328,7 +328,7 @@ def _score_discovery(brain: Brain, truth: Truth, result: Result,
     insights = brain.store.by_kind(Kind.INSIGHT, limit=500, live_only=False)
     result.insights = len(insights)
     result.insights_pushed = sum(1 for n in insights if n.meta.get("pushed"))
-    result.insights_rejected = len(brain.store.journal("insight_rejected", limit=500))
+    result.insights_rejected = brain.store.journal_count("insight_rejected")
     result.bridge_found = any(n.meta.get("type") == "bridge" for n in insights)
 
 
