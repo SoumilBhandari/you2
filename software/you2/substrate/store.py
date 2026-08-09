@@ -465,6 +465,7 @@ class Store:
             "superseded_facts": counts.get("fact", 0) - live_facts,
             "tiers": tiers,
             "edges": self.graph.edge_count,
+            "hops_truncated": self.graph.hops_truncated,
             "graph_mb": round(self.graph.memory_bytes() / 1e6, 2),
             "vectors": len(self.vectors),
             "vectors_hot": self.vectors.hot_count,

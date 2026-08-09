@@ -955,45 +955,48 @@ earning its complexity and should be deleted — that check is worth running bef
 
 ### 15.1 What one simulated year actually says
 
-1,178 utterances, 353 nights, ~46 s wall clock per run.
+1,178 utterances, 353 nights, ~45 s wall clock per run.
 
 | variant | precision | focus | diversity | stale | tokens | visited | edges |
 |---|---|---|---|---|---|---|---|
-| **baseline** | 1.00 | **0.88** | **0.82** | 0.00 | 130 | 14 | 2,181 |
-| no fan effect | 1.00 | 0.30 | 0.72 | 0.00 | 186 | **407** | 2,083 |
-| no inhibition | 1.00 | 0.90 | **0.35** | 0.00 | 163 | 16 | 4,976 |
-| top-k only | 1.00 | 0.93 | **0.23** | 0.00 | 105 | 6 | 3,066 |
-| no base-level decay | 1.00 | 0.93 | 0.59 | **0.50** | 168 | 86 | 2,684 |
-| no downscaling | 1.00 | 0.87 | 0.86 | 0.00 | 116 | 19 | **4,658** |
-| uncapped block | 1.00 | 0.87 | 0.82 | 0.00 | **423** | 34 | 3,070 |
-| no salience gate | 1.00 | 0.88 | 0.78 | 0.00 | 130 | 14 | 2,310 |
+| **baseline** | 1.00 | **0.89** | **0.91** | 0.00 | 118 | 14 | 2,084 |
+| no fan effect | 1.00 | **0.23** | 0.77 | 0.00 | 190 | **433** | 1,957 |
+| no inhibition | 1.00 | 0.89 | **0.38** | 0.00 | 161 | 17 | 4,829 |
+| top-k only | 1.00 | 0.95 | **0.37** | 0.00 | 81 | 6 | 2,276 |
+| no base-level decay | 1.00 | 0.91 | 0.75 | **0.50** | 154 | 85 | 2,312 |
+| no downscaling | 1.00 | 0.86 | 0.93 | 0.00 | 131 | 18 | **4,217** |
+| uncapped block | 1.00 | 0.84 | 0.92 | 0.00 | **401** | 33 | 2,895 |
+| no salience gate | 1.00 | 0.89 | 0.92 | 0.00 | 119 | 13 | 2,163 |
 
 *focus* = fraction of retrieved items actually about the thing asked, counting graph adjacency and not just literal
 token match. *diversity* = mean pairwise dissimilarity among selected items.
 
 Read down the diagonal and each mechanism names its own contribution:
 
+Precision is 1.00 everywhere, which is why it is not the column to read. It saturates on this corpus, and a
+saturated metric cannot tell you anything — the discriminating columns are focus, diversity and stale.
+
 - **The fan effect is the largest single effect in the system.** Without it the cascade floods: 14 neurons visited
-  becomes **407**, and focus collapses from 0.88 to 0.30. Hub dampening is what stops "work" and "coffee" owning every
+  becomes **433**, and focus collapses from 0.89 to 0.23. Hub dampening is what stops "work" and "coffee" owning every
   retrieval, and it is four lines.
-- **Inhibition buys diversity, and only diversity.** 0.82 → 0.35, with focus unchanged. That is the trade being made
+- **Inhibition buys diversity, and only diversity.** 0.91 → 0.38, with focus unchanged. That is the trade being made
   on purpose: without it the block is on-topic *and* repetitive, which reads as the device having one thing to say.
-- **Spreading activation is where diversity comes from.** Plain top-k scores the *highest* focus (0.93) and the
-  *lowest* diversity (0.23) — it returns eight near-copies of the query. That is precisely the failure mode naive RAG
-  has, measured.
+- **Spreading activation is where diversity comes from.** Plain top-k scores the *highest* focus (0.95) and nearly
+  the *lowest* diversity (0.37) on the *smallest* block (81 tokens) — it returns near-copies of the query and calls
+  the redundancy efficiency. That is precisely the failure mode naive RAG has, measured rather than asserted.
 - **Base-level decay is what keeps superseded material unreachable.** It is the only ablation that moves stale
   leakage, 0.00 → **0.50**.
-- **Downscaling is a structural cost, not a retrieval one, at this horizon.** Edges more than double (2,181 →
-  4,658) while focus barely moves. At one year the graph is still small enough that the noise does not yet hurt;
-  the cost is deferred, not absent, which is exactly what "it degrades after a month and you blame the hardware"
-  looks like from inside the first year.
-- **The block cap costs nothing and saves everything.** Uncapping it triples the prompt (130 → 423 tokens) for
-  *zero* measurable quality gain.
+- **Downscaling is a structural cost, not a retrieval one, at this horizon.** Edges double (2,084 → 4,217) while
+  focus barely moves. At one year the graph is still small enough that the noise does not yet hurt; the cost is
+  deferred, not absent, which is exactly what "it degrades after a month and you blame the hardware" looks like from
+  inside the first year.
+- **The block cap is not a compromise, it is pure gain.** Uncapping it more than triples the prompt (118 → 401
+  tokens) and makes focus *worse* (0.89 → 0.84). There is no trade here to argue about.
 
 ### 15.2 The one mechanism measurement does not justify
 
-**The salience gate.** Disabling it changes focus by −0.00, diversity by −0.04, tokens by 0, and stores 12% more
-neurons. On this corpus its only demonstrated benefit is storage.
+**The salience gate.** Disabling it changes focus by 0.00, diversity by +0.01, tokens by +1, and stores 11% more
+neurons (1,085 → 1,209). On this corpus its only demonstrated benefit is storage.
 
 Stated plainly because the doctrine above demands it: *a mechanism whose removal changes nothing is not earning its
 complexity.* Two honest caveats before deleting it — the synthetic chatter may be unrealistically easy to filter,
@@ -1164,6 +1167,10 @@ These came out of the implementation and the eval harness rather than from readi
 | A deterministic fake can stand in for the model everywhere | Not for judging analogies. Returning `useful=true` unconditionally manufactured 78 meaningless bridges over a simulated year, which then polluted every measurement taken against them. The fake now declines, and the harness reports bridging as *untested* — which is the true statement. |
 | The harness should score the retrieved block | The model is given the nightly profile **plus** the block. Scoring the block alone under-measures the system by exactly the profile, which is the thing the profile exists to provide. |
 | An exponentially-decayed count can be stored as an integer | `int(n * 0.9999)` floors to zero every update, so the count never passes 1 and the prosody baseline silently never gains confidence. |
+| Inhibition excluding near-duplicates means it excludes duplicates | A flat damping treats a 0.80 neighbour and a *verbatim restatement* identically, so the copy kept 30% of its score, cleared the firing threshold and bought a second slot. The day-365 block printed "spoke to Tom Beckwith about the garden wall for a while" **twice**. Suppression now scales with similarity and is total at 1.0. Diversity 0.82 → 0.91. |
+| The eval measures extraction | It measures consolidation. It feeds the rule extractor a corpus the same rules generated, so it can only ever agree with itself — and consolidation cannot repair a bad fact, it versions it and carries it faithfully for two years. Extraction needed its own labelled corpus, and the first thing that corpus found was a stored fact reading "the car insurance on the third of March": a subject, a date, and no claim. |
+| A model quoting its source is weaker evidence than a paraphrase | Backwards, and the direction matters. A verbatim span proves the model read something real; it proves nothing about whether the claim follows. So a quote is verified against the source and the claim is then graded against **the quote alone** — narrower evidence, not wider. Quoting makes the check stricter. |
+| Every traversal in the system is bounded | `graph.hops` was bounded in depth and not in nodes visited, alone among them, and `dream.alignment` ran a second full search per pair for a number that does not enter the score. The budget is a guard for the size the store is meant to reach; removing the duplicate search is the part that was actually costing anything. |
 
 ---
 
