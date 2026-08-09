@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "you2"
+version = "0.1.0"
+description = "The brain: a consolidating memory system for the You2 desk assistant"
+requires-python = ">=3.11"
+# numpy is the only hard dependency. Everything else is stdlib, deliberately:
+# this runs on a 2 GB Pi alongside an audio stack, and every import costs RSS.
+dependencies = ["numpy>=1.24"]
+
+[project.optional-dependencies]
+# The real embedder. Without these, HashEmbedder is used and everything works.
+embed = ["onnxruntime>=1.17", "tokenizers>=0.15"]
+dev = ["pytest>=8.0", "pytest-timeout>=2.2"]
+
+[project.scripts]
+you2 = "you2.runtime.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["you2*"]
+
+[tool.setuptools.package-data]
+"you2.substrate" = ["*.sql"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --timeout=120"
+filterwarnings = ["error::DeprecationWarning"]
