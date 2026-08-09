@@ -34,6 +34,7 @@ deliberate departure that says why.
 17. [Standing decisions](#17-standing-decisions)
 18. [Open questions](#18-open-questions)
 19. [Corrections log](#19-corrections-log)
+20. [The person](#20-the-person)
 
 ---
 
@@ -573,7 +574,7 @@ By 06:00 the night has produced:
 ### 8.4 Interruptibility
 
 The night job yields on wake-word detection within 50 ms and checkpoints per batch. Someone walking in at 3 a.m. and
-saying "Friday" must never wait for a consolidation batch to finish. It also throttles on temperature — a
+saying "Hey Friday" must never wait for a consolidation batch to finish. It also throttles on temperature — a
 thermally-throttled Pi at 3 a.m. costs nothing, but it must not still be throttled at 9 a.m.
 
 ---
@@ -910,6 +911,8 @@ software/
     discovery/       contradiction, recurrence, open loops, bridging, scoring
     inference/       engine (rules by cost), compile (knowledge compilation),
                      tms (truth maintenance), parsimony (what not to store)
+    person/          identity, rhythms, stance, style — who they are (§20)
+    audio/           wake word, VAD, endpointing, ASR, TTS, the hot loop
     recall/          retrieve, memory-answerable, reconsolidation
     llm/             OpenAI-compatible streaming client + deterministic fake
     runtime/         hot-path pipeline, intent router, night scheduler, CLI
@@ -1107,6 +1110,60 @@ These came out of the implementation and the eval harness rather than from readi
 | A deterministic fake can stand in for the model everywhere | Not for judging analogies. Returning `useful=true` unconditionally manufactured 78 meaningless bridges over a simulated year, which then polluted every measurement taken against them. The fake now declines, and the harness reports bridging as *untested* — which is the true statement. |
 | The harness should score the retrieved block | The model is given the nightly profile **plus** the block. Scoring the block alone under-measures the system by exactly the profile, which is the thing the profile exists to provide. |
 | An exponentially-decayed count can be stored as an integer | `int(n * 0.9999)` floors to zero every update, so the count never passes 1 and the prosody baseline silently never gains confidence. |
+
+---
+
+---
+
+## 20. The person
+
+Everything above answers *what did they say*. This answers *who are they*, and it is the difference between a good
+search index and something that is actually theirs.
+
+Six components, all derived from what is already in the store, none volunteered by the user and none a setting they
+picked:
+
+| | derived from | example output |
+|---|---|---|
+| **identity** | facts keyed `user/*` | *their name, where they live, who they work for* |
+| **rhythms** | episode timestamps × valence × arousal | *consistently flat on Tuesday evenings; at their best in the morning* |
+| **stances** | valence over time per entity | *souring on the Kestrel contract since March* |
+| **style** | their own turns | *speaks in short sentences; direct; rarely hedges* |
+| **concerns** | open loops + souring stances | *boiler service, overdue* |
+| **arc** | the supersession chain | *was at Fenwick, now at Lumen* |
+
+The data was already there. Every episode has carried a timestamp, a valence and an arousal since §6, and every
+episode has been bound to the entities it mentions since §7. Nobody had looked.
+
+**The trend matters more than the level.** Most people are mildly negative about most of their work; that carries no
+information at all. *More* negative than two months ago carries a great deal, and it is precisely the thing they will
+not have noticed about themselves.
+
+### 20.1 The failure this is designed against
+
+Confidently telling someone something wrong about themselves. It is far worse than saying nothing, because it is the
+moment they stop believing any of it — and unlike a wrong fact, they cannot correct it by saying "no, that's out of
+date", because it was never a claim they made.
+
+So, three rules, and they are why most of the tests in this area assert *silence*:
+
+- **Every claim carries its sample size.** A weekday bucket with four observations is a coincidence, and the code
+  refuses it rather than leaving the judgement to whoever reads the output.
+- **Thin evidence produces an empty section, never a hedged one.** No "you *might* be flat on Tuesdays". Either the
+  evidence is there or the line is absent.
+- **`explain()` prints what every line was derived from.** A model of a person that cannot show its evidence is one
+  they have no way to challenge, and being wrong about someone without being challengeable is the worst state this
+  system can reach.
+
+### 20.2 Where it goes
+
+Ahead of everything else in the prompt, rebuilt nightly. Two reasons, and both are load-bearing: it keeps the
+cacheable prefix as long as possible, and it is simply true that who someone is does not change between Tuesday and
+Wednesday. The retrieved block, which changes every turn, sits after the cache breakpoint where it belongs.
+
+Style is the one component that produces an *instruction* rather than a fact, and it is deliberately a constraint on
+the assistant's own voice rather than an impersonation of the user's. A device that starts mimicking your swearing
+after hearing it twice is unsettling, not personal.
 
 ---
 
