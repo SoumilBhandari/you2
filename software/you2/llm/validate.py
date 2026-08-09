@@ -142,6 +142,17 @@ prefers likes loves hates enjoys avoids wants needs works lives drinks takes
 uses buys keeps thinks feels no not never always usually often the a an
 """.split())
 
+#: Bare verbs that take third-person -s after "the user". A closed list on
+#: purpose: inflecting anything that follows turns the malformed "the user
+#: coffee" into the worse "the user coffees", so an unrecognised word is left
+#: exactly as it came.
+_BARE_VERBS = frozenset("""
+prefer like love hate enjoy avoid dislike want need work live drink eat take
+use buy keep think feel own owe play run walk cycle drive cook sleep read
+write watch visit meet call send book start stop finish get make wear order
+travel commute study teach train hope plan remember forget worry care
+""".split())
+
 _AFTER_USER = re.compile(r"\bthe user(?:'s)?\s+([a-z']+)", re.I)
 
 
@@ -157,6 +168,9 @@ def to_third_person(text: str) -> str:
         if low in _NO_AGREE or "'" in low:
             return m.group(0)
         fixed = _IRREGULAR_AGREE.get(low)
+        if fixed is None and low in _BARE_VERBS:
+            fixed = low + ("es" if low.endswith(("s", "x", "z", "ch", "sh"))
+                           else "s")
         if fixed is None:
             # Only inflect what is plausibly the main verb: a following noun
             # ("the user coffee") is a malformed claim, not a conjugation

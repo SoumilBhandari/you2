@@ -71,7 +71,7 @@ python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
 this runs on a 2 GB Pi beside an audio stack, and every import costs RSS.
 
 ```bash
-.venv/bin/pytest                      # 233 tests. ~4 min (the eval tests dominate)
+.venv/bin/pytest                      # 239 tests. ~4 min (the eval tests dominate)
 .venv/bin/pytest --ignore=tests/test_eval.py   # ~25 s, what you want while iterating
 
 .venv/bin/you2 demo                   # seed a month of life, open the eye
@@ -96,7 +96,7 @@ deterministic model; without an API key it runs offline and says so.
 
 ## Current state
 
-**Everything in `docs/brain.md` phases 1–9 is built and tested.** 233 tests,
+**Everything in `docs/brain.md` phases 1–9 is built and tested.** 239 tests,
 offline, deterministic, no network or model downloads.
 
 | file | tests | covers |
@@ -111,7 +111,7 @@ offline, deterministic, no network or model downloads.
 | `test_audio.py` | 20 | wake word, VAD, endpointing, barge-in, the loop |
 | `test_runtime.py` | 17 | the whole turn, routing, reconsolidation |
 | `test_experience.py` | 15 | event bus, cascade scene, server, LEDs |
-| `test_extraction.py` | 38 | **the extraction corpus**, the validator, key discipline |
+| `test_extraction.py` | 44 | **the extraction corpus**, the validator, key discipline, corrections |
 | `test_eval.py` | 10 | harness + **ablation claims** (slow) |
 
 ### Measured
@@ -218,9 +218,13 @@ context and time. Do not move model calls earlier.
 
 Everything goes through `llm/validate.py` before it reaches the store. If you
 add a path that writes facts, entities or loops without it, you have added a
-hole. The order of checks is cheapest-first and deliberate; the one people
-get backwards is **grounding with a quote**, which makes the check *stricter*
-— the claim is graded against the quote, not the whole batch. A verbatim span
+hole — and there was one: `recall/reconsolidate.py` wrote corrections
+straight in, so "no, I drink semi-skimmed now" was stored verbatim, in the
+first person, under the milk key, ready to be read back aloud.
+
+The order of checks is cheapest-first and deliberate. The one people get
+backwards is **grounding with a quote**, which makes the check *stricter* —
+the claim is graded against the quote, not the whole batch. A verbatim span
 proves the model read something real, not that the claim follows from it.
 
 ### 9. A key that encodes the value can never be superseded

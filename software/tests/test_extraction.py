@@ -313,3 +313,62 @@ def test_a_complaint_is_not_a_commitment():
     kept = validate.clean(payload, sources={1: "x"})
     assert len(kept.loops) == 1
     assert "boiler" in kept.loops[0]["text"]
+
+
+# ---------------------------------------------------------------- corrections
+
+@pytest.fixture
+def one_fact(tmp_path):
+    """A store holding one belief, and a workspace that just recalled it."""
+    from you2 import BrainConfig, SimClock
+    from you2.activation.workspace import Item, Workspace
+    from you2.substrate import HashEmbedder, Kind, Neuron, Store
+
+    cfg = BrainConfig(db_path=str(tmp_path / "b.db"))
+    store = Store(cfg, SimClock(), HashEmbedder(dim=cfg.embed_dim))
+    fact = store.add(Neuron(kind=Kind.FACT, key="user/pref_milk",
+                            content="the user prefers dairy milk"))
+    ws = Workspace()
+    ws.items.append(Item(fact, 1.0, 1.0, 8, fact.text()))
+    yield store, ws, fact
+    store.close()
+
+
+def _correct(one_fact, said):
+    from you2.llm import FakeLLM
+    from you2.recall import reconsolidate
+    from you2.substrate import Kind
+    store, ws, _fact = one_fact
+    reconsolidate.apply(store, FakeLLM(), ws, said, store.cfg, store.clock.now())
+    return [n.text() for n in store.by_kind(Kind.FACT, limit=10) if n.is_live]
+
+
+@pytest.mark.parametrize("said,expected", [
+    ("no, I drink semi-skimmed now", "the user drinks semi-skimmed now"),
+    ("actually I prefer oat milk now", "the user prefers oat milk now"),
+    ("no, that's out of date, I'm at Lumen now", "the user is at Lumen now"),
+])
+def test_a_correction_is_stored_as_a_claim_about_the_person(one_fact, said,
+                                                            expected):
+    """Third person, and the marker stripped rather than the clause dropped.
+    This path wrote straight to the store without the checks every other
+    writer goes through, so "I drink semi-skimmed now" went in verbatim —
+    first person, under the milk key, ready to be read back aloud."""
+    assert _correct(one_fact, said) == [expected]
+
+
+@pytest.mark.parametrize("said", ["no, that is not right", "no, not any more"])
+def test_a_bare_retraction_stores_nothing_at_all(one_fact, said):
+    """"No, not any more" is a complete instruction and it means exactly what
+    `invalid_at` already encodes. It used to store a fact reading "the user
+    says this is no longer true: <the old claim>" — the tombstone written as
+    content, holding the dimension's key, so the next real statement
+    superseded the tombstone instead of the belief."""
+    assert _correct(one_fact, said) == []
+
+
+def test_the_replacement_is_the_last_clause_not_the_longest():
+    """A correction says what is wrong and then what is right, in that order.
+    Longest picked "that's out of date" over "I'm at Lumen now"."""
+    from you2.recall.reconsolidate import _restate
+    assert _restate("no, that's out of date, I'm at Lumen now") == "I'm at Lumen now"
