@@ -175,6 +175,35 @@ class Graph:
                 self._edges[key] *= rho
                 self._rewrite_overlay(*key, self._edges[key])
 
+    def prune(self, w_min: float, *,
+              exempt: frozenset[Edge] = frozenset()) -> int:
+        """Drop edges that downscaling has pushed below threshold.
+
+        This is where forgetting actually happens at the synapse level, and
+        it is safe in a way deleting neurons is not: the memories remain, they
+        simply stop pulling each other into the workspace.
+        """
+        exempt_codes = {EDGE_CODES[e] for e in exempt}
+        removed = 0
+        if self._weights.size:
+            mask = (self._weights < w_min) & (self._weights > 0.0)
+            if exempt_codes:
+                mask &= ~np.isin(self._etypes, list(exempt_codes))
+            for p in np.nonzero(mask)[0]:
+                if self._back[p]:
+                    continue
+                i = int(np.searchsorted(self._indptr, p, side="right") - 1)
+                key = (int(self._nodes[i]), int(self._indices[p]), int(self._etypes[p]))
+                if key not in self._shadow:
+                    self.upsert(key[0], key[1], CODE_EDGES[key[2]], 0.0)
+                    removed += 1
+        for key, w in list(self._edges.items()):
+            if 0.0 < w < w_min and key[2] not in exempt_codes:
+                self._edges[key] = 0.0
+                self._rewrite_overlay(*key, 0.0)
+                removed += 1
+        return removed
+
     # ------------------------------------------------------------ traverse
 
     def neighbours(self, node: int) -> Iterator[Neighbour]:

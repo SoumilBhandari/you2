@@ -54,6 +54,9 @@ class FakeLLM:
     def structured(self, messages: Sequence[Message], **kw: Any) -> Any:
         self.seen.append(list(messages))
         self.usage.add(sum(len(m["content"]) // 4 for m in messages), 40, 0.0)
+        if self.scripted:
+            import json
+            return json.loads(self.scripted.pop(0))
         return self._dispatch(messages, as_text=False)
 
     def stream(self, messages: Sequence[Message], **kw: Any) -> Iterator[str]:
