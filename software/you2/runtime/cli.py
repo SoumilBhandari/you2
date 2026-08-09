@@ -424,12 +424,36 @@ def cmd_import(args: argparse.Namespace) -> int:
         for para in (p.strip() for p in text.split("\n\n")):
             if len(para) < 40:
                 continue
-            brain.say(para, source="document")
-            n += 1
+            # Split rather than truncate. The encoder caps an episode as a
+            # safety net, but a long paragraph's later sentences are real
+            # content and a vault import should not lose them — the cap is
+            # there to stop a 102 KB neuron, not to discard the document.
+            for chunk in _chunks(para, brain.cfg.max_episode_chars):
+                brain.say(chunk, source="document")
+                n += 1
     brain.close()
     print(f"read {len(files)} files, {n} passages")
     brain.close_store()
     return 0
+
+
+def _chunks(text: str, limit: int) -> list[str]:
+    """A long passage, split on sentence ends, each piece under `limit`."""
+    if len(text) <= limit:
+        return [text]
+    import re as _re
+    out: list[str] = []
+    buf = ""
+    for piece in _re.split(r"(?<=[.!?])\s+", text):
+        if buf and len(buf) + len(piece) + 1 > limit:
+            out.append(buf.strip())
+            buf = ""
+        # A single sentence longer than the limit is pathological; the
+        # encoder's cap catches it and says so.
+        buf = f"{buf} {piece}".strip() if buf else piece
+    if buf.strip():
+        out.append(buf.strip())
+    return out
 
 
 def _global_flags(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:

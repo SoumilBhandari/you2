@@ -279,3 +279,34 @@ def test_replay_does_not_reopen_a_resolved_commitment(store):
                             replay.Batch([episode], set()), store.cfg,
                             store.clock.now())
     assert store.count(Kind.LOOP) == 1, "the resolved commitment was re-opened"
+
+
+def test_an_enormous_utterance_cannot_become_an_enormous_neuron(store):
+    """Nothing capped the length of a stored episode. A markdown paragraph
+    through `you2 import` became a 102 KB neuron — which can never fit the
+    workspace budget, so it was stored, embedded, counted against the 512 MB
+    ceiling, and permanently unreachable."""
+    a = Attention(store.cfg, store.clock)
+    seg = Segmenter(store.embed)
+    long = "the garden wall needs rebuilding. " * 3000
+    say(store, a, seg, long, at=100.0)
+    out = encode(store, seg.flush(), store.cfg)
+
+    assert out.episode is not None
+    assert len(out.episode.content) <= store.cfg.max_episode_chars
+    # Never silently: the original length is recorded and journalled.
+    assert out.episode.meta["truncated_from"] == len(long.strip())
+    assert store.journal("episode_truncated", limit=2)
+    # And cut where a reader would cut, not mid-word.
+    assert out.episode.content.endswith(".")
+
+
+def test_an_ordinary_utterance_is_untouched(store):
+    a = Attention(store.cfg, store.clock)
+    seg = Segmenter(store.embed)
+    said = "I really cannot stand cilantro, it ruins everything"
+    say(store, a, seg, said, at=100.0)
+    out = encode(store, seg.flush(), store.cfg)
+    assert out.episode is not None
+    assert out.episode.content == said
+    assert "truncated_from" not in out.episode.meta

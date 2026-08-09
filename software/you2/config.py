@@ -230,6 +230,13 @@ class BrainConfig:
     """Ask the model whether an ambiguous fact is person-specific or world
     knowledge the weights already hold. One call, batched at night."""
 
+    max_episode_chars: int = 4000
+    """Ceiling on one stored episode. Far above any spoken turn — 4000
+    characters is about six minutes of continuous speech — and far below what
+    `you2 import` will hand it from a markdown vault. Without it a single
+    paragraph became a 102 KB neuron that could never fit the workspace
+    budget, so it was pure cost: stored, embedded, and unreachable."""
+
     # ---- extraction ------------------------------------------------------
     extract_check_grounding: bool = True
     """Require a claim's content words to be present in the episodes it
