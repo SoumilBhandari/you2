@@ -226,13 +226,34 @@ def resolve_entity(store: Store, found: dict, now: float) -> Neuron | None:
         aliases=aliases)
 
 
+def loop_exists(store: Store, text: str, cites: list[int]) -> bool:
+    """Has this commitment already been recorded?
+
+    Two checks, and the first matters more than it looks. An episode is
+    replayed several times over its life, and each replay re-extracts the
+    commitment in it. Deduping only against *open* loops means that once the
+    commitment is resolved, the next night's replay cheerfully opens it again
+    — and the device starts chasing you about something you finished a month
+    ago, which is worse than never chasing you at all.
+
+    So: one commitment per episode that mentions it, open or closed. Then the
+    echo check, which catches the same commitment restated in a *different*
+    episode.
+    """
+    cited = set(cites)
+    for existing in store.by_kind(Kind.LOOP, limit=400, live_only=False):
+        if cited & set(existing.citations()):
+            return True
+        if existing.invalid_at is None and \
+                _echo(store, existing.content, text) > DEDUP_ECHO:
+            return True
+    return False
+
+
 def _open_loop(store: Store, c: Commitment, episode_id: int,
                entity_ids: list[int], now: float) -> Neuron | None:
-    # Don't reopen something already open and unresolved.
-    for existing in store.by_kind(Kind.LOOP, limit=200):
-        if existing.invalid_at is None:
-            if _echo(store, existing.content, c.text) > DEDUP_ECHO:
-                return None
+    if loop_exists(store, c.text, [episode_id]):
+        return None
 
     expected = c.expected_by if c.expected_by is not None else now + DEFAULT_LOOP_DAYS * DAY
     loop = store.add(Neuron(

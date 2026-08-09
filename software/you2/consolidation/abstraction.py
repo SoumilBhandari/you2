@@ -219,10 +219,9 @@ def _ids(raw: Any, allowed: list[int]) -> list[int]:
 
 def _open_loop(store: Store, text: str, cites: list[int], days: Any,
                now: float, entity_ids: list[int]) -> int | None:
-    from ..encoding.binding import DEDUP_ECHO, _echo
-    for existing in store.by_kind(Kind.LOOP, limit=300):
-        if existing.invalid_at is None and _echo(store, existing.content, text) > DEDUP_ECHO:
-            return None
+    from ..encoding.binding import loop_exists
+    if loop_exists(store, text, cites):
+        return None
     try:
         horizon = float(days) if days is not None else 14.0
     except (TypeError, ValueError):
