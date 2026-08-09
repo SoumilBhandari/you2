@@ -223,3 +223,18 @@ def test_why_explains_a_retrieval(brain):
     talk(brain, ["I had lunch with David Anderson about the Kestrel contract"])
     text = brain.why("how is Anderson")
     assert "cues:" in text and "cascade:" in text
+
+
+def test_device_commands_are_not_stored_as_experiences(brain):
+    """"What time is it" was being stored as an episode, competing for
+    retrieval with things the person actually said about their life."""
+    brain.say("what time is it")
+    brain.say("set a timer for 10 minutes")
+    brain.close()
+    assert brain.store.count(Kind.EPISODE) == 0
+
+    # A memory question is different: what someone tries to recall is itself
+    # evidence about what matters to them.
+    brain.say("I had lunch with David Anderson about the Kestrel contract")
+    brain.close()
+    assert brain.store.count(Kind.EPISODE) == 1
