@@ -461,6 +461,10 @@ and the hot path must not acquire a single new blocking call.
 Facts are deliberately **not** extracted here. Fact extraction requires knowing what the fact supersedes, and that
 requires context the moment doesn't have. It happens at night, over a batch, where it belongs.
 
+And whatever produces them — the model or the offline rules — nothing it produces reaches the store unchecked. See
+[§15.3](#153-extraction--the-other-half-of-the-instrument): a bad fact is not a small cost, because consolidation
+cannot repair one. It versions it, links it, replays it and carries it faithfully for two years.
+
 ---
 
 ## 8. Sleep — the night cycle
@@ -998,6 +1002,56 @@ of proof is now on the gate.
 
 That is what an ablation suite is for. It is much easier to write a paragraph defending every component than to run
 the experiment that says one of them is decoration.
+
+### 15.3 Extraction — the other half of the instrument
+
+Everything above measures whether retrieval *holds*. None of it can see whether what went in was right, because the
+year-long harness feeds the rule extractor a corpus those same rules generated — a closed loop that can only ever
+agree with itself. Consolidation cannot repair a bad fact. It versions it, links it, replays it, and carries it
+faithfully for two years.
+
+So there is a second corpus, hand-labelled: 24 sessions of speech as people actually produce it, 21 facts, 8
+entities, 3 commitments, and **22 traps**. Sessions run in order with the keys produced so far fed back, exactly as
+the night does. Six numbers come out, and only the first is obvious:
+
+| | what it catches |
+|---|---|
+| recall / precision | the ordinary thing |
+| **key stability** | the same dimension, stated twice weeks apart in different words — one key, or two? This is the number that decides whether supersession ever fires |
+| **collisions** | two dimensions sharing a key, which silently destroys one. Stability without this is trivially gamed by mapping everything to one key |
+| traps | questions, hypotheticals, world knowledge, other people's opinions, things true for an afternoon |
+| grounding | how much of each claim was actually in the text it cites |
+
+**Nothing an extractor produces is trusted, the rules included.** `llm/validate.py` sits between every extractor and
+the store: shape, person, durability, grounding, key canonicalisation, dedup. To measure what that is worth,
+`eval/sloppy.py` is a model that is wrong the way real models are wrong — first-person claims, values welded into
+keys, camelCase, invented facts, ephemera, questions echoed back as claims, phantom citations, the assistant as an
+entity. Deterministic, so it regresses.
+
+| | precision | key stability | traps fired | grounding |
+|---|---|---|---|---|
+| a sloppy model, raw | 0.66 | **0.00** | 4 | 0.64 |
+| the same model, checked | **1.00** | **0.67** | **0** | 0.89 |
+
+The stability row is the one that matters. Unchecked, *every* dimension gets a fresh key, so nothing ever supersedes
+anything and the store keeps every version of every preference forever — the exact rot this whole design exists to
+prevent, arriving through the front door.
+
+**Grounding is set from the measurement, not chosen.** Fabricated claims score 0.00; genuine ones score 0.50 and up.
+There is no overlap, so the floor goes in the gap at 0.34. What that catches is *wholesale* invention. It cannot
+catch embellishment — a real fact with an invented detail welded on scores well, because most of its words really are
+there. That is what the `quote` field is for, and the direction is worth stating: **a quote makes the check
+stricter, not looser.** A verbatim span proves the model read something real and proves nothing about whether the
+claim follows, so the quote is verified against the source and then the claim is graded against *the quote alone*.
+
+**What it does not measure.** The rules score 1.00 on precision and recall here, and that number should be read with
+suspicion: I wrote the corpus and then fixed what it found. The discipline held to is that a fix has to be a whole
+construction — the comparative in "I'd rather X than Y", possessive subjects, elided pronoun objects — or it does
+not go in. A corpus you patch sentence by sentence measures your patience.
+
+One labelled failure is left standing, deliberately. "I only ever buy semi-skimmed", said after "we're out of
+milk", is about milk, and no rule can recover a head noun that was never spoken. It keeps rules stability at 0.67
+and it is exactly the gap a real model should close — which is the point of having the number.
 
 ---
 

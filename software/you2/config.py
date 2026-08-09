@@ -230,6 +230,17 @@ class BrainConfig:
     """Ask the model whether an ambiguous fact is person-specific or world
     knowledge the weights already hold. One call, batched at night."""
 
+    # ---- extraction ------------------------------------------------------
+    extract_check_grounding: bool = True
+    """Require a claim's content words to be present in the episodes it
+    cites. The only real defence against invention: a model that cannot
+    point at the words did not read them."""
+
+    extract_ground_floor: float = 0.34
+    """Fraction of the claim's content words that must appear in the source.
+    Set from the measured gap: fabricated claims score 0.00, genuine ones
+    0.50 and up. See llm/validate.py."""
+
     # ---- storage ---------------------------------------------------------
     max_db_mb: float = 512.0
     """Soft cap. Exceeding it escalates compaction rather than failing --

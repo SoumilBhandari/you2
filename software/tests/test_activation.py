@@ -361,3 +361,25 @@ def test_workspace_context_carries_to_the_next_turn(store):
     a_with = dict(with_ctx.context())[ent.id]
     a_without = dict(without.context()).get(ent.id, 0.0)
     assert a_with > 3 * a_without
+
+
+def test_an_exact_duplicate_cannot_buy_a_second_slot(store):
+    """Found in the year-long eval, printed verbatim: the day-365 block
+    contained "spoke to Tom Beckwith about the garden wall for a while"
+    *twice*. A flat damping treated a 0.80 neighbour and an identical
+    restatement the same, so the copy kept 30% of its score, cleared the
+    firing threshold and took a slot. Suppression now scales with similarity
+    and is total at 1.0, because a memory the winner has already said in full
+    carries no information at any price."""
+    said = "spoke to Tom Beckwith about the garden wall for a while"
+    twins = [store.add(Neuron(kind=Kind.EPISODE, content=said)) for _ in range(2)]
+    other = store.add(Neuron(kind=Kind.FACT, key="u/a",
+                             content="allergic to penicillin"))
+    hub = store.add(Neuron(kind=Kind.ENTITY, content="the garden wall")).id
+    for n in twins + [other]:
+        store.connect(hub, n.id, Edge.ASSOC, 0.9)
+
+    ws = compete(store, spread(store.graph, [Cue(hub, 1.0)], store.cfg), store.cfg)
+    lines = [i.line for i in ws.items]
+    assert len(lines) == len(set(lines)), lines
+    assert sum(1 for n in ws.neurons() if n.content == said) == 1

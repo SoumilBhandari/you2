@@ -343,6 +343,73 @@ def cmd_eval(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_extract(args: argparse.Namespace) -> int:
+    """Score extraction against the hand-labelled corpus.
+
+    Separate from `eval` because it answers a different question. `eval` asks
+    whether retrieval holds at month 24; this asks whether what went in was
+    right in the first place, which no amount of consolidation can fix.
+    """
+    from ..eval import extraction
+    from ..eval.transcripts import totals
+
+    if args.text:
+        return _extract_one(" ".join(args.text))
+
+    llm = None
+    label = "model"
+    if args.live:
+        if not (os.environ.get("YOU2_API_KEY") or os.environ.get("GROQ_API_KEY")):
+            print("! --live needs YOU2_API_KEY or GROQ_API_KEY", file=sys.stderr)
+            return 2
+        cfg = BrainConfig(db_path=":memory:")
+        llm = LLM(cfg)
+        label = cfg.llm_model
+    elif args.fake:
+        llm = FakeLLM()
+        label = "fake"
+
+    counts = totals()
+    print(f"{counts['sessions']} sessions, {counts['utterances']} utterances, "
+          f"{counts['facts']} labelled facts, {counts['traps']} traps, "
+          f"{counts['stability_pairs']} dimensions stated twice\n")
+
+    scores = extraction.suite(llm)
+    if llm is not None:
+        scores[-1].label = label
+    print(extraction.compare(scores))
+    if args.report:
+        print()
+        for s in scores:
+            print(s.report())
+            print()
+    return 0 if scores[1].clean else 1
+
+
+def _extract_one(text: str) -> int:
+    """What would this utterance put in the store? The fastest loop there is
+    for working on extraction."""
+    from ..llm import rules, validate
+
+    raw = rules.extract([text], [1], 0.0).as_dict()
+    checked = validate.clean(raw, sources={1: text})
+    print(f"“{text}”\n")
+    for f in checked.facts:
+        print(f"  fact    {f['key']:<28} {f['text']}")
+    for e in checked.entities:
+        print(f"  entity  {e['name']} ({e['kind']})")
+    for loop in checked.loops:
+        print(f"  loop    {loop['text']}")
+    for c in checked.closed:
+        print(f"  closes  {c}")
+    for r in checked.rejected:
+        print(f"  dropped {r.text[:52]!r} — {r.reason}")
+    if not any((checked.facts, checked.entities, checked.loops,
+                checked.closed, checked.rejected)):
+        print("  nothing — which is the right answer for most turns")
+    return 0
+
+
 def cmd_import(args: argparse.Namespace) -> int:
     """Ingest a folder of markdown. Documents are salience-discounted."""
     brain = build(args)
@@ -420,6 +487,16 @@ def main(argv: list[str] | None = None) -> int:
     ev.add_argument("--seed", type=int, default=0)
     ev.add_argument("--ablate", action="store_true")
     ev.set_defaults(fn=cmd_eval)
+
+    ex = sub.add_parser("extract", parents=[common],
+                        help="score extraction against labelled transcripts")
+    ex.add_argument("text", nargs="*",
+                    help="score one utterance instead of the corpus")
+    ex.add_argument("--live", action="store_true",
+                    help="also run the real model (needs an API key)")
+    ex.add_argument("--report", action="store_true",
+                    help="every miss, trap and unasked-for claim")
+    ex.set_defaults(fn=cmd_extract)
 
     imp = sub.add_parser("import", parents=[common])
     imp.add_argument("path")

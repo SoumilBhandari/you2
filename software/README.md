@@ -163,11 +163,54 @@ be working, and every memory system that has shipped fails exactly there.
 **What this does and does not measure.** It exercises the consolidation
 machinery — supersession, downscaling, decay, tiering, replay prioritisation,
 discovery scoring, the whole write path — deterministically, with ground truth,
-because the corpus was generated. It does **not** measure extraction quality;
-how well an 8B model reads a real conversation is a separate question against
-real transcripts. Bridging reports as untested rather than as working, because
-a rule-based judge genuinely cannot evaluate an analogy and the fake declines
-rather than pretending.
+because the corpus was generated. Bridging reports as untested rather than as
+working, because a rule-based judge genuinely cannot evaluate an analogy and
+the fake declines rather than pretending.
+
+What it cannot see is whether what went in was *right*, because it feeds the
+rule extractor a corpus those same rules generated. That needs its own
+instrument.
+
+---
+
+## Is what goes into the store correct
+
+```bash
+you2 extract                    # score against 24 hand-labelled sessions
+you2 extract --report           # every miss, trap and unasked-for claim
+you2 extract --live             # …and the real model, if you have a key
+you2 extract "I'm at Lumen now" # what would this one line store?
+```
+
+24 sessions of speech as people actually produce it, labelled by hand with
+what a careful reader should take from them and — the half that matters — 22
+**traps** they must not take: questions, hypotheticals, world knowledge, other
+people's opinions, and things that were true for an afternoon.
+
+| | precision | recall | key stability | traps | grounding |
+|---|---|---|---|---|---|
+| rules | 1.00 | 1.00 | 0.67 | 0 | 0.89 |
+| a sloppy model, raw | 0.66 | 1.00 | **0.00** | 4 | 0.64 |
+| the same model, checked | 1.00 | 1.00 | **0.67** | 0 | 0.89 |
+
+**Key stability** is the number that matters and the one nobody measures: the
+same dimension, stated twice weeks apart in different words — one key, or two?
+Two means supersession never fires and the store keeps every version of every
+preference forever. Its opposite failure is measured alongside it, because
+stability on its own is trivially gamed by mapping everything to one key.
+
+So nothing an extractor produces is trusted, the rules included.
+[`llm/validate.py`](you2/llm/validate.py) checks shape, person, durability,
+grounding and keys, and [`eval/sloppy.py`](you2/eval/sloppy.py) is a model
+that is wrong the way real models are wrong — values welded into keys,
+first-person claims, invented facts, questions echoed back as claims — so that
+what the checking buys is a measurement rather than an assertion.
+
+The rules scoring 1.00 should be read with suspicion: the corpus is mine and I
+fixed what it found. The rule held to is that a fix must be a whole
+construction or it does not go in. One labelled failure is left standing —
+"I only ever buy semi-skimmed", said after "we're out of milk", is about milk,
+and no rule recovers a head noun that was never spoken.
 
 ---
 

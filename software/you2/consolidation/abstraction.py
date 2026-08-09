@@ -17,7 +17,7 @@ from typing import Any
 from ..clock import DAY
 from ..config import BrainConfig
 from ..encoding.binding import resolve_entity
-from ..llm import prompts
+from ..llm import prompts, validate
 from ..llm.client import LLMError
 from ..llm.rules import extract as rule_extract
 from ..substrate.neuron import Kind, Neuron
@@ -44,6 +44,10 @@ class BatchResult:
     episodes: list[int] = field(default_factory=list)
     absorbed: int = 0
     refused: int = 0
+    rejected: int = 0
+    """Claims the validator refused before they reached the store."""
+    repaired: int = 0
+    """Claims it fixed rather than refused — mostly keys."""
     degraded: bool = False
     """True when the model was unreachable and the rule extractor stood in.
     Recorded so a later pass can upgrade what the rules produced."""
@@ -54,7 +58,8 @@ class BatchResult:
                 "loops_new": len(self.loops_new),
                 "loops_closed": len(self.loops_closed),
                 "episodes": len(self.episodes), "absorbed": self.absorbed,
-                "refused": self.refused,
+                "refused": self.refused, "rejected": self.rejected,
+                "repaired": self.repaired,
                 "degraded": self.degraded}
 
 
@@ -91,7 +96,24 @@ def consolidate(store: Store, llm: Any | None, batch: Batch,
     if not batch.episodes:
         return out
 
-    payload, out.degraded = _read(store, llm, batch, now)
+    known = relevant_keys(store, batch)
+    raw, out.degraded = _read(store, llm, batch, now, known)
+
+    # Nothing an extractor produced is trusted, the rules included. This is
+    # where first-person claims, ephemera, hypotheticals, unusable keys and
+    # invented facts are caught, and where a claim about a dimension already
+    # in the store is snapped onto the key that holds it -- without which
+    # supersession has nothing to fire on.
+    checked = validate.clean(
+        raw, sources={n.id: n.text() for n in batch.episodes},
+        known_keys=known, check_grounding=cfg.extract_check_grounding,
+        ground_floor=cfg.extract_ground_floor)
+    payload = checked.as_dict()
+    out.rejected = len(checked.rejected)
+    out.repaired = len(checked.repaired) + len(checked.snaps)
+    if checked.rejected or checked.snaps:
+        store.log("extract_checked", {**checked.report(),
+                                      "snaps": [s.to for s in checked.snaps]})
 
     out.gist = str(payload.get("gist") or "")
     if out.gist:
@@ -174,8 +196,8 @@ def consolidate(store: Store, llm: Any | None, batch: Batch,
     return out
 
 
-def _read(store: Store, llm: Any | None, batch: Batch,
-          now: float) -> tuple[dict[str, Any], bool]:
+def _read(store: Store, llm: Any | None, batch: Batch, now: float,
+          known: list[str]) -> tuple[dict[str, Any], bool]:
     """Model first, rules as the fallback.
 
     A device whose memory silently stops improving when the Wi-Fi drops is
@@ -183,8 +205,7 @@ def _read(store: Store, llm: Any | None, batch: Batch,
     """
     if llm is not None:
         try:
-            messages = prompts.extract_batch(batch.episodes, now,
-                                             relevant_keys(store, batch))
+            messages = prompts.extract_batch(batch.episodes, now, known)
             payload = llm.structured(messages)
             if isinstance(payload, dict):
                 return payload, False

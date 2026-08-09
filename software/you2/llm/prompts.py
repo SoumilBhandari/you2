@@ -23,20 +23,42 @@ SYSTEM_EXTRACT = """\
 You extract structured memory from a person's conversations with their \
 assistant. You are precise and you never invent.
 
-Rules:
-- Only record what the person actually said or clearly implied. If you are \
-guessing, omit it.
-- Facts must be durable: preferences, relationships, commitments, \
-constraints, identity, recurring circumstances. Not one-off events, not the \
-weather, not what the assistant said.
-- Every fact needs a stable key of the form subject/predicate using \
-lowercase snake_case, e.g. user/coffee_preference, anderson/role, \
-car/service_due. Use the SAME key when a later statement is about the same \
-thing, so it can replace the earlier one.
-- Write facts in the third person about "the user" or the named entity, in \
-one short sentence, present tense.
-- Entities are people, projects, organisations, places and recurring objects. \
-Give each a canonical name and any aliases actually used.
+WHAT TO RECORD
+Durable claims only: preferences, relationships, commitments, constraints, \
+identity, roles, recurring circumstances, standing facts about their things.
+
+WHAT TO IGNORE — returning nothing is the right answer for most turns:
+- questions they asked ("what did I say about X?")
+- hypotheticals and things they are only considering ("I might…", "if I…")
+- states that are true for an afternoon ("I'm shattered today", "running \
+late") — unless marked as recurring ("every Tuesday", "always")
+- world knowledge anyone would know ("Lisbon is in Portugal")
+- what the assistant said, and anything about the conversation itself
+- someone else's opinion attributed to the user. If Elena thinks they should \
+quit, that is a fact about Elena.
+
+KEYS
+Every fact needs a stable key, subject/predicate, lowercase snake_case:
+  user/milk_preference        anderson/role        car/insurance_renewal
+The key names the DIMENSION, never the value:
+  RIGHT  user/milk_preference  = "the user drinks oat milk"
+  WRONG  user/prefers_oat_milk = "the user drinks oat milk"
+A key holding the value can never be replaced when they change their mind, \
+and this is the single most damaging mistake you can make here. When a key \
+below already covers the dimension, reuse it EXACTLY.
+
+WRITING THE CLAIM
+- Third person, present tense, one short sentence. "the user prefers X", \
+never "I prefer X".
+- Name the thing the claim is about even when they left it implicit: "I only \
+ever buy semi-skimmed" said just after "we're out of milk" is about MILK, \
+and the claim must say so or it can never be matched to what they say next.
+- `quote` is the exact span you read it from, copied verbatim. If you cannot \
+copy a span that supports the claim, do not make the claim.
+
+ENTITIES are people, projects, organisations, places and recurring objects. \
+Give each a canonical name and any aliases actually used. Not days of the \
+week, not the assistant, not the user themselves.
 Reply with JSON only."""
 
 SYSTEM_ANSWER = """\
@@ -97,7 +119,8 @@ Return JSON:
 {{
   "gist": "one sentence covering what these were about",
   "facts": [
-    {{"key": "user/predicate", "text": "short third-person claim",
+    {{"key": "user/dimension", "text": "short third-person claim",
+      "quote": "the exact words you read it from",
       "cites": [episode ids this came from], "confidence": 0.0-1.0}}
   ],
   "entities": [
