@@ -300,3 +300,20 @@ def test_working_memory_does_not_answer_for_a_topic_nobody_mentioned(brain):
     brain.say("I need to call the plumber tomorrow")
     out = brain.say("what did I say about the Tokyo trip")
     assert "nothing" in out.text.lower(), out.text
+
+
+def test_naming_the_thing_beats_being_connected_to_it(brain):
+    """Graph adjacency is what makes "spoke to Priya about it for a while"
+    answer a question about the Kestrel migration, and it is indispensable
+    for that. But on a small store nearly everything is connected to nearly
+    everything, so used alongside direct matches it let a question about
+    Lisbon return the boiler service. Adjacency is the fallback, not a peer.
+    """
+    for said in ("my sister Priya is moving to Lisbon in the spring",
+                 "the boiler service is due in October",
+                 "the garden wall needs rebuilding before winter"):
+        brain.say(said)
+    brain.close()
+    out = brain.say("what did I say about Lisbon")
+    assert "lisbon" in out.text.lower(), out.text
+    assert "boiler" not in out.text.lower(), out.text
