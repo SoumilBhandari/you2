@@ -64,6 +64,23 @@ def premises(n: Neuron) -> list[int]:
     return list(dict.fromkeys(out))
 
 
+def _required(n: Neuron, premise_id: int) -> bool:
+    """Is this premise load-bearing, or one piece of evidence among several?
+
+    `derived_from` is a rule's premise set and every member is necessary —
+    a transitive chain is only as good as its weakest link, literally.
+    `cites` is evidence for an extracted claim, and evidence is redundant by
+    nature.
+    """
+    for raw in (n.meta.get("derived_from") or []):
+        try:
+            if int(raw) == premise_id:
+                return True
+        except (TypeError, ValueError):
+            continue
+    return False
+
+
 def dependents(store: Store, neuron_id: int) -> list[Neuron]:
     """Everything justified by this neuron.
 
@@ -110,7 +127,21 @@ def invalidate(store: Store, root_id: int, now: float, *,
             # reduced confidence. One resting on a handful does not: an
             # insight built from two facts, one of which was just replaced, is
             # probably about the replaced one.
-            survives = (len(live_premises) >= 2
+            #
+            # But that reasoning only holds for *evidence*, where the premises
+            # are partially redundant. A rule application is conjunctive: "the
+            # test suite is part of the Kestrel contract" was derived by
+            # chaining through the Kestrel migration, so killing the middle
+            # link destroys the conclusion outright even though two of its
+            # three premises are still perfectly alive. The heuristic said it
+            # survived, and it was left live with 0.7 confidence — a confident,
+            # well-cited claim resting on nothing, which is the exact failure
+            # this module exists to prevent, produced by the module itself.
+            #
+            # The two cases are already distinguishable: `derived_from` is a
+            # rule's premise set, `cites` is evidence.
+            survives = (_required(dependent, node_id) is False
+                        and len(live_premises) >= 2
                         and len(live_premises) >= 0.5 * max(1, len(all_premises)))
             if survives:
                 dependent.confidence *= 0.7
@@ -156,15 +187,26 @@ def stale(store: Store, limit: int = 50) -> list[Neuron]:
 
 
 def audit(store: Store) -> list[int]:
-    """Live derivatives whose premises are all dead.
+    """Live derivatives that are no longer supported.
 
     Must always be empty. This is the invariant that stops the store filling
     with confident, well-cited, obsolete conclusions -- which is a worse
     failure than forgetting, because it is invisible.
+
+    Two ways to fail it, and the second was invisible to this check for as
+    long as it existed. A claim resting on *evidence* is unsupported when all
+    of it is gone. A claim produced by a *rule* is unsupported the moment any
+    single premise dies, because rule premises are conjunctive -- so an audit
+    that only asked "are they all dead" reported a clean store while a
+    compiled chain sat in it with its middle link removed.
     """
     bad: list[int] = []
     for kind in DERIVATIVE_KINDS:
         for n in store.by_kind(kind, limit=5000, live_only=True):
+            required = [p for p in premises(n) if _required(n, p)]
+            if required and not all(_is_live(store, p) for p in required):
+                bad.append(n.id)
+                continue
             justifications = premises(n)
             if not justifications:
                 continue
