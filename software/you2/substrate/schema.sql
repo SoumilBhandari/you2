@@ -138,7 +138,9 @@ CREATE TABLE IF NOT EXISTS prosody_baseline (
     feature    TEXT NOT NULL,
     mean       REAL NOT NULL,
     var        REAL NOT NULL,
-    n          INTEGER NOT NULL DEFAULT 0,
+    -- REAL, not INTEGER: this is an exponentially-decayed effective count,
+    -- and rounding it to an integer each update pins it at 1 forever.
+    n          REAL NOT NULL DEFAULT 0,
     updated_at REAL NOT NULL,
     PRIMARY KEY (speaker, feature)
 );
