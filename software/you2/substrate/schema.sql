@@ -57,6 +57,13 @@ CREATE INDEX IF NOT EXISTS ix_neurons_kind_tier   ON neurons(kind, tier);
 -- one and sorts the rest: 56 ms at 100k episodes, in a hot path budgeted for
 -- under a second end to end. The composite makes it a 12-row index scan.
 CREATE INDEX IF NOT EXISTS ix_neurons_kind_created ON neurons(kind, created_at);
+-- The same shape, found by timing every `order=` in the codebase rather than
+-- waiting to trip over each one. A single-column index on the sort key is not
+-- enough when the query also filters on kind: SQLite takes one and sorts the
+-- rest. At 100k neurons, `EPISODE ORDER BY last_access DESC` cost 73 ms — the
+-- night, the REM pass and the eye all issue it.
+CREATE INDEX IF NOT EXISTS ix_neurons_kind_access  ON neurons(kind, last_access);
+CREATE INDEX IF NOT EXISTS ix_neurons_kind_count   ON neurons(kind, access_count);
 -- Fact identity: the lookup that makes supersession possible.
 CREATE INDEX IF NOT EXISTS ix_neurons_key         ON neurons(key) WHERE key IS NOT NULL;
 -- Replay sampling scans this.
