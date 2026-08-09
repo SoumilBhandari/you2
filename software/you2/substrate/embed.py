@@ -204,15 +204,47 @@ class OnnxEmbedder:
         return f"OnnxEmbedder(dim={self.dim})"
 
 
+def fingerprint(embedder: Embedder) -> str:
+    """Which embedder produced a stored vector.
+
+    Dimensionality is not an identity: `HashEmbedder` and MiniLM-L6-v2 are
+    both 384, so the only guard in `VectorIndex.load()` does not discriminate
+    between them at all. Two ways that bites, and the second needs no intent.
+
+    Swapping to `OnnxEmbedder` — HANDOFF's own next-work item, described as a
+    one-line change — leaves every existing neuron holding a hash vector
+    while every new query lands in MiniLM space. Cosine between them is
+    noise, and it silently degrades cue seeding, surprise, novelty, the 0.80
+    inhibition radius and the entity-resolution floor all at once.
+
+    And the reverse: `get_embedder` falls back to `HashEmbedder` whenever the
+    ONNX runtime cannot load, so a Pi whose model directory is missing after
+    a re-flash starts writing hash vectors into a MiniLM store.
+
+    The probe is encoded rather than the class name alone, so two builds of
+    the same model that disagree numerically are also caught.
+    """
+    import hashlib
+
+    probe = np.asarray(embedder.encode(["you2 embedder fingerprint probe"]),
+                       dtype=np.float32).reshape(-1)
+    digest = hashlib.sha256(np.round(probe, 4).tobytes()).hexdigest()[:12]
+    return f"{type(embedder).__name__}:{getattr(embedder, 'dim', 0)}:{digest}"
+
+
 def get_embedder(dim: int = 384, model_dir: str | None = None) -> Embedder:
     """Real model if one is on disk and the runtime is installed; the
     deterministic fallback otherwise. Never fails, never blocks on a
-    download."""
+    download — but says so, because a silent fallback writes hash vectors
+    into a store full of MiniLM ones and every symptom appears somewhere
+    else."""
     if model_dir:
         try:
             return OnnxEmbedder(model_dir, dim=dim)
-        except Exception:  # noqa: BLE001 -- deliberate: fall back, don't crash
-            pass
+        except Exception as exc:  # noqa: BLE001 -- fall back, don't crash
+            import sys
+            print(f"! embedder: {model_dir} unusable ({exc}); "
+                  f"falling back to the hash embedder", file=sys.stderr)
     return HashEmbedder(dim=dim)
 
 
