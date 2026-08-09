@@ -298,10 +298,28 @@ def test_reported_speech_is_unwrapped_not_stored_as_metadata():
     ("the user might take the Lisbon job", "hypothetical"),
     ("the user asked about the Kestrel deadline", "conversation"),
     ("what did the user say about the deadline?", "question"),
+    ("the Kestrel migration is moving along", "a progress report"),
+    ("the garden wall is coming along nicely", "a progress report"),
+    ("the report is going well", "a progress report"),
 ])
 def test_what_is_not_a_memory(text, reason):
     why = validate.undurable(text)
     assert why is not None, f"{text!r} should have been refused ({reason})"
+
+
+@pytest.mark.parametrize("text", [
+    "the boiler service is due in October",
+    "the garden wall needs rebuilding before winter",
+    "the car insurance renews on the third of March",
+    "the Kestrel migration keeps slipping",
+    "the standup is fine on Tuesdays but awful on Fridays",
+])
+def test_a_status_that_says_something_survives(text):
+    """What makes a progress report vacuous is that the progress phrase is
+    the *whole* predicate. A status naming a date, an action, or a pattern is
+    the most useful kind of fact there is, and shares most of its shape with
+    the ones being thrown away."""
+    assert validate.undurable(text) is None, text
 
 
 def test_a_recurring_state_survives_the_transient_filter():
