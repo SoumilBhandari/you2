@@ -1019,27 +1019,35 @@ the experiment that says one of them is decoration.
 ### 15.4 Where the time actually goes
 
 The claim in §1.1 is that retrieval cost is set by the shape of the cascade rather than by the size of the store.
-Measured across a 10× range, on a synthetic store with a fixed cue:
+Measured across a 10× range, with realistic ageing and one nightly tiering pass:
 
-| store | cue selection | spreading | workspace | neurons visited |
-|---|---|---|---|---|
-| 10,000 neurons | 2.1 ms | **0.06 ms** | 0.33 ms | 17 |
-| 100,000 neurons | 21.0 ms | **0.06 ms** | 0.31 ms | 15 |
+| store | by_kind (ambient) | cue selection | spreading | workspace | **full recall** |
+|---|---|---|---|---|---|
+| 10,000 neurons | 0.13 ms | 0.19 ms | 0.06 ms | 0.33 ms | **0.40 ms** |
+| 100,000 neurons | 0.13 ms | 0.29 ms | 0.06 ms | 0.31 ms | **0.52 ms** |
 
-**The traversal is exactly flat**, at both the visit count and the wall clock, over a 10× larger graph. That is the
-architectural claim and it holds precisely.
+It is flat, and the claim holds for the whole pipeline rather than only for the traversal.
 
-What is *not* flat is picking the seeds. Cue selection scans the vector tier linearly and is 98% of the total at
-100,000 neurons. So the honest statement is narrower than "retrieval cost is constant": **traversal is bounded by
-the cascade; seeding is linear in the store.**
+**It was not flat when first measured, and the reason is worth keeping.** Full recall was 2.6 ms at ten thousand
+neurons and **22.6 ms at a hundred thousand** — linear, and 98% of it in cue building. Not the vector index, which
+the two-tier design already bounds: one nightly `decay_and_tier` takes the hot set from 100,000 to 2,465, and the
+kNN over it costs 0.21 ms.
 
-Two reasons that is not a problem, and one reason to keep watching it. Two years of real daily use measures 2,077
-neurons, so 100,000 is roughly a human lifetime of this device and 2.1 ms is what the seeding actually costs today.
-And the fix is well understood and entirely local — an approximate index over the vector tier, behind the same
-protocol as the embedder. The reason to watch it: a bulk `you2 import` of a document vault could reach six figures
-in an afternoon, and would move the whole latency budget without touching anything the design worries about.
+It was step 5 of `cues.build`, ambient priming, which runs
 
-Peak RSS at 100,000 neurons is 481 MB, which is the other number to hold against a 2 GB board.
+    kind = EPISODE ORDER BY created_at DESC LIMIT 12
+
+on **every turn**. There were indexes on `kind` and on `created_at` separately, so SQLite used one and sorted the
+rest: 56 ms of full-table sort at 100k, inside a hot path budgeted for under a second end to end. One composite
+index on `(kind, created_at)` makes it a twelve-row scan and the whole cost disappears.
+
+Two things about how it stayed hidden. The cascade *was* visiting its usual dozen neurons the entire time, so every
+metric the harness tracks looked perfect — a bounded traversal hanging off an unbounded lookup. And the store grows
+so slowly (2,077 neurons for two years of real use) that no realistic corpus would ever have surfaced it; it took a
+deliberately pathological one. A `you2 import` of a document vault is the case that would have hit it in production,
+and it would have presented as "the device got slow" with nothing in the design to blame.
+
+Peak RSS at 100,000 neurons is 481 MB before tiering, which is the other number to hold against a 2 GB board.
 
 ### 15.3 Extraction — the other half of the instrument
 
