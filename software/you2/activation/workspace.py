@@ -55,7 +55,6 @@ _HEADERS: dict[Kind, str] = {
     Kind.SCHEMA: "patterns",
     Kind.INSIGHT: "noticed",
     Kind.EPISODE: "said before",
-    Kind.AFFECT: "mood",
 }
 
 
@@ -199,8 +198,6 @@ def render(neuron: Neuron, now: float) -> str:
         return f"{ago(now - neuron.created_at)} ago: {text}"
     if neuron.kind is Kind.INSIGHT:
         return f"{text}"
-    if neuron.kind is Kind.AFFECT:
-        return f"{ago(now - neuron.created_at)} ago: {text}"
     return text
 
 

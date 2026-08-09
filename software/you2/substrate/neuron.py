@@ -21,7 +21,6 @@ class Kind(StrEnum):
     SCHEMA = "schema"     # an induced abstraction over many episodes
     INSIGHT = "insight"   # a discovered connection, with its evidence
     LOOP = "loop"         # an open commitment, question or intention
-    AFFECT = "affect"     # a recorded emotional state bound to a moment
 
 
 class Tier(StrEnum):
@@ -47,7 +46,6 @@ UTILITY: dict[Kind, float] = {
     Kind.SCHEMA: 1.0,
     Kind.EPISODE: 0.8,
     Kind.INSIGHT: 0.7,
-    Kind.AFFECT: 0.5,
 }
 
 #: Order in which kinds appear in the assembled memory block. Stable ordering
@@ -55,7 +53,7 @@ UTILITY: dict[Kind, float] = {
 #: ordering by score.
 BLOCK_ORDER: tuple[Kind, ...] = (
     Kind.FACT, Kind.LOOP, Kind.ENTITY, Kind.SCHEMA, Kind.INSIGHT,
-    Kind.EPISODE, Kind.AFFECT,
+    Kind.EPISODE,
 )
 
 
