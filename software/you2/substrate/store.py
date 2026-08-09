@@ -10,7 +10,7 @@ import json
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Iterable, Iterator, Sequence
+from typing import Any, Iterable, Iterator, NamedTuple, Sequence
 
 import numpy as np
 
@@ -24,6 +24,16 @@ from .vectors import VectorIndex
 
 _SCHEMA = Path(__file__).with_name("schema.sql")
 SCHEMA_VERSION = "1"
+
+
+class Soma(NamedTuple):
+    """The decay inputs for one neuron, held in RAM for the hot path."""
+    last_access: float
+    access_count: int
+    storage_strength: float
+    pinned: bool
+    kind: Kind
+    tier: Tier
 
 _NEURON_COLS = (
     "id, kind, content, key, gist, created_at, last_access, access_count, "
@@ -56,6 +66,11 @@ class Store:
         self.vectors = VectorIndex(self.conn, dim=self.cfg.embed_dim,
                                    quantize=self.cfg.quantize_vectors)
         self._alias_cache: dict[str, int] | None = None
+        #: The soma cache. Spreading activation needs each visited neuron's
+        #: decay inputs, and 800 SQLite round-trips per turn does not fit in a
+        #: 50 ms retrieval budget. Derived from the DB, rebuilt on load(), and
+        #: updated in exactly the three places that write neurons.
+        self.soma: dict[int, Soma] = {}
         self.load()
 
     # ------------------------------------------------------------ lifecycle
@@ -69,6 +84,21 @@ class Store:
         self.graph.build((r["src"], r["dst"], r["type"], r["weight"]) for r in edges)
         self.vectors.load(hot_ids=self._hot_ids())
         self._alias_cache = None
+        self.soma = {
+            r["id"]: Soma(r["last_access"], r["access_count"],
+                          r["storage_strength"], bool(r["pinned"]),
+                          Kind(r["kind"]), Tier(r["tier"]))
+            for r in self.conn.execute(
+                "SELECT id, last_access, access_count, storage_strength, "
+                "pinned, kind, tier FROM neurons WHERE tier != 'tomb'")
+        }
+
+    def _cache_soma(self, n: Neuron) -> None:
+        if n.tier is Tier.TOMB:
+            self.soma.pop(n.id, None)
+        else:
+            self.soma[n.id] = Soma(n.last_access, n.access_count,
+                                   n.storage_strength, n.pinned, n.kind, n.tier)
 
     def _hot_ids(self) -> set[int]:
         rows = self.conn.execute(
@@ -126,6 +156,7 @@ class Store:
 
         if aliases:
             self.add_aliases(neuron.id, aliases)
+        self._cache_soma(neuron)
         return neuron
 
     def get(self, neuron_id: int) -> Neuron | None:
@@ -159,6 +190,7 @@ class Store:
             self.vectors.put(neuron.id, vec, hot=(neuron.tier is Tier.HOT))
         else:
             self.vectors.set_scope(neuron.id, neuron.tier is Tier.HOT)
+        self._cache_soma(neuron)
 
     def save_many(self, neurons: Iterable[Neuron]) -> int:
         n = 0
@@ -241,6 +273,7 @@ class Store:
                 "WHERE id=?", (nid,))
             self.conn.execute("DELETE FROM edges WHERE src=? OR dst=?", (nid, nid))
             self.vectors.drop(nid)
+            self.soma.pop(nid, None)
         self.log("entomb", {"root": neuron_id, "removed": killed})
         return killed
 
