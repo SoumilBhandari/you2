@@ -48,6 +48,11 @@ CLOSE_ECHO = 0.40
 DEDUP_ECHO = 0.75
 
 
+#: Similarity above which a low-salience utterance is treated as a repeat of
+#: an existing episode rather than as nothing at all.
+REPEAT_SIMILARITY = 0.82
+
+
 @dataclass(slots=True)
 class Encoded:
     episode: Neuron | None = None
@@ -56,8 +61,11 @@ class Encoded:
     closed: list[int] = field(default_factory=list)
     skipped: bool = False
     reason: str = ""
+    repeated: int | None = None
 
     def __repr__(self) -> str:
+        if self.repeated is not None:
+            return f"Encoded(repeat of #{self.repeated})"
         if self.skipped:
             return f"Encoded(skipped: {self.reason})"
         return (f"Encoded(#{self.episode.id if self.episode else '-'}, "
@@ -71,12 +79,28 @@ def encode(store: Store, episode: Episode, cfg: BrainConfig | None = None, *,
     now = episode.ended_at or store.clock.now()
     salience = episode.salience
 
-    if salience < cfg.salience_floor:
-        return Encoded(skipped=True, reason=f"salience {salience:.2f}")
-
     text = episode.text
     if not text.strip():
         return Encoded(skipped=True, reason="empty")
+
+    if salience < cfg.salience_floor:
+        # Before discarding: is this the same thing said again?
+        #
+        # This matters more than it looks. The salience gate scores a
+        # recurring complaint as low-surprise and low-novelty — correctly, we
+        # *do* already know it — and then drops it. But "this happened again"
+        # is precisely the evidence the recurrence detector needs, so a
+        # straight discard makes the fourth Tuesday in a row invisible and
+        # the whole category undetectable.
+        #
+        # Repetition strengthens the existing trace rather than laying down a
+        # new one, and the occurrence is counted. That is also closer to what
+        # actually happens: you do not form a fresh memory of the commute you
+        # have made four hundred times.
+        repeat = _record_repeat(store, text, now, episode)
+        if repeat is not None:
+            return Encoded(skipped=True, reason="repeat", repeated=repeat)
+        return Encoded(skipped=True, reason=f"salience {salience:.2f}")
 
     strong = salience >= cfg.salience_strong
     ep = store.add(Neuron(
@@ -136,6 +160,36 @@ def encode(store: Store, episode: Episode, cfg: BrainConfig | None = None, *,
         "strong": strong,
     })
     return out
+
+
+def _record_repeat(store: Store, text: str, now: float,
+                   episode: Episode) -> int | None:
+    """Log a re-occurrence against the episode it repeats.
+
+    Cheap: one vector search and one update. The timestamps accumulate in
+    `meta["repeats"]`, and the recurrence detector expands them back into
+    occurrences, so a pattern stated the same way twenty times is still a
+    pattern of twenty.
+    """
+    hits = store.search(text, k=1, scope="hot", min_score=REPEAT_SIMILARITY)
+    if not hits:
+        return None
+    match = store.get(hits[0][0])
+    if match is None or match.kind is not Kind.EPISODE:
+        return None
+
+    repeats = list(match.meta.get("repeats") or [])
+    repeats.append(round(now, 1))
+    match.meta["repeats"] = repeats[-64:]
+    match.access_count += 1
+    match.last_access = now
+    # Repetition is evidence, so it raises storage strength -- but with
+    # diminishing returns, or a daily commute would out-rank a wedding.
+    match.storage_strength += 0.15 / (1.0 + len(repeats)) ** 0.5
+    match.arousal = max(match.arousal, episode.arousal)
+    store.save(match)
+    store.log("repeat", {"episode": match.id, "n": len(repeats)})
+    return match.id
 
 
 def resolve_entity(store: Store, found: dict, now: float) -> Neuron | None:

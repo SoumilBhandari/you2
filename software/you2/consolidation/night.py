@@ -71,6 +71,9 @@ class NightReport:
     rejected: int = 0
     bridges: int = 0
     probes: list[dict[str, Any]] = field(default_factory=list)
+    inferences: int = 0
+    compiled: list[int] = field(default_factory=list)
+    stale_derivatives: int = 0
     questions: list[str] = field(default_factory=list)
     interrupted: bool = False
     profile: str = ""
@@ -92,6 +95,8 @@ class NightReport:
             "degraded_batches": self.degraded_batches,
             "homeostasis": self.homeostasis, "forgetting": self.forgetting,
             "insights": len(self.insights), "rejected": self.rejected,
+            "inferences": self.inferences, "compiled": len(self.compiled),
+            "stale_derivatives": self.stale_derivatives,
             "bridges": self.bridges, "questions": len(self.questions),
             "interrupted": self.interrupted, "growth": self.growth,
             "coverage": self.coverage,
@@ -121,6 +126,8 @@ class NightReport:
             f"{self.forgetting.get('compacted', 0)} compacted",
             f"  discovery  {len(self.insights)} kept, {self.rejected} rejected, "
             f"{self.bridges} bridges considered",
+            f"  reasoning  {self.inferences} drawn, {len(self.compiled)} compiled, "
+            f"{self.stale_derivatives} derivatives went stale",
         ]
         if self.questions:
             lines.append("  to ask:")
@@ -183,6 +190,7 @@ def run(store: Store, llm: Any | None = None, cfg: BrainConfig | None = None, *,
     if not report.interrupted:
         report.schemas = len(abstraction.induce_schema(store, cfg, now))
         _discover(store, cfg, now, report)
+        _reason(store, llm, cfg, now, report, rng)
 
     # ---- homeostasis: always runs, even after an interruption --------------
     # It is the mechanism that keeps retrieval sharp, and skipping it because
@@ -196,6 +204,8 @@ def run(store: Store, llm: Any | None = None, cfg: BrainConfig | None = None, *,
     merged["bytes_freed"] = compacted.bytes_freed
     report.forgetting = merged
     report.audit_failures = forgetting.audit(store)
+    from ..inference import tms as _tms
+    report.audit_failures += _tms.audit(store)
 
     report.questions = [q["question"] for q in open_questions(store)]
     report.profile = build_profile(store, cfg, now)
@@ -239,26 +249,78 @@ def _rem(store: Store, llm: Any | None, cfg: BrainConfig, now: float,
     report.probes.extend(dream.counterfactual(store, llm, cfg, now, rng=rng))
 
 
+def _reason(store: Store, llm: Any | None, cfg: BrainConfig, now: float,
+            report: NightReport, rng: np.random.Generator) -> None:
+    """Inference, and the compilation that makes it cheap to repeat.
+
+    Drawn over what has been active lately rather than over the whole store:
+    an inference nobody will ever ask for is not worth deriving, let alone
+    storing.
+    """
+    from ..activation import Cue, availability_fn, compete, spread
+    from ..inference import cheap, compilation, expensive, tms
+
+    anchors = [n.id for n in store.by_kind(Kind.FACT, limit=12,
+                                           order="last_access DESC")]
+    anchors += [n.id for n in store.by_kind(Kind.ENTITY, limit=8,
+                                            order="last_access DESC")]
+    if not anchors:
+        return
+    cascade = spread(store.graph, [Cue(a, 1.0) for a in anchors[:12]], cfg,
+                     availability=availability_fn(store, cfg, now))
+    ws = compete(store, cascade, cfg, now=now,
+                 budget=cfg.workspace_tokens * 2)
+
+    drawn = cheap(store, ws, cfg, now)
+    drawn += expensive(store, llm, ws, cfg, now)
+    report.inferences = len(drawn)
+
+    out = compilation.sweep(store, drawn, cfg, now)
+    report.compiled = out.compiled
+
+    # Re-derivation is left for a later pass; what matters tonight is that
+    # nothing stale is still being retrieved as if it were current.
+    stale = tms.stale(store, limit=200)
+    report.stale_derivatives = len(stale)
+    for n in stale:
+        if n.meta.get("derived"):
+            compilation.decompile(store, n.id)
+        n.meta.pop("needs_rederivation", None)
+        store.save(n)
+
+
 def _discover(store: Store, cfg: BrainConfig, now: float,
               report: NightReport) -> None:
-    """Contradiction, recurrence and open loops. All three may push."""
+    """Contradiction, recurrence and open loops. All three may push.
+
+    Each supplies its own non-obviousness, because the axis means "would they
+    have worked this out themselves" and that is measured differently per
+    type. Graph distance is right for a bridge and wrong for the rest.
+    """
     for conflict in contradiction.pending(store, cfg, now, limit=5):
+        # Nobody notices themselves contradicting a thing they said in March.
         insight = scoring.surface(store, cfg, now, kind="contradiction",
-                                  text=conflict.question, cites=conflict.cites)
+                                  text=conflict.question, cites=conflict.cites,
+                                  nonobvious=1.0)
         (report.insights.append(insight.id) if insight
          else setattr(report, "rejected", report.rejected + 1))
 
     for pattern in recurrence.detect(store, cfg, now)[:5]:
+        # Lift is the measure: at 2.1 the pattern is marginal and they may
+        # well have noticed; at 5 they have not.
         insight = scoring.surface(store, cfg, now, kind="recurrence",
                                   text=recurrence.phrase(pattern),
-                                  cites=pattern.cites)
+                                  cites=pattern.cites,
+                                  nonobvious=min(1.0, (pattern.lift - 1.0) / 3.0))
         (report.insights.append(insight.id) if insight
          else setattr(report, "rejected", report.rejected + 1))
 
     for s in openloops.stale(store, cfg, now, limit=5):
         cites = [s.loop.id] + s.loop.citations()
+        # The longer it has been silent, the less likely it is still in mind.
         insight = scoring.surface(store, cfg, now, kind="openloop",
-                                  text=s.text, cites=cites)
+                                  text=s.text, cites=cites,
+                                  nonobvious=min(1.0, s.quiet_days / 21.0))
         if insight is not None:
             report.insights.append(insight.id)
             openloops.nudged(store, s.loop, now)

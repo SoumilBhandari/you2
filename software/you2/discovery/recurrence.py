@@ -64,8 +64,9 @@ class Pattern:
                 f"lift {self.lift:.1f}, n={self.n})")
 
 
-def _contexts(store: Store, ep: Neuron) -> list[str]:
-    out = [f"it_is_{weekday(ep.created_at)}", f"in_the_{part_of_day(ep.created_at)}"]
+def _contexts(store: Store, ep: Neuron, when: float | None = None) -> list[str]:
+    when = when if when is not None else ep.created_at
+    out = [f"it_is_{weekday(when)}", f"in_the_{part_of_day(when)}"]
     for other, weight, code, _back in store.graph.neighbours(ep.id):
         if weight <= 0.0 or code != list(Edge).index(Edge.ABOUT):
             continue
@@ -90,21 +91,50 @@ def _outcomes(ep: Neuron) -> list[str]:
     return out
 
 
+def occurrences(store: Store, ep: Neuron, now: float,
+                window_days: float) -> list[float]:
+    """Every time this episode happened, including recorded repeats.
+
+    A recurring complaint is scored as unsurprising by the salience gate and
+    dropped, so without expanding repeats the fourth Tuesday in a row is
+    invisible and this whole category is undetectable. See
+    encoding.binding._record_repeat.
+    """
+    times = [ep.created_at]
+    for t in (ep.meta.get("repeats") or []):
+        try:
+            times.append(float(t))
+        except (TypeError, ValueError):
+            continue
+    return [t for t in times if (now - t) / DAY <= window_days]
+
+
 def detect(store: Store, cfg: BrainConfig, now: float, *,
            window_days: float = 180.0) -> list[Pattern]:
     episodes = [n for n in store.by_kind(
         Kind.EPISODE, limit=20000, tiers=(Tier.HOT, Tier.WARM))
-        if (now - n.created_at) / DAY <= window_days]
-    if len(episodes) < cfg.recurrence_min_count * 3:
+        if (now - n.created_at) / DAY <= window_days
+        or any((now - float(t)) / DAY <= window_days
+               for t in (n.meta.get("repeats") or []))]
+    if not episodes:
         return []
 
-    total = len(episodes)
+    # An "event" is one occurrence at one time. An episode with fifteen
+    # recorded repeats is fifteen events, in fifteen different contexts.
+    events: list[tuple[Neuron, float]] = []
+    for ep in episodes:
+        for t in occurrences(store, ep, now, window_days):
+            events.append((ep, t))
+    if len(events) < cfg.recurrence_min_count * 3:
+        return []
+
+    total = len(events)
     ctx_count: dict[str, int] = {}
     out_count: dict[str, int] = {}
-    joint: dict[tuple[str, str], list[Neuron]] = {}
+    joint: dict[tuple[str, str], list[tuple[Neuron, float]]] = {}
 
-    for ep in episodes:
-        contexts = _contexts(store, ep)
+    for ep, when in events:
+        contexts = _contexts(store, ep, when)
         outcomes = _outcomes(ep)
         for c in set(contexts):
             ctx_count[c] = ctx_count.get(c, 0) + 1
@@ -112,15 +142,14 @@ def detect(store: Store, cfg: BrainConfig, now: float, *,
             out_count[o] = out_count.get(o, 0) + 1
         for c in set(contexts):
             for o in set(outcomes):
-                joint.setdefault((c, o), []).append(ep)
+                joint.setdefault((c, o), []).append((ep, when))
 
     found: list[Pattern] = []
     for (context, outcome), members in joint.items():
         n = len(members)
         if n < cfg.recurrence_min_count:
             continue
-        span = (max(m.created_at for m in members)
-                - min(m.created_at for m in members)) / DAY
+        span = (max(t for _e, t in members) - min(t for _e, t in members)) / DAY
         if span < cfg.recurrence_min_span_days:
             continue
         base = out_count[outcome] / total
@@ -130,10 +159,15 @@ def detect(store: Store, cfg: BrainConfig, now: float, *,
         lift = conditional / base
         if lift < cfg.recurrence_min_lift:
             continue
+        cites: list[int] = []
+        for ep, _t in sorted(members, key=lambda m: -m[0].salience):
+            if ep.id not in cites:
+                cites.append(ep.id)
+            if len(cites) >= 6:
+                break
         found.append(Pattern(
             context=context, outcome=outcome, lift=lift, n=n, span_days=span,
-            base_rate=base, conditional=conditional,
-            cites=[m.id for m in sorted(members, key=lambda m: -m.salience)[:6]],
+            base_rate=base, conditional=conditional, cites=cites,
         ))
 
     found.sort(key=lambda p: (-p.lift, -p.n))
