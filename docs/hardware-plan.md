@@ -9,8 +9,19 @@ engineering problem rather than a costing exercise.
 Seven independent audits were run over `cad/you2.scad`, `docs/design.md`,
 `docs/bom.md` and the software — CAD geometry, acoustics, thermal, power,
 electrical, sourcing, DFM, and ruggedization — and every finding was then given
-to a separate agent whose job was to refute it. What follows is what survived,
-plus the enclosure rewrite it forced.
+to a separate agent whose job was to refute it. 3 were confirmed outright, 54
+were sharpened, 29 were thrown out. What follows is what survived, plus the
+enclosure rewrite it forced.
+
+**One caveat on that method, because it matters when you read the numbers.**
+The rewrite was happening *while* the refutation pass ran, so a large share of
+those 29 rejections say "already fixed in rev D" or "the repo already documents
+this" rather than "not a real problem" — which is circular, and one verifier
+said so in as many words. Treat the rejection count as evidence about rev D,
+not as evidence that rev C was fine. Four rejections *were* substantive and
+have been applied: the drop-energy figure below, the ERLE claim in §7, a panel
+revision warning that turned out to belong to a different Waveshare product,
+and an over-absolute claim about tapped plastic.
 
 **The short version: rev C cannot be assembled, and three of its parts are the
 wrong shape.** Not "needs tolerancing" — the shell exports as two disconnected
@@ -73,10 +84,14 @@ rake. **Do not add mass for stability** — it buys nothing.
 and can be lifted bodily by its own power cable at ~6.2 N, both far below the
 8–20 N retention of a USB-C plug and far below the 22 N needed to tip it.
 
-**And a drop is unsurvivable by stiffness.** A 750 mm desk sweep is 86–220× the
-energy a 2.4 mm PETG corner absorbs before it cracks. Even a 100 mm topple onto
-the desk is 11–30× over. Wall thickness does not close that at any affordable
-cost. Only a compliant element with real travel does.
+**And a drop is unsurvivable by stiffness.** A 750 mm desk sweep loads a 2.4 mm
+PETG corner to roughly **9–15× what it takes before cracking**; even a 100 mm
+topple onto the desk is 3–6× over. Wall thickness does not close that at any
+affordable cost. Only a compliant element with real travel does.
+
+*(An earlier draft of this file said 86–220×. That came from comparing energies
+when stress governs, and overstates the ratio by about 10×. The conclusion is
+unchanged — it still breaks, by a lot — but the number was wrong.)*
 
 So toughness here is three things, in this order:
 
@@ -161,11 +176,11 @@ the whole object.** Everything else is 8 % of the height.
 
 | Threat | Measure |
 |---|---|
-| Drop / sweep | TPU 95A shoe wrapping the bottom 12 mm, 3 mm wall, Ø14 corner posts, gyroid infill. ~35 g, ~$1. Cuts peak force ~3×; more importantly it is the part that fails. |
+| Drop / sweep | TPU 95A shoe wrapping the bottom 12 mm, 3 mm wall, Ø14 corner posts, gyroid infill. ~35 g, ~$1. Cuts peak force ~3×; more importantly it is the part that fails. The 4 mm aluminium plate (measured 202 g) is what actually spreads the reaction — TPU has almost no in-plane stiffness and cannot spread its own. |
 | Slide / cable tug | Aluminium base (~190 g) + 60A silicone feet (μ 1.2–1.5 on wood). Panel-mount USB-C in the rear wall; the internal clamp grips the jacket so the Pi's jack never sees a load. |
 | Glass | Recessed 2 mm behind the printed bezel — the bezel is always the first thing to touch anything. 1 mm silicone under the panel flange, so it is never point-loaded by printed plastic. |
 | Spill / dust | **Target IP52.** ePTFE acoustic membranes (Gore GAW331 class) bonded into the counterbores over the four mic ports: < 2 dB at 1 kHz, IP67 in themselves, ~$0.50 each. Mesh behind the speaker grille. Solid diffuser sealing the light-bar slot if fitted. The shoe drains rather than holding a spill. |
-| Thermal creep | No tapped plastic anywhere. Heat-set inserts (M3 4.6 × 5.8, M2.5 4.0 × 4.0), boss OD ≥ 7.0 mm, 0.4 N·m and 0.25 N·m. |
+| Thermal creep | Heat-set inserts (M3 4.6 × 5.8, M2.5 4.0 × 4.0), boss OD ≥ 7.0 mm, 0.4 N·m and 0.25 N·m. **One exception**, named rather than hidden: the four mic posts still self-tap M2.5 into PETG, because a Ø66 pitch circle on a Ø73 PCB has no room for a Ø7.5 boss. Acceptable there because the load is a compressed elastomer, the screws bottom on a hard stop so preload is bounded by geometry, and the top of the box is the coolest part of it. |
 | Backlight wear | The real ageing mechanism is **not** burn-in — it is an IPS panel. It is backlight L70 at **2.3–4.4 years** of 24/7 full drive. Blank after 3 min idle and wake on the wake word; run the idle clock at 15–20 %. Roughly 6× the life, in software. |
 | SD wear + corruption | `synchronous = FULL`, a rotating backup with `PRAGMA integrity_check`, and **at least one generation on a second device**. |
 | Repair | Display: 4 screws, from the front, without opening the box. Everything else: 4 screws from below. Ten screws total. |
@@ -245,7 +260,8 @@ confirmed*, the 22-pin FFC, Pi 5 2 GB, the official 27 W PSU, the driver.
 
 Honestly, and with the measurement for each:
 
-- **Everything acoustic.** Whether XMOS AEC holds with this coupling; whether a cheap driver's own THD caps ERLE below what barge-in needs; whether the top panel's fundamental sits on the driver's Fo. → Step 1, then repeat inside the box, because the box is what couples them.
+- **Everything acoustic.** Whether XMOS AEC holds with this coupling, and whether the top panel's fundamental sits on the driver's Fo. → Step 1, then repeat inside the box, because the box is what couples them.
+- **Which speaker.** The $248 BOM lists "small 4 Ω 3 W speaker, $6" with **no part number**, while the CAD and the wiring doc assume the 5 W Seeed 114993346. No target playback SPL is recorded anywhere, so the echo budget cannot be computed before ordering. → Pick the part, write down the SPL you intend to play at. *(An earlier draft claimed the driver's own distortion caps ERLE at ~20 dB, below what barge-in needs. That does not hold: the datasheet's "10 % max" carries no test condition and is a rated-power limit, and at this device's actual ~16 mW operating point the nonlinear echo floor is nearer 33–45 dB — comfortably above the ~21 dB a wake-word onset needs.)*
 - **Whether the reSpeaker is 16 kHz-capped over USB.** If it is, the 4-mic upgrade buys beamforming, not bandwidth, and TTS quality is capped whatever voice you pick. → Read the USB audio descriptor.
 - **Whether the speaker output is bridged.** The arithmetic says yes. If yes, **neither lead may be grounded** and getting it wrong destroys the amplifier. → Datasheet, before connecting anything.
 - **Real interior temperature at 60 mm rear clearance.** All venting is on the rear face; pushed against a wall the box is sealed. → An hour of `vcgencmd get_throttled`.
