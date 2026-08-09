@@ -160,11 +160,29 @@ def run(store: Store, llm: Any | None = None, cfg: BrainConfig | None = None, *,
     batches = replay.ripple_batches(store, drawn, cfg)
     report.batches = len(batches)
 
-    per_cycle = max(1, len(batches) // max(1, cfg.nrem_rem_cycles))
+    # Ceiling, not floor, and the cycle count no longer bounds the work.
+    #
+    # `len(batches) // cycles` truncates: five batches over four cycles gave
+    # one batch per cycle, and the loop then stopped at `cycle >= cycles` with
+    # the fifth never consolidated. Batches are ordered chronologically, so
+    # **the abandoned batch was always the most recent one** — the material
+    # most likely to contain a correction or a change of mind.
+    #
+    # Measured on the demo month: "actually I prefer meetings in the afternoon
+    # these days" was drawn every night, dropped every night, and never
+    # reached `times_replayed = 1`. Five nights later the device still held
+    # "the user prefers meetings in the morning", and would have held it
+    # forever. `report.batches` said 5 the whole time.
+    #
+    # The NREM/REM alternation is about *interleaving* rest into the work, not
+    # about capping it. So the cycle count sets how often REM runs, and the
+    # loop ends when the batches are done.
+    cycles = max(1, cfg.nrem_rem_cycles)
+    per_cycle = max(1, -(-len(batches) // cycles))
     cycle = 0
     index = 0
 
-    while index < len(batches) or cycle == 0:
+    while True:
         cycle += 1
         report.cycles = cycle
 
@@ -191,7 +209,7 @@ def run(store: Store, llm: Any | None = None, cfg: BrainConfig | None = None, *,
         if cycle > 1 and not stop():
             _rem(store, llm, cfg, now, report, rng)
 
-        if cycle >= cfg.nrem_rem_cycles or index >= len(batches):
+        if index >= len(batches):
             break
 
     # ---- consolidation of structure ---------------------------------------
