@@ -959,14 +959,14 @@ earning its complexity and should be deleted — that check is worth running bef
 
 | variant | precision | focus | diversity | stale | tokens | visited | edges |
 |---|---|---|---|---|---|---|---|
-| **baseline** | 1.00 | **0.89** | **0.91** | 0.00 | 118 | 14 | 2,084 |
-| no fan effect | 1.00 | **0.23** | 0.77 | 0.00 | 190 | **433** | 1,957 |
-| no inhibition | 1.00 | 0.89 | **0.38** | 0.00 | 161 | 17 | 4,829 |
-| top-k only | 1.00 | 0.95 | **0.37** | 0.00 | 81 | 6 | 2,276 |
-| no base-level decay | 1.00 | 0.91 | 0.75 | **0.50** | 154 | 85 | 2,312 |
-| no downscaling | 1.00 | 0.86 | 0.93 | 0.00 | 131 | 18 | **4,217** |
-| uncapped block | 1.00 | 0.84 | 0.92 | 0.00 | **401** | 33 | 2,895 |
-| no salience gate | 1.00 | 0.89 | 0.92 | 0.00 | 119 | 13 | 2,163 |
+| **baseline** | 1.00 | **0.89** | **0.91** | 0.00 | 132 | 14 | 2,024 |
+| no fan effect | 1.00 | **0.34** | 0.80 | 0.00 | 198 | **380** | 2,077 |
+| no inhibition | 1.00 | 0.88 | **0.33** | 0.00 | 164 | 17 | 4,884 |
+| top-k only | 1.00 | 0.95 | **0.38** | 0.00 | 81 | 6 | 2,125 |
+| no base-level decay | 1.00 | 0.91 | 0.68 | **0.50** | 148 | 85 | 2,167 |
+| no downscaling | 1.00 | 0.85 | 0.97 | 0.00 | 115 | 22 | **4,283** |
+| uncapped block | 1.00 | 0.84 | 0.92 | 0.00 | **400** | 32 | 2,735 |
+| no salience gate | 1.00 | 0.89 | 0.91 | 0.00 | 132 | 14 | 2,100 |
 
 *focus* = fraction of retrieved items actually about the thing asked, counting graph adjacency and not just literal
 token match. *diversity* = mean pairwise dissimilarity among selected items.
@@ -995,13 +995,23 @@ saturated metric cannot tell you anything — the discriminating columns are foc
 
 ### 15.2 The one mechanism measurement does not justify
 
-**The salience gate.** Disabling it changes focus by 0.00, diversity by +0.01, tokens by +1, and stores 11% more
-neurons (1,085 → 1,209). On this corpus its only demonstrated benefit is storage.
+**The salience gate.** Disabling it changes focus by 0.00, diversity by 0.00, stale leakage by 0.00 and tokens by
+−1. On this corpus its only demonstrated benefit is storage.
 
 Stated plainly because the doctrine above demands it: *a mechanism whose removal changes nothing is not earning its
-complexity.* Two honest caveats before deleting it — the synthetic chatter may be unrealistically easy to filter,
-and the gate also sets replay priority, which this corpus does not stress. But it goes on the list, and the burden
-of proof is now on the gate.
+complexity.* Two honest caveats were entered when this was first written — the synthetic chatter may be
+unrealistically easy to filter, and the gate also sets replay priority, which this corpus does not stress.
+
+Since then its case has got **weaker**, in two ways that matter.
+
+Storage stopped being scarce. Two years of daily use measures **8.9 MB on disk** against a 512 MB budget, so the
+gate is economising on the one resource this design has in abundance.
+
+And it turned out to be expensive in a currency nobody was counting. It has now been the proximate cause of four
+separate defects, because the material it suppresses — repetition, closure, confirmation, correction — is precisely
+the material that recurrence detection, loop closure, supersession and reconsolidation each need. A filter whose
+selection criterion is "we already knew this" will keep colliding with every mechanism whose evidence *is* the
+second telling. That is not a series of unlucky bugs; it is one design error presenting repeatedly.
 
 That is what an ablation suite is for. It is much easier to write a paragraph defending every component than to run
 the experiment that says one of them is decoration.
