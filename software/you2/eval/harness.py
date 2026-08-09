@@ -38,9 +38,12 @@ class Snapshot:
     stale_leakage: float = 0.0
     """Fraction of probes whose block still contains a superseded value.
     Should be zero, and rising is the classic rot signature."""
+    focus: float = 0.0
+    """On the hard probes: fraction of retrieved items actually about the
+    thing asked. This is the number that moves when retrieval degrades."""
     diversity: float = 0.0
-    """Distinct kinds per block, normalised. Low means the block is eight
-    paraphrases."""
+    """Mean pairwise dissimilarity among selected items. Low means the block
+    is eight paraphrases, which is exactly what inhibition prevents."""
     block_tokens: float = 0.0
     visited: float = 0.0
     neurons: int = 0
@@ -51,7 +54,8 @@ class Snapshot:
 
     def as_row(self) -> str:
         return (f"{self.day:>5} {self.probe_precision:>10.2f} "
-                f"{self.stale_leakage:>9.2f} {self.diversity:>10.2f} "
+                f"{self.focus:>7.2f} {self.stale_leakage:>8.2f} "
+                f"{self.diversity:>10.2f} "
                 f"{self.block_tokens:>8.0f} {self.visited:>8.0f} "
                 f"{self.neurons:>8} {self.live_facts:>6} "
                 f"{self.superseded_facts:>6} {self.edges:>7}")
@@ -94,8 +98,8 @@ class Result:
         return self.snapshots[-1].probe_precision - self.snapshots[0].probe_precision
 
     def table(self) -> str:
-        head = (f"  day  precision@blk   stale%  diversity   tokens  visited "
-                f" neurons  facts  super’d  edges")
+        head = ("  day  precision   focus   stale%  diversity   tokens "
+                " visited  neurons  facts  super’d  edges")
         return "\n".join([f"[{self.label}]", head]
                          + [s.as_row() for s in self.snapshots])
 
@@ -118,6 +122,54 @@ class Result:
             f"  loops       {self.loops_open_correct} open kept, "
             f"{self.loops_closed_correct} closed",
         ])
+
+
+def focus_and_diversity(brain: Brain, truth: Truth,
+                        now: float) -> tuple[float, float]:
+    """Retrieval quality, measured where the profile cannot help.
+
+    focus      of the items retrieved, how many are actually about the thing
+               asked. Degrades when the cascade floods (no fan effect) or
+               when faded material stays reachable (no base-level decay).
+    diversity  mean pairwise dissimilarity among the selected items. This is
+               precisely what lateral inhibition buys, and the earlier
+               "distinct kinds / 4" measure could not see it.
+    """
+    import numpy as np
+
+    on_topic = 0.0
+    total = 0.0
+    diversities: list[float] = []
+    for query, token in truth.hard_probes:
+        ws = brain._retrieve(query, now)
+        if not ws.items:
+            total += 1.0
+            continue
+        # An item counts as on-topic if it names the thing OR is bound to it
+        # in the graph. Literal token matching alone under-counts badly:
+        # "spoke to Priya about it for a while" is squarely about the Kestrel
+        # migration and contains none of its words, which is the entire
+        # reason retrieval is a graph traversal and not a substring search.
+        anchor = brain.store.find_entity(token)
+        related: set[int] = set()
+        if anchor is not None:
+            related = {anchor.id}
+            related |= {o for o, w, _c, _b in brain.store.graph.neighbours(anchor.id)
+                        if w > 0.0}
+        for item in ws.items:
+            total += 1.0
+            if token in item.neuron.text().lower() or item.neuron.id in related:
+                on_topic += 1.0
+        ids = ws.ids()
+        if len(ids) > 1:
+            sims = []
+            for i, a in enumerate(ids):
+                row = brain.store.vectors.similarities(a, ids[i + 1:])
+                sims.extend(float(x) for x in row)
+            if sims:
+                diversities.append(1.0 - float(np.mean(sims)))
+    return (on_topic / total if total else 0.0,
+            float(np.mean(diversities)) if diversities else 0.0)
 
 
 def probe(brain: Brain, truth: Truth, now: float) -> tuple[float, float, float, float, float]:
@@ -228,11 +280,12 @@ def run(*, days: int = 365, seed: int = 0, cfg: BrainConfig | None = None,
 
 
 def _snapshot(brain: Brain, truth: Truth, day: int, now: float) -> Snapshot:
-    precision, stale, diversity, tokens, visited = probe(brain, truth, now)
+    precision, stale, _kinds, tokens, visited = probe(brain, truth, now)
+    focus, diversity = focus_and_diversity(brain, truth, now)
     stats = brain.store.stats()
     return Snapshot(
         day=day, at=now, probe_precision=precision, stale_leakage=stale,
-        diversity=diversity, block_tokens=tokens, visited=visited,
+        focus=focus, diversity=diversity, block_tokens=tokens, visited=visited,
         neurons=stats["neurons"], live_facts=stats["live_facts"],
         superseded_facts=stats["superseded_facts"], edges=stats["edges"],
         open_loops=sum(1 for n in brain.store.by_kind(Kind.LOOP, limit=500)
@@ -315,15 +368,15 @@ def ablate(days: int = 365, seed: int = 0,
 
 def compare(results: dict[str, Result]) -> str:
     base = results.get("baseline")
-    lines = [f"{'variant':<20} {'prec':>6} {'drift':>7} {'stale':>7} "
-             f"{'tokens':>7} {'visited':>8} {'neurons':>8} {'edges':>8}"]
+    lines = [f"{'variant':<20} {'prec':>6} {'focus':>6} {'divers':>7} "
+             f"{'stale':>6} {'tokens':>7} {'visited':>8} {'edges':>7}"]
     for name, r in results.items():
         f = r.final
         if f is None:
             continue
-        lines.append(f"{name:<20} {f.probe_precision:>6.2f} {r.drift:>+7.2f} "
-                     f"{f.stale_leakage:>7.2f} {f.block_tokens:>7.0f} "
-                     f"{f.visited:>8.0f} {f.neurons:>8} {f.edges:>8}")
+        lines.append(f"{name:<20} {f.probe_precision:>6.2f} {f.focus:>6.2f} "
+                     f"{f.diversity:>7.2f} {f.stale_leakage:>6.2f} "
+                     f"{f.block_tokens:>7.0f} {f.visited:>8.0f} {f.edges:>7}")
     if base is not None and base.final is not None:
         lines.append("")
         lines.append("deltas vs baseline (a mechanism that changes nothing "
@@ -331,9 +384,13 @@ def compare(results: dict[str, Result]) -> str:
         for name, r in results.items():
             if name == "baseline" or r.final is None:
                 continue
-            d_prec = r.final.probe_precision - base.final.probe_precision
+            d_focus = r.final.focus - base.final.focus
+            d_div = r.final.diversity - base.final.diversity
             d_stale = r.final.stale_leakage - base.final.stale_leakage
+            d_tok = r.final.block_tokens - base.final.block_tokens
+            d_vis = r.final.visited - base.final.visited
             d_edges = r.final.edges - base.final.edges
-            lines.append(f"  {name:<18} precision {d_prec:+.2f}  "
-                         f"stale {d_stale:+.2f}  edges {d_edges:+d}")
+            lines.append(f"  {name:<18} focus {d_focus:+.2f}  div {d_div:+.2f}  "
+                         f"stale {d_stale:+.2f}  tokens {d_tok:+.0f}  "
+                         f"visited {d_vis:+.0f}  edges {d_edges:+d}")
     return "\n".join(lines)
