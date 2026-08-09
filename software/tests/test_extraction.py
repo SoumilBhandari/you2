@@ -163,6 +163,25 @@ def test_a_name_does_not_keep_its_trailing_filler():
     assert name["text"].endswith("Soumil"), name["text"]
 
 
+def test_names_keep_their_capitals():
+    """Patterns match a lowercased clause, so everything they capture came
+    back flat: "the user's sister priya is moving to lisbon". These are read
+    aloud and printed in the profile, and rendering the names of the people
+    someone loves in lower case looks broken for a reason that has nothing to
+    do with what the device knows."""
+    facts = rules.find_facts("my sister Priya is moving to Lisbon in the spring")
+    text = facts[0]["text"]
+    assert "Priya" in text and "Lisbon" in text
+    assert text.startswith("the user's sister")
+
+
+def test_a_sentence_initial_capital_is_not_evidence_of_a_name():
+    """Only capitalisation that survives mid-sentence means anything.
+    Otherwise "Actually" becomes a proper noun."""
+    facts = rules.find_facts("Actually I prefer oat milk now")
+    assert facts and "Actually" not in facts[0]["text"]
+
+
 def test_a_capitalised_word_is_not_automatically_an_organisation():
     found = {e["name"]: e["kind"] for e in
              rules.find_entities("my sister Priya is moving to Lisbon")}
