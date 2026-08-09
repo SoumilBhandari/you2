@@ -129,7 +129,10 @@ def probe(brain: Brain, truth: Truth, now: float) -> tuple[float, float, float, 
     visited = 0.0
     for query, expected in truth.probes:
         ws = brain._retrieve(query, now)
-        block = ws.block().lower()
+        # What the model is actually given is the nightly profile plus this
+        # turn's retrieval. Scoring the block alone under-measures the system
+        # by exactly the profile, which is the whole point of building it.
+        block = (brain.profile + "\n" + ws.block()).lower()
         tokens += ws.tokens
         visited += ws.cascade.visited if ws.cascade else 0
         kinds += len({i.neuron.kind for i in ws.items})
@@ -142,7 +145,12 @@ def probe(brain: Brain, truth: Truth, now: float) -> tuple[float, float, float, 
         current_lines = "\n".join(
             line for line in block.splitlines()
             if "(inferred)" not in line and "was \"" not in line)
-        if any(tok and tok in current_lines for tok in truth.stale_tokens.values()):
+        # Only count a value as stale once its replacement has actually been
+        # stated. Before that instant the "old" value is simply the current
+        # one, and counting it measures nothing but the calendar.
+        superseded = [tok for key, tok in truth.stale_tokens.items()
+                      if tok and now >= truth.changed_at.get(key, float("inf"))]
+        if any(tok in current_lines for tok in superseded):
             stale += 1
     n = max(1, len(truth.probes))
     return (hits / n, stale / n, kinds / n / 4.0, tokens / n, visited / n)
@@ -249,8 +257,7 @@ def _score_discovery(brain: Brain, truth: Truth, result: Result,
         for c in pending_conflicts(brain.store, brain.cfg, now, limit=20))
     versions = [n for n in brain.store.by_kind(Kind.FACT, limit=4000,
                                                live_only=False)
-                if truth.contradiction_key in (n.key or "").lower()
-                or truth.contradiction_key in n.text().lower()]
+                if (n.key or "").lower().startswith(truth.contradiction_fact_key)]
     live = [n for n in versions if n.is_live]
     result.contradiction_resolved = (result.contradiction_asked
                                      or (len(versions) > 1 and len(live) == 1))

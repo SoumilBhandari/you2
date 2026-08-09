@@ -299,7 +299,8 @@ def broadcast(store: Store, ws: Workspace, cfg: BrainConfig,
         n.storage_strength = storage
         n.access_count = count
         n.last_access = last
-        store.save(n)
+        store.touch(n.id, storage_strength=storage, access_count=count,
+                    last_access=last)
 
     strong = [i for i in ws.items if i.activation >= cfg.hebbian_min_activation]
     for a in range(len(strong)):

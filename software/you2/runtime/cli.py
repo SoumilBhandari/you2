@@ -139,7 +139,11 @@ def cmd_stats(args: argparse.Namespace) -> int:
     from ..inference.compile import stats as compile_stats
     stats["growth"] = growth_curve(brain.store, brain.cfg)
     stats["inference"] = compile_stats(brain.store)
+    from ..consolidation.storage import breakdown, measure
+    stats["storage"] = measure(brain.store).as_dict()
     print(json.dumps(stats, indent=2, default=str))
+    print()
+    print(breakdown(brain.store))
     brain.close_store()
     return 0
 

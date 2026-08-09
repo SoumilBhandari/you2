@@ -122,11 +122,18 @@ class Truth:
     value and not an unrelated mention."""
     current_tokens: dict[str, str] = field(default_factory=dict)
     """key -> a token that must appear."""
+    changed_at: dict[str, float] = field(default_factory=dict)
+    """key -> when the replacement was stated. Before that instant the old
+    value is *current*, and counting it as leakage measures nothing."""
     probes: list[tuple[str, str]] = field(default_factory=list)
     """(query, distinctive token that a correct answer contains)."""
     recurrence: str = ""
     bridge: tuple[str, str] = ("", "")
     contradiction_key: str = ""
+    contradiction_fact_key: str = ""
+    """Key stem of the fact that must end up with exactly one live
+    version. Matching on free text instead picks up every other fact
+    mentioning the same project."""
     open_loops: list[str] = field(default_factory=list)
     closed_loops: list[str] = field(default_factory=list)
     total_utterances: int = 0
@@ -157,6 +164,7 @@ def generate(days: int = 365, *, seed: int = 0, start: float = 1767225600.0,
         out.append(Utterance(new, at(change_day, 9.0), f"pref:{key}:new"))
         truth.stale_tokens[key] = stale_tok
         truth.current_tokens[key] = cur_tok
+        truth.changed_at[key] = at(change_day, 9.0)
 
     # --- the planted recurrence, on actual Tuesdays ------------------------
     # Computed from the calendar, not from `day % 7`. The first version used
@@ -184,6 +192,7 @@ def generate(days: int = 365, *, seed: int = 0, start: float = 1767225600.0,
     out.append(Utterance(CONTRADICTION[0], at(int(days * 0.3), 10.0), "contra_a"))
     out.append(Utterance(CONTRADICTION[1], at(int(days * 0.34), 10.0), "contra_b"))
     truth.contradiction_key = "halloway"
+    truth.contradiction_fact_key = "halloway_deadline"
 
     # --- commitments --------------------------------------------------------
     for i, (opened, closed) in enumerate(COMMITMENTS):
