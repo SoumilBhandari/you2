@@ -265,3 +265,36 @@ def test_gate_separates_signal_from_chatter(store):
     for text in drop:
         s = evaluate(store, text, workspace=recall(store, text))
         assert not s.keep, f"kept chatter: {text!r} -> {s}"
+
+
+def test_loudness_reaches_the_arousal_estimate():
+    """`extract` peak-normalised the whole turn before computing RMS, so
+    `rms_mean` was a crest factor carrying no loudness at all: across a 47x
+    amplitude range it returned 0.5196 every time.
+
+    That is the 0.35-weighted term in `Baseline.arousal`, the largest single
+    weight, so the arousal estimate — and through it salience and initial
+    storage strength — could not tell a shout from a murmur. It contradicted
+    the module's own headline and brain.md §5.1, and no test could see it:
+    the perception tests hand-build `Prosody(...)` and never call `extract`.
+
+    Found by the multi-agent audit.
+    """
+    import numpy as np
+
+    from you2.perception import extract
+
+    sr = 16000
+    t = np.arange(sr) / sr
+    voice = (np.sin(2 * np.pi * 140 * t)
+             * (0.6 + 0.4 * np.sin(2 * np.pi * 3 * t))).astype(np.float32)
+
+    quiet = extract((voice * 0.05).astype(np.float32), sr)
+    loud = extract((voice * 0.90).astype(np.float32), sr)
+
+    assert loud.rms_mean > quiet.rms_mean * 5, (quiet.rms_mean, loud.rms_mean)
+
+    # And everything that is a question about *shape* stays scale-invariant.
+    assert quiet.f0_mean == pytest.approx(loud.f0_mean, rel=0.05)
+    assert quiet.pause_ratio == pytest.approx(loud.pause_ratio, abs=0.05)
+    assert quiet.speech_rate == pytest.approx(loud.speech_rate, rel=0.1)
