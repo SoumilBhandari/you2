@@ -187,7 +187,12 @@ class Brain:
         timing.mark("repair")
 
         # ---- router and memory-answerable ----------------------------------
-        routed: Routed = self.router.route(self.store, text, ws, self.cfg, now)
+        # The exchange still in progress: said, and not yet written, because
+        # an episode is only sealed when the next one starts.
+        pending = self.segmenter.open
+        recent = [t.text for t in pending.turns] if pending is not None else []
+        routed: Routed = self.router.route(self.store, text, ws, self.cfg, now,
+                                           recent=recent)
         timing.mark("route")
         if routed.handled:
             reply.text = routed.text
