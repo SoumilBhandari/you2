@@ -238,3 +238,41 @@ def test_device_commands_are_not_stored_as_experiences(brain):
     brain.say("I had lunch with David Anderson about the Kestrel contract")
     brain.close()
     assert brain.store.count(Kind.EPISODE) == 1
+
+
+def test_the_memory_path_refuses_a_topic_it_has_never_heard_of(brain):
+    """Retrieval always returns *something* — that is what spreading
+    activation does, and ambient cues alone guarantee a non-empty workspace.
+    So "resolvable from the workspace alone" quietly became "answer with
+    whatever is in the workspace", and asking about a project this store had
+    never heard of produced a confident sentence about the user's sister and
+    cilantro.
+
+    Confabulation is the worst failure this device has: stated in the user's
+    own vocabulary, with no model involved to hedge it, on the fastest path
+    in the system. "Nothing on that" is the correct answer, and it is what
+    makes every other answer worth believing.
+    """
+    for said in ("the garden wall needs rebuilding before winter",
+                 "I really cannot stand cilantro",
+                 "my sister Priya is moving to Lisbon"):
+        brain.say(said)
+    brain.close()
+
+    miss = brain.say("what did I say about the Halloway report")
+    assert "nothing" in miss.text.lower(), miss.text
+    assert "cilantro" not in miss.text.lower()
+    assert "priya" not in miss.text.lower()
+
+    hit = brain.say("what did I say about the garden wall")
+    assert "wall" in hit.text.lower(), hit.text
+
+
+def test_a_question_with_no_topic_still_answers_generally(brain):
+    """The guard is on named topics. "What did I say" names nothing, so
+    there is nothing to be off-topic about and it must not be refused."""
+    brain.say("I really cannot stand cilantro")
+    brain.close()
+    out = brain.say("what did I say")
+    assert "nothing" not in out.text.lower(), out.text
+    assert "cilantro" in out.text.lower(), out.text
