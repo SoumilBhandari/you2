@@ -309,11 +309,14 @@ def test_naming_the_thing_beats_being_connected_to_it(brain):
     everything, so used alongside direct matches it let a question about
     Lisbon return the boiler service. Adjacency is the fallback, not a peer.
     """
+    # Spaced, so each becomes its own episode. Said in one breath they are
+    # one episode and answering about either correctly surfaces both.
     for said in ("my sister Priya is moving to Lisbon in the spring",
                  "the boiler service is due in October",
                  "the garden wall needs rebuilding before winter"):
-        brain.say(said)
-    brain.close()
-    out = brain.say("what did I say about Lisbon")
+        brain.say(said, now=brain.clock.now())
+        brain.clock.advance(hours=6)
+    brain.close(brain.clock.now())
+    out = brain.say("what did I say about Lisbon", now=brain.clock.now())
     assert "lisbon" in out.text.lower(), out.text
     assert "boiler" not in out.text.lower(), out.text
