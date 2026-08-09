@@ -48,6 +48,7 @@ class Turn:
     source: str = "speech"
     prosody: Prosody | None = None
     onset_latency: float = 0.0
+    session_id: str | None = None
     woken: bool = False
     """True if this turn required the wake word. A follow-up inside the dwell
     window is engaged conversation, and that is itself a salience signal."""
@@ -118,7 +119,7 @@ class Attention:
         turn = Turn(text=text, at=now, speaker=speaker, source=source,
                     prosody=prosody,
                     onset_latency=max(0.0, now - self.last_activity),
-                    woken=woken)
+                    session_id=self.session_id, woken=woken)
         self.turns.append(turn)
         self.state = State.ATTENDING
         self.last_activity = now
