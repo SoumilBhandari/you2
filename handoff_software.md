@@ -56,8 +56,14 @@ Retrieval over simulated history (`you2 eval --days 730`):
 
 | day | precision | focus | diversity | stale | neurons | live facts |
 |---|---|---|---|---|---|---|
-| 365 | **1.00** | 0.89 | 0.91 | **0.00** | 1,078 | 11 |
-| 730 | **1.00** | 0.91 | 0.68 | **0.00** | 2,077 | 11 |
+| 365 | 0.50 | 0.73 | 0.94 | **0.00** | 1,065 | 7 |
+| 730 | **1.00** | 0.91 | 0.70 | **0.00** | 2,077 | 11 |
+
+**Read that precision column with the caveat two sections down before you
+quote it anywhere.** The day-365 row here used to read 1.00 / 0.89 / 0.91 /
+1,078 / 11, which is a *365-day* run's final row spliced into the two-year
+table — the same mistake the caveat explains. `software/README.md` has always
+had the internally consistent version of this table.
 
 Two years of daily use is **8.9 MB on disk**. Hot-path retrieval is **0.52 ms
 at 100k neurons** and flat across a 10× range. A turn is p50 2.3 ms, p95
@@ -81,6 +87,43 @@ is 1.00 in every variant, so it discriminates nothing — it is a regression
 alarm, not a signal. What moves is *focus*, *diversity*, and **live facts**,
 which should stay small and roughly flat; when it jumped to 90 that was a
 correction hijacking unrelated keys, and nothing else in the suite noticed.
+
+### The precision curve does not measure what the docs say it measures
+
+It is not even the regression alarm the paragraph above calls it. The
+0.50 → 1.00 rise, which `software/README.md` calls *"the one chart that
+matters"* and `harness.py` calls the primary regression test of the project,
+is a property of the corpus generator and not of the store.
+
+`eval/synthetic.py:168` plants every preference change at
+`change_day = int(days * 0.55) + i * 3`, and `truth.probes` asks for the *new*
+values — `oat`, `lumen`, `ashcombe`, `seated`. So before that day the four
+preference probes ask for tokens that have never been uttered, and the store
+cannot answer them no matter how well it works. Four of eight probes fail by
+construction: precision 0.50. After that day, 1.00. The step is the moment the
+generator speaks, not the moment consolidation succeeds.
+
+Two measurements, either one sufficient:
+
+- **The threshold moves with the run length.** Day 180 scores 0.50 inside a
+  365-day run and 1.00 inside a 180-day run — same seed, same day index,
+  opposite result. In a 730-day run the changes land on days 401–410, which
+  is why day 365 above is 0.50 and why the old spliced row was detectable.
+- **It does not need the brain.** With `downscale_rho=1.0`,
+  `prune_weight_min=0.0`, `spread_decay=0.0`, `max_hops=0`, `base_decay=0.0`
+  and `inhibition=0.0` — downscaling, spreading, base-level decay and
+  inhibition all off at once — the curve is unchanged: 0.50, 0.50, 0.50, 1.00.
+
+So the headline chart cannot fall, which means it cannot regress, which means
+it tests nothing. **Stale leakage is the column that was doing the real work
+all along**: it is 0.00 throughout and it *does* break when you remove
+base-level decay (0.00 → 0.50), which is a genuine claim about supersession.
+
+Not fixed here, because the fix is a design decision rather than a patch:
+probe for the value that is *current as of each checkpoint* instead of the
+end-state value, so that early checkpoints ask answerable questions and the
+curve can actually go down when the store gets worse. Whoever does that should
+expect every published precision number in every doc to change.
 
 ---
 
