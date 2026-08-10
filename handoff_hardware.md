@@ -1,6 +1,6 @@
 # Hardware handoff
 
-*The physical half, in detail. Written 9 August 2026.*
+*The physical half, in detail. Written 9 August 2026, current as of 10 August.*
 
 [HANDOFF.md](HANDOFF.md) is the whole project — repo map, run commands, the
 standing traps. **Read that first.** This is the companion for whoever picks up
@@ -9,6 +9,10 @@ for `software/`.
 
 **Nothing here has been built.** Nothing printed, no part ordered, no dimension
 measured with a caliper.
+
+All of it is committed and pushed — `3052567` carried the model, the gates, the
+renders and `hardware/`; `2d847d9` rebuilt the README's hardware section around
+rev D. The working tree should be clean; if it is not, something is in flight.
 
 What it *has* been through is a design pass that treats it as an engineering
 problem rather than a costing exercise, and two mechanical gates that catch the
@@ -31,6 +35,18 @@ The one-line version:
 | [`docs/hardware-plan.md`](docs/hardware-plan.md) | Why rev C failed and what rev D does about it. The reasoning, not the instructions. |
 | [`cad/you2-revD.scad`](cad/you2-revD.scad) | The model. Parametric and self-sizing. |
 | [`hardware/wiring.md`](hardware/wiring.md) · [`hardware/assembly.md`](hardware/assembly.md) | Circuits and grounding · the short-form build order |
+| [`README.md`](README.md) | the hardware section is the two-minute version of all of the above |
+
+**The STLs are not in git** — `.gitignore` has `*.stl`, and they regenerate from
+the model in one command, so there is nothing to go stale:
+
+```bash
+mkdir -p cad/stl/revD && for m in shell faceplate base mic_clamp driver_clamp \
+  ballast_pod ballast_lid mic_gasket panel_gasket speaker_gasket foot; do
+  openscad -o cad/stl/revD/you2-$m.stl --export-format=binstl \
+    -D "MODE=\"$m\"" cad/you2-revD.scad
+done
+```
 
 `cad/you2.scad` is **rev C and superseded**. It is kept because its parameter
 reasoning is the record of how the form was arrived at, not because you should
@@ -71,7 +87,7 @@ fails to render and tells you which constraint broke.
 **674 g** total — 620 g PETG, 54 g TPU. Six plates, every one fitting a
 220 × 220 × 250 bed. Plates 4 and 6 are optional.
 
-24 brass heat-set inserts, 28 screws, 4 standoffs. **≈ $351 in parts.**
+24 brass heat-set inserts, 24 screws, 4 standoffs. **≈ $351 in parts.**
 
 ---
 
