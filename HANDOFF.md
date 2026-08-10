@@ -10,8 +10,9 @@ last session changed and why, and what is still in flight — see
 **[docs/brain.md](docs/brain.md)**, and you should read at least §1 and §17
 before changing anything in `software/`.
 
-**This file is the software half.** The physical object has its own handoff:
-**[HANDOFF_HARDWARE.md](HANDOFF_HARDWARE.md)**.
+For the physical object in the same detail — the enclosure, the print plates,
+the parts list and what will bite you there — see
+**[handoff_hardware.md](handoff_hardware.md)**.
 
 ---
 
@@ -39,7 +40,10 @@ The one-line thesis, and the thing every decision comes back to:
 | `software/` | everything that runs |
 | `software/ui/` | the eye — 800×800 round display, canvas 2D, no dependencies |
 | `deploy/` | `flash.sh` writes an SD card that boots into the eye; `install.sh` converges a running Pi |
-| `cad/`, `diagrams/`, `hardware/` | the physical object |
+| `cad/` | `you2-revD.scad` is the enclosure; `check.py` and `fit.py` are its gates |
+| `hardware/` | wiring, assembly, and what to measure before you buy |
+| `docs/build.html` | **the build document** — every part, plate, fastener and step |
+| `diagrams/` | system architecture and the rev C general-arrangement drawing |
 
 ### `software/you2/` — 14 packages, ~12k lines
 
