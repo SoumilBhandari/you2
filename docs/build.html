@@ -161,7 +161,7 @@ footer{border-top:1px solid var(--rule);padding-top:22px;color:var(--ink-3);font
   wrong, and the enclosure is derived from them — so a bad number does not cause a tolerance problem,
   it causes a reprint of a 392 g part.</p>
   <div class="tw"><table><thead><tr><th>Parameter</th><th class="q">Assumed</th><th>Why it matters</th></tr></thead><tbody>
-   <tr><td><code>mic_circle_d</code></td><td class="q">44.0 mm</td><td><b>Check this before you buy anything else.</b> Seeed describes the array as “44 mm spacing arranged in a circular layout”. If that means the pitch-circle diameter, the design works. If it means the <em>distance between adjacent capsules</em> — which is what “spacing” means on the linear-4 sibling — then the pitch circle is 44 × √2 = <b>62.2 mm</b>, and at that value <b>the model refuses to render</b>: the ports and their membrane counterbores fall 1.7 mm off the edge of a Ø73 PCB. That is not a tolerance problem, it is a different mic layout. Resolve it with calipers or an email before anything else.</td></tr>
+   <tr><td><code>mic_circle_d</code></td><td class="q">44.0 mm</td><td><b>Check this before you buy anything else.</b> Seeed describes the array as “44 mm spacing arranged in a circular layout”. If that means the pitch-circle diameter, the design works. If it means the <em>distance between adjacent capsules</em> — which is what “spacing” means on the linear-4 sibling — then the pitch circle is 44 × √2 = <b>62.2 mm</b>, and at that value <b>the model refuses to render</b>. Precisely: the ports do <em>not</em> fall off the board — the counterbore's outer edge sits 2.3 mm inside a Ø73 PCB — but that breaks the model's 4 mm edge keep-out by 1.7 mm, and 2.3 mm of rim is not enough to bond a Ø6 membrane onto. That is not a tolerance problem, it is a different mic layout. Resolve it with calipers or an email before anything else.</td></tr>
    <tr><td><code>disp_carrier</code></td><td class="q">115.0 mm</td><td>Sets the raked face length, which is 107 mm of the 190 mm height.</td></tr>
    <tr><td><code>disp_panel_d</code> / <code>disp_active</code></td><td class="q">91.5 / 87.6</td><td>Two different numbers, and vendors quote whichever flatters. The bezel overlap <code>(panel − aperture)/2</code> is the only thing retaining the glass; if the panel is smaller than assumed, that goes to zero.</td></tr>
    <tr><td><code>disp_hole_p</code></td><td class="q">105.0 mm</td><td>The carrier's own mounting-hole pitch. The display bolts straight to the faceplate on these.</td></tr>
@@ -232,10 +232,10 @@ footer{border-top:1px solid var(--rule);padding-top:22px;color:var(--ink-3);font
     <tr><td>Speed</td><td>normal</td><td>≤ 25 mm/s — slow enough for a Bowden machine</td></tr>
   </tbody></table></div>
   <div class="note"><strong>What "no supports" actually means here.</strong> I measured it rather than
-  asserting it: in the print orientation, 147 cm² of the shell is bed contact and <b>28 cm² faces
-  downward at more than 60°</b>. Of that, 9 cm² is the 1.2 mm shadow-gap ledge, which any slicer
-  bridges; 7 cm² is the semicircular underside of two internal ⌀8 bosses, which droop a little and
-  are invisible; the rest is scattered features under 1 cm² each. <b>There is no large flat
+  asserting it: measured in the model's own plate-1 orientation, <b>141.6 cm² of the shell is bed
+  contact and 31.2 cm² faces downward at more than 60°</b>. The largest single contribution is
+  9.0 cm² of 1.2 mm shadow-gap ledge, which any slicer bridges; then 8.8 cm² of driver web and
+  driver-seat rails, and 6.3 cm² scattered across the first 20 mm. <b>There is no large flat
   unsupported span anywhere</b> — which is the thing that actually fails. An earlier version had two
   horizontal hoop ribs contributing 32 cm² of unsupported ledge on their own; they are now vertical
   fins, which in this orientation overhang nothing at all.</div>

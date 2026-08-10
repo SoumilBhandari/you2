@@ -18,7 +18,8 @@ import argparse, os, struct, subprocess, sys, tempfile
 from collections import Counter, defaultdict
 
 DEFAULT_PARTS = ["shell", "faceplate", "base", "mic_clamp", "driver_clamp",
-                 "ballast_pod", "ballast_lid", "mic_gasket", "panel_gasket", "foot"]
+                 "ballast_pod", "ballast_lid", "mic_gasket", "panel_gasket",
+                 "speaker_gasket", "foot"]
 
 
 def export(scad, mode, extra):
