@@ -20,7 +20,7 @@ from dataclasses import dataclass
 from typing import Sequence
 
 from ..activation.workspace import Workspace, ago
-from ..clock import DAY, human
+from ..clock import human
 from ..config import BrainConfig
 from ..substrate.neuron import Kind, Neuron
 from ..substrate.store import Store
@@ -52,7 +52,6 @@ class Answer:
     text: str
     kind: str
     cites: list[int]
-    confident: bool = True
 
     def __repr__(self) -> str:
         return f"Answer({self.kind}, {len(self.cites)} cites)"

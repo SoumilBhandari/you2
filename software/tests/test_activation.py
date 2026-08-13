@@ -8,11 +8,11 @@ import time
 import numpy as np
 import pytest
 
-from you2 import DAY, WEEK, YEAR, BrainConfig, SimClock
+from you2 import DAY, BrainConfig, SimClock
 from you2.activation import (
-    Cue, availability, availability_fn, broadcast, build_cues, compete,
-    estimate_tokens, half_life_days, on_retrieval, parse_window, recall,
-    retrieval_strength, spread,
+    Cue, availability, broadcast, build_cues, compete, estimate_tokens,
+    half_life_days, on_retrieval, parse_window, recall, retrieval_strength,
+    spread,
 )
 from you2.substrate import Edge, HashEmbedder, Kind, Neuron, Store
 

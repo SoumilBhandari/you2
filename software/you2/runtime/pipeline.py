@@ -27,7 +27,7 @@ from ..llm.client import LLMUnavailable
 from ..perception import Attention, Prosody, Salience, evaluate
 from ..perception.prosody import Baseline
 from ..recall import reconsolidate
-from ..substrate import Kind, Store
+from ..substrate import Store
 from ..substrate.embed import Embedder
 from . import viz
 from .events import BUS, Bus, State

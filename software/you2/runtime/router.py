@@ -18,7 +18,7 @@ import re
 from dataclasses import dataclass, field
 
 from ..activation.workspace import Workspace
-from ..clock import DAY, HOUR, MINUTE, Clock, human
+from ..clock import HOUR, MINUTE, Clock, human
 from ..config import BrainConfig
 from typing import Sequence
 

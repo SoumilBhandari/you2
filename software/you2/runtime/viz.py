@@ -24,7 +24,7 @@ from ..activation.spread import Cascade
 from ..activation.workspace import Workspace
 from ..substrate.neuron import Kind
 from ..substrate.store import Store
-from ..substrate.synapse import CODE_EDGES, Edge
+from ..substrate.synapse import CODE_EDGES
 
 #: Beyond this the ring is unreadable at 800 px and the animation is mush.
 MAX_NODES = 90

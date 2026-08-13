@@ -100,10 +100,6 @@ def human(t: float) -> str:
     return datetime.fromtimestamp(t, tz=timezone.utc).strftime("%a %d %b %Y %H:%M")
 
 
-def days_between(a: float, b: float) -> float:
-    return (b - a) / DAY
-
-
 def hour_of_day(t: float) -> int:
     return datetime.fromtimestamp(t, tz=timezone.utc).hour
 

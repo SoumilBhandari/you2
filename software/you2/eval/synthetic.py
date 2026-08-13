@@ -26,7 +26,6 @@ feel like it knows me after two years" -- has no benchmark.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Iterator
 
 import numpy as np
 
@@ -271,7 +270,3 @@ def entity_seeds() -> list[dict]:
         out.append({"name": name, "kind": "project", "aliases": aliases,
                     "note": ""})
     return out
-
-
-def stream(utterances: list[Utterance]) -> Iterator[Utterance]:
-    yield from utterances

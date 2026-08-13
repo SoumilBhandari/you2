@@ -36,9 +36,6 @@ ABOUT_WEIGHT = 0.75
 #: Consecutive episodes in a session.
 NEXT_WEIGHT = 0.35
 
-#: Initial association between two entities named in the same breath.
-CO_MENTION = 0.25
-
 DEFAULT_LOOP_DAYS = 14.0
 
 #: How much of a commitment must be echoed for an utterance to close it.

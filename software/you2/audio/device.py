@@ -14,8 +14,6 @@ from __future__ import annotations
 
 import queue
 import sys
-import threading
-import time
 from typing import Any, Callable, Iterator
 
 import numpy as np

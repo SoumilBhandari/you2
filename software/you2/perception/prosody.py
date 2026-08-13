@@ -29,7 +29,6 @@ from dataclasses import asdict, dataclass
 
 import numpy as np
 
-from ..clock import DAY
 from ..substrate.store import Store
 
 FEATURES = ("rms_mean", "rms_var", "f0_mean", "f0_var", "speech_rate",

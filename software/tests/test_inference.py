@@ -6,7 +6,7 @@ import pytest
 
 from you2 import DAY, BrainConfig, SimClock
 from you2.activation import recall
-from you2.inference import attach, cheap, compilation, parsimony, tms
+from you2.inference import attach, compilation, parsimony, tms
 from you2.inference.engine import Inference, contrast, inherit, transitive
 from you2.substrate import Edge, HashEmbedder, Kind, Neuron, Store
 

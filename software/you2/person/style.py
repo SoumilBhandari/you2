@@ -5,9 +5,8 @@ months of one person has no excuse for that.
 
 Nothing here is a personality setting or a persona the user picks. It is
 measured from their own turns — length, hedging, questions, formality,
-profanity, how much they narrate versus state — and turned into instructions
-for the reply. Someone who speaks in six-word sentences should not be answered
-in paragraphs.
+vocabulary — and turned into instructions for the reply. Someone who speaks in
+six-word sentences should not be answered in paragraphs.
 
 Deliberately conservative. Style is the part of a personal model that is most
 tempting to over-fit and most obvious when it is wrong: a device that mimics
@@ -21,7 +20,7 @@ from __future__ import annotations
 
 import re
 import statistics
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from ..clock import DAY
@@ -36,27 +35,19 @@ _WORD = re.compile(r"[A-Za-z']+")
 _HEDGE = re.compile(
     r"\b(maybe|perhaps|probably|possibly|might|sort of|kind of|i think|"
     r"i guess|i suppose|roughly|about|around|fairly|quite)\b", re.I)
-_INTENSE = re.compile(
-    r"\b(really|very|extremely|absolutely|completely|totally|so|utterly)\b", re.I)
 _FORMAL = re.compile(
     r"\b(however|therefore|regarding|furthermore|accordingly|nevertheless|"
     r"consequently|shall|whom)\b", re.I)
 _CASUAL = re.compile(
     r"\b(yeah|yep|nah|gonna|wanna|kinda|dunno|cheers|mate|bloody|damn)\b", re.I)
-_NARRATIVE = re.compile(r"\b(then|after that|so i|and then|eventually|later)\b", re.I)
-
-
 @dataclass
 class Style:
     turns: int = 0
-    words_mean: float = 0.0
     words_median: float = 0.0
     question_rate: float = 0.0
     hedge_rate: float = 0.0
-    intensifier_rate: float = 0.0
     formality: float = 0.0
     """[-1, 1]. Negative is casual, positive is formal."""
-    narrative_rate: float = 0.0
     vocabulary: float = 0.0
     """Type-token ratio over the sample: how varied their word choice is."""
 
@@ -133,12 +124,9 @@ def build(store: Store, cfg: BrainConfig, now: float,
         return out
 
     lengths = [len(_WORD.findall(t)) for t in texts]
-    out.words_mean = statistics.fmean(lengths)
     out.words_median = statistics.median(lengths)
     out.question_rate = sum(1 for t in texts if t.rstrip().endswith("?")) / len(texts)
     out.hedge_rate = sum(1 for t in texts if _HEDGE.search(t)) / len(texts)
-    out.intensifier_rate = sum(1 for t in texts if _INTENSE.search(t)) / len(texts)
-    out.narrative_rate = sum(1 for t in texts if _NARRATIVE.search(t)) / len(texts)
 
     formal = sum(1 for t in texts if _FORMAL.search(t))
     casual = sum(1 for t in texts if _CASUAL.search(t))

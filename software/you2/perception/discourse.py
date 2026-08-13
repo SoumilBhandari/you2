@@ -58,8 +58,6 @@ _EXPLICIT = re.compile(
 
 # --------------------------------------------------------------- disfluencies
 
-_HESITATION = re.compile(r"\b(um|uh|erm|hmm|like|sort of|kind of|i mean)\b")
-_REPAIR = re.compile(r"\b(actually|no wait|sorry|i meant|scratch that|rather)\b")
 
 # ------------------------------------------------------------------- valence
 # A compact lexicon. Crude, and honest about it: it exists so valence
@@ -99,7 +97,6 @@ class Discourse:
     self_reference: float = 0.0
     explicit: float = 0.0
     valence: float = 0.0
-    hesitation: float = 0.0
     is_question: bool = False
     is_closure: bool = False
     commitments: list[Commitment] = field(default_factory=list)
@@ -157,11 +154,6 @@ def valence(text: str) -> float:
         return 0.0
     return max(-1.0, min(1.0, score / (hits ** 0.5)))
 
-
-def hesitation(text: str) -> float:
-    words = max(1, len(_WORD.findall(text.lower())))
-    n = len(_HESITATION.findall(text.lower())) + 2 * len(_REPAIR.findall(text.lower()))
-    return min(1.0, n / (words ** 0.5))
 
 
 def commitments(text: str, now: float) -> list[Commitment]:
@@ -288,7 +280,6 @@ def analyse(text: str, now: float) -> Discourse:
         self_reference=self_reference(text),
         explicit=explicit_marker(text),
         valence=valence(text),
-        hesitation=hesitation(text),
         is_question=text.strip().endswith("?") or bool(
             re.match(r"^\s*(what|when|where|who|why|how|did|do|does|is|are|was|"
                      r"were|can|could|should|would|have|has|tell me|remind me)\b", low)),

@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import pytest
 
-from you2 import DAY, BrainConfig, SimClock
+from you2 import BrainConfig, SimClock
 from you2.activation import recall
 from you2.encoding import Segmenter, encode
 from you2.llm import FakeLLM, rules

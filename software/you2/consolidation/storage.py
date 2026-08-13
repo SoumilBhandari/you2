@@ -25,7 +25,6 @@ from typing import Any
 
 from ..clock import DAY
 from ..config import BrainConfig
-from ..substrate.neuron import Kind, Tier
 from ..substrate.store import Store
 
 #: Order in which pressure is applied. Earliest is least destructive.
