@@ -104,9 +104,6 @@ class Workspace:
     def neurons(self) -> list[Neuron]:
         return [i.neuron for i in self.items]
 
-    def of_kind(self, kind: Kind) -> list[Neuron]:
-        return [i.neuron for i in self.items if i.neuron.kind is kind]
-
     def context(self) -> list[tuple[int, float]]:
         """Carried into the next turn's cue set. This is how follow-ups and
         pronouns work without re-deriving everything."""

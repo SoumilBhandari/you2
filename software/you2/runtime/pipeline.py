@@ -336,11 +336,6 @@ class Brain:
         self.persona = build_person(self.store, self.cfg, now).persona(now)
         return self.profile
 
-    def who(self, now: float | None = None):
-        """The model of the person, with its evidence."""
-        from ..person import build as build_person
-        return build_person(self.store, self.cfg, now or self.clock.now())
-
     # ----------------------------------------------------------------- misc
 
     def why(self, text: str, *, now: float | None = None) -> str:
