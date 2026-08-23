@@ -375,8 +375,14 @@ and no software recovers a saturated capsule.
 The display sets the size. A 115 × 115 mm carrier needs 125 mm of raked face, which sets the height. If a smaller
 You2 is wanted, the display is the lever, not the enclosure.
 
-CAD: [`cad/you2.scad`](../cad/you2.scad), parametric, renders clean, both parts export manifold with
-`Status: NoError`. Drawings in [`diagrams/`](../diagrams/), renders in [`cad/renders/`](../cad/renders/).
+> **This section describes rev C, which was deleted.** The form above — 18°, 134 × 125 × 165 mm, two printed parts —
+> could not be assembled: its floor was sealed by a 0.9 mm membrane, it exported as two disconnected solids, and
+> nothing retained the display or fastened the shell shut. What replaced it is
+> [`cad/you2-revD.scad`](../cad/you2-revD.scad): 22°, 152 × 150 × 192 mm, eleven printed parts, and a separate
+> faceplate so the display never enters the shell. The reasoning is in
+> [`hardware-plan.md`](hardware-plan.md); the parts and steps are in [`build.html`](build.html). The paragraphs
+> above are kept because the *argument* — the display is the lever, vents on the rear only, a sealed driver
+> chamber — survived the revision intact. The numbers did not.
 
 ### 7.2 Board — Raspberry Pi 5
 

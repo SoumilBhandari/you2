@@ -50,12 +50,12 @@ mkdir -p cad/stl/revD && for m in shell faceplate base mic_clamp driver_clamp \
 done
 ```
 
-`cad/you2.scad` is **rev C and superseded**. It is kept because its parameter
-reasoning is the record of how the form was arrived at, not because you should
-build it. **`cad/README.md` describes that file too** — an 18° face angle, a
-rev C print orientation, parameter names that no longer exist, and a six-entry
-MODE table where rev D has sixteen. It is the first thing you open on entering
-`cad/`, and it is wrong. The model's own header comment is the current one.
+**rev C is gone.** `cad/you2.scad`, its eight renders, its two STLs and the
+general-arrangement SVG were deleted, and `cad/README.md` — which documented
+that file, down to an 18° face angle and a six-entry MODE table where rev D has
+sixteen — was rewritten around rev D. It is in git history if you want to read
+how the form was arrived at. Nothing in the working tree describes a model you
+cannot build any more, which was not true before.
 
 ---
 
