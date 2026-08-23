@@ -102,7 +102,7 @@ class LLM:
 
     # ------------------------------------------------------------- transport
 
-    def _post(self, payload: dict[str, Any], *, stream: bool):
+    def _post(self, payload: dict[str, Any]):
         url = self.cfg.llm_base_url.rstrip("/") + "/chat/completions"
         body = json.dumps(payload).encode()
         headers = {"Content-Type": "application/json"}
@@ -142,7 +142,7 @@ class LLM:
         if json_mode:
             payload["response_format"] = {"type": "json_object"}
         t0 = time.monotonic()
-        with self._post(payload, stream=False) as resp:
+        with self._post(payload) as resp:
             data = json.loads(resp.read())
         usage = data.get("usage") or {}
         self.usage.add(usage.get("prompt_tokens", 0),
@@ -173,7 +173,7 @@ class LLM:
         }
         t0 = time.monotonic()
         completion = 0
-        with self._post(payload, stream=True) as resp:
+        with self._post(payload) as resp:
             for raw in resp:
                 line = raw.decode("utf-8", "replace").strip()
                 if not line.startswith("data:"):

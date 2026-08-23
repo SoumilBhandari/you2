@@ -248,7 +248,7 @@ def gap(store: Store, anchors: Sequence[int], cfg: BrainConfig) -> list[Inferenc
             continue
         out.append(Inference(
             claim=(f"there are {len(members)} recorded here but none about "
-                   f"{_missing_hint(schema, members)} — worth asking"),
+                   f"{_missing_hint(schema)} — worth asking"),
             kind="gap", premises=[m.id for m in members[:4]],
             confidence=RELIABILITY["gap"] * min(1.0, len(members) / 6.0),
             cost="graph",
@@ -257,7 +257,7 @@ def gap(store: Store, anchors: Sequence[int], cfg: BrainConfig) -> list[Inferenc
     return out
 
 
-def _missing_hint(schema: Neuron, members: Sequence[Neuron]) -> str:
+def _missing_hint(schema: Neuron) -> str:
     predicate = (schema.key or "").rpartition("/")[2] or "this"
     return f"other {predicate}"
 

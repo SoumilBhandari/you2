@@ -91,7 +91,7 @@ def _outcomes(ep: Neuron) -> list[str]:
     return out
 
 
-def occurrences(store: Store, ep: Neuron, now: float,
+def occurrences(ep: Neuron, now: float,
                 window_days: float) -> list[float]:
     """Every time this episode happened, including recorded repeats.
 
@@ -123,7 +123,7 @@ def detect(store: Store, cfg: BrainConfig, now: float, *,
     # recorded repeats is fifteen events, in fifteen different contexts.
     events: list[tuple[Neuron, float]] = []
     for ep in episodes:
-        for t in occurrences(store, ep, now, window_days):
+        for t in occurrences(ep, now, window_days):
             events.append((ep, t))
     if len(events) < cfg.recurrence_min_count * 3:
         return []

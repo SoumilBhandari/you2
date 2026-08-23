@@ -89,7 +89,7 @@ def answer(store: Store, ws: Workspace, text: str, cfg: BrainConfig,
     if _WORKING_ON.search(text):
         return _open_loops(store, now)
     if _ABOUT_ME.search(text):
-        return _about_me(store, ws, now)
+        return _about_me(store)
     m = _WHO_IS.search(text)
     if m:
         who = _who(store, m.group(1), now)
@@ -134,7 +134,7 @@ def _open_loops(store: Store, now: float) -> Answer:
     return Answer(text, "openloops", [n.id for n in loops[:4]])
 
 
-def _about_me(store: Store, ws: Workspace, now: float) -> Answer:
+def _about_me(store: Store) -> Answer:
     facts = sorted(store.by_kind(Kind.FACT, limit=60, live_only=True),
                    key=lambda n: (-n.confidence, -n.storage_strength))[:5]
     if not facts:
