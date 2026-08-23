@@ -71,7 +71,6 @@ class CueSet:
     mentions: list[int] = field(default_factory=list)
     """Entity neurons named outright. Used for pronoun binding and for the
     memory-answerable fast path."""
-    window: tuple[float, float] | None = None
     text: str = ""
 
     def __len__(self) -> int:
@@ -169,7 +168,6 @@ def build(store: Store, text: str, cfg: BrainConfig, *,
     # 4. Explicit temporal scoping.
     window = parse_window(text, now)
     if window is not None:
-        out.window = window
         start, end = window
         for n in store.between(Kind.EPISODE, start, end, limit=40):
             recency = 1.0 - min(1.0, (now - n.created_at) / (5 * 365 * DAY))

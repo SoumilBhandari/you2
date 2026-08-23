@@ -62,7 +62,6 @@ MIN_TOKENS = 2
 class Verdict:
     keep: bool
     reason: str
-    checked_model: bool = False
 
     def __repr__(self) -> str:
         return f"Verdict({'keep' if self.keep else 'drop'}: {self.reason})"
@@ -121,8 +120,7 @@ def by_model(llm, text: str) -> Verdict:
         out = llm.structured(messages)
         personal = bool(out.get("personal", True))
         return Verdict(personal,
-                       str(out.get("why", "model judgement"))[:80],
-                       checked_model=True)
+                       str(out.get("why", "model judgement"))[:80])
     except (LLMError, TypeError, ValueError, KeyError):
         return Verdict(True, "check failed, keeping")
 
