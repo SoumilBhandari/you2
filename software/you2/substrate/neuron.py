@@ -122,10 +122,6 @@ class Neuron:
         """What actually goes in the prompt. Cold neurons have no content."""
         return self.content or self.gist or ""
 
-    def aliases(self) -> list[str]:
-        raw = self.meta.get("aliases") or []
-        return [str(a) for a in raw]
-
     def citations(self) -> list[int]:
         raw = self.meta.get("cites") or []
         return [int(c) for c in raw]
