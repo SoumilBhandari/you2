@@ -37,10 +37,19 @@ beautifully.
 ```bash
 python3 cad/check.py cad/you2-revD.scad   # every part is ONE connected solid
 python3 cad/fit.py   cad/you2-revD.scad   # no two parts occupy the same space
+python3 cad/docs.py                       # the prose agrees with the model
 ```
 
-Run both before every print, and **add an assert whenever you add a feature
-that depends on a dimension**. There are 15 in the model now; between them and
+The first two begin by proving they can fail — `check.py` on a mesh it knows is
+two pieces, `fit.py` on an overlap of known volume. A gate that has only ever
+passed is not evidence.
+
+The third one exists because neither of the others reads English, and every
+defect found since rev D landed has been a sentence. It derives the numbers from
+the model and errors on any document that disagrees.
+
+Run all three before every print, and **add an assert whenever you add a feature
+that depends on a dimension**. There are 16 in the model now; between them and
 the two geometry gates they caught 23 defects that renders did not show.
 
 ## MODE
