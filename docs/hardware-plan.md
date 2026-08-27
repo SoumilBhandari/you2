@@ -149,7 +149,7 @@ H       = ceil(skirt_h + (disp_carrier + bar_allow + 4 + 2*fp_lip_y
 Change a part dimension and the enclosure re-sizes. Four asserts fail loudly
 if a measurement makes it unbuildable.
 
-**152 × 150 × 189 mm** (203 mm tall with the light bar). Bigger than rev C's
+**152 × 150 × 192 mm** (206 mm tall with the light bar). Bigger than rev C's
 134 × 125 × 165 — which was never a size the parts fitted in.
 
 #### Where the height goes

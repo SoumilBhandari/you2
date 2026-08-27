@@ -129,16 +129,16 @@ footer{border-top:1px solid var(--rule);padding-top:22px;color:var(--ink-3);font
   forward-firing driver; four microphones sit on the top surface as far from that driver as the box
   allows. Everything vents out the back, because a vent on the front or top is a leak path from the
   speaker straight into the microphones.</p>
-  <p>Nothing about the size was chosen. The display carrier sets the face length, the driver box sets
+  <p>Almost nothing about the size was chosen. The display carrier sets the face length, the driver box sets
   the skirt, the mic array sets the depth, and the fastener flange sets the width — the model derives
   the rest and refuses to render if a measurement makes it unbuildable.</p>
   <div class="note"><strong>Three gates run over this model, and they all pass.</strong>
   <code>cad/check.py</code> proves every part is a single connected solid; <code>cad/fit.py</code>
-  proves no two parts occupy the same space; and fourteen asserts inside the model itself check the
+  proves no two parts occupy the same space; and sixteen asserts inside the model itself check the
   things neither can see — that the display posts compress their gasket by 20 % rather than floating
-  above it, that the driver clamp has preload travel, that the microphone array lands on the top face
+  above it, that the driver clamp's webs clear the driver box, that the microphone array lands on the top face
   instead of overhanging its front edge, and that every plate still fits the bed. Between them they
-  caught twenty-three defects that renders did not show — including two Ø8 × 27 mm
+  caught twenty-three defects that renders did not show — including two Ø10 × 24 mm
   horizontal cantilevers that would have needed support towers built from the bare bed inside a
   sealed cavity, and a base-plate boss whose insert bore had no floor because the microSD window ran
   underneath it.</div>
@@ -182,7 +182,7 @@ footer{border-top:1px solid var(--rule);padding-top:22px;color:var(--ink-3);font
 
 <section id="printed">
   <h2>03 / Printed parts</h2>
-  <h3>Ten parts, two materials, six plates</h3>
+  <h3>Eleven parts, two materials, six plates</h3>
   <div class="tw"><table><thead><tr><th>Part</th><th class="q">Qty</th><th class="q">Material</th><th class="q">Plate</th><th class="q">Size mm</th><th class="n">Mass</th></tr></thead><tbody><tr><td><b>shell</b><br><span style='color:var(--ink-2);font-size:13.5px'>The body. Prints top face down.</span></td><td class='q'>1</td><td class='q'>PETG</td><td class='q'>1</td><td class='q'>152×150×192</td><td class='n'>400 g</td></tr><tr><td><b>faceplate</b><br><span style='color:var(--ink-2);font-size:13.5px'>Holds the display and nothing else. The only part that touches the glass.</span></td><td class='q'>1</td><td class='q'>PETG</td><td class='q'>3</td><td class='q'>140×130×10</td><td class='n'>56 g</td></tr><tr><td><b>base</b><br><span style='color:var(--ink-2);font-size:13.5px'>Floor, Pi mount, ballast anchors, microSD slot, core-board tie slots.</span></td><td class='q'>1</td><td class='q'>PETG</td><td class='q'>2</td><td class='q'>145×143×10</td><td class='n'>92 g</td></tr><tr><td><b>mic clamp</b><br><span style='color:var(--ink-2);font-size:13.5px'>Presses the array onto its gasket directly over each of the four capsules.</span></td><td class='q'>1</td><td class='q'>PETG</td><td class='q'>3</td><td class='q'>104×76×3</td><td class='n'>11 g</td></tr><tr><td><b>driver clamp</b><br><span style='color:var(--ink-2);font-size:13.5px'>Presses the driver onto its gasket and seat, with 20 % squash.</span></td><td class='q'>1</td><td class='q'>PETG</td><td class='q'>2</td><td class='q'>78×16×4</td><td class='n'>5 g</td></tr><tr><td><b>ballast pod</b> <span class="tag opt">optional</span><br><span style='color:var(--ink-2);font-size:13.5px'>Optional. 63 cm³ each — ~101 g of dry sand, or ~283 g of steel shot.</span></td><td class='q'>2</td><td class='q'>PETG</td><td class='q'>4</td><td class='q'>22×96×40</td><td class='n'>49 g</td></tr><tr><td><b>ballast lid</b> <span class="tag opt">optional</span><br><span style='color:var(--ink-2);font-size:13.5px'>Press fit. Glue the seam.</span></td><td class='q'>2</td><td class='q'>PETG</td><td class='q'>4</td><td class='q'>18×92×2</td><td class='n'>7 g</td></tr><tr><td><b>mic gasket</b><br><span style='color:var(--ink-2);font-size:13.5px'>Seals four capsules to four ports AND decouples the array from the panel.</span></td><td class='q'>1</td><td class='q'>TPU</td><td class='q'>5</td><td class='q'>73×73×2</td><td class='n'>7 g</td></tr><tr><td><b>panel gasket</b><br><span style='color:var(--ink-2);font-size:13.5px'>Under the display flange, so printed plastic never point-loads the glass.</span></td><td class='q'>1</td><td class='q'>TPU</td><td class='q'>5</td><td class='q'>92×92×1</td><td class='n'>1 g</td></tr><tr><td><b>speaker gasket</b><br><span style='color:var(--ink-2);font-size:13.5px'>Between the driver face and its seat. Without it the driver is hard-mounted to the shell.</span></td><td class='q'>1</td><td class='q'>TPU</td><td class='q'>5</td><td class='q'>56×51×1</td><td class='n'>1 g</td></tr><tr><td><b>foot</b> <span class="tag opt">optional</span><br><span style='color:var(--ink-2);font-size:13.5px'>Optional. Bottom-edge bumper and feet. Silicone bumpers are the alternative.</span></td><td class='q'>1</td><td class='q'>TPU</td><td class='q'>6</td><td class='q'>158×156×8</td><td class='n'>45 g</td></tr></tbody><tfoot><tr><td>All printed parts</td><td class="q"></td><td class="q">PETG + TPU</td><td class="q">6 plates</td><td class="q"></td><td class="n">674 g</td></tr></tfoot></table></div>
   <div class="note"><strong>Ballast, if you want it.</strong> The two pods hold 63 cm³ each. Dry sand is
   ~101 g apiece, steel shot ~283 g. They use volume that is otherwise dead, cost no height, and put the
@@ -203,7 +203,7 @@ footer{border-top:1px solid var(--rule);padding-top:22px;color:var(--ink-3);font
   cavity has no ceiling, the raked face and skirt become steep self-supporting walls, and the four
   microphone ports print crisp against the plate. Print it any other way and you bury support inside a
   sealed box.</p>
-  <p>Bed contact is 145 cm², and the part widens as it rises — the top face is 152 × 92 mm and the
+  <p>Bed contact is 141.6 cm², and the part widens as it rises — the top face is 152 × 92 mm and the
   full section is 152 × 150 mm by two thirds height. Use a brim.</p>
   <div class="trio">
     <figure><div class="plate"><img src="../cad/renders/revD/d-plate1.png" alt="Plate 1 · shell"></div><figcaption><b>Plate 1 · shell</b> — PETG · 400 g · ~31 h · top face down</figcaption></figure>
@@ -234,8 +234,9 @@ footer{border-top:1px solid var(--rule);padding-top:22px;color:var(--ink-3);font
   <div class="note"><strong>What "no supports" actually means here.</strong> I measured it rather than
   asserting it: measured in the model's own plate-1 orientation, <b>141.6 cm² of the shell is bed
   contact and 31.2 cm² faces downward at more than 60°</b>. The largest single contribution is
-  9.0 cm² of 1.2 mm shadow-gap ledge, which any slicer bridges; then 8.8 cm² of driver web and
-  driver-seat rails, and 6.3 cm² scattered across the first 20 mm. <b>There is no large flat
+  7.2 cm² of 1.2 mm shadow-gap ledge, which any slicer bridges; the next largest patch is 2.9 cm²,
+  only seven of the 143 patches exceed 1 cm² at all, and 6.6 cm² of the total falls in the first
+  20 mm of the print. <b>There is no large flat
   unsupported span anywhere</b> — which is the thing that actually fails. An earlier version had two
   horizontal hoop ribs contributing 32 cm² of unsupported ledge on their own; they are now vertical
   fins, which in this orientation overhang nothing at all.</div>
