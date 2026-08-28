@@ -237,11 +237,11 @@ it is untestable until parts exist. Test it on a bench with everything loose,
 before any of this is printed: long response at normal volume, wake word over
 the top from 2 m and from 4 m. If it fails, nothing else here matters.
 
-**Which speaker, exactly.** There is a candidate — Seeed 114993346, named twice
-in `docs/bom.md` — and the model is dimensioned around it. What is missing is a
-decision: the active $248 BOM line says only "small 4 Ω 3 W speaker, $6" with no
-part number, and no target playback level is written down anywhere, so the echo
-budget cannot be computed before ordering. The model assumes a 50 × 45 × 22 mm enclosed box, and its height sets
+**Which speaker, exactly.** There is a candidate — Seeed 114993346 — and the
+model is dimensioned around it. What is missing is a decision: every costing
+that named a part number has now been deleted for buying the wrong microphone
+board, `build.html` carries the part but no target playback level is written
+down anywhere, so the echo budget still cannot be computed before ordering. The model assumes a 50 × 45 × 22 mm enclosed box, and its height sets
 a third of the object's height.
 
 **Whether the reSpeaker is 16 kHz-capped over USB.** If it is, the four-mic
@@ -259,11 +259,12 @@ hour of `vcgencmd get_throttled` settles it.
 for it, which is adequate for a 20 g board but is not a mount. If it moves
 around in practice, it needs bosses.
 
-**Three documents still predate rev D.** `docs/bom.md` buys a two-microphone
-board for a four-microphone enclosure and omits every mechanical item;
-`docs/design.md` §7 describes rev C's form; `cad/README.md` documents the rev C
-model, orientation and parameter names. All three are superseded by
-`docs/build.html` and this file, and none has been rewritten.
+**Two of the three stale documents are fixed.** `cad/README.md` was rewritten
+around rev D. `docs/bom.md` had all five of its costings deleted — every one of
+them bought the two-microphone Lite for a four-microphone enclosure — and what
+remains is the analysis they were wrapped around. `docs/design.md` §7 still
+describes rev C's form, deliberately: the argument survived the revision and
+the numbers did not, and it now says which is which at the top of the section.
 
 `docs/hardware-plan.md` is only *mostly* rev D — its toughness table still
 specifies the aluminium base plate the same document abandons a few lines
