@@ -6,8 +6,8 @@ The software is the product and it works. The hardware is a design document
 that has never met a caliper, and this is the pass that treats it as an
 engineering problem rather than a costing exercise.
 
-Seven independent audits were run over `cad/you2.scad`, `docs/design.md`,
-`docs/bom.md` and the software — CAD geometry, acoustics, thermal, power,
+Seven independent audits were run over rev C of the enclosure (`cad/you2.scad`,
+since deleted), `docs/design.md`, `docs/bom.md` and the software — CAD geometry, acoustics, thermal, power,
 electrical, sourcing, DFM, and ruggedization — and every finding was then given
 to a separate agent whose job was to refute it. 3 were confirmed outright, 54
 were sharpened, 29 were thrown out. What follows is what survived, plus the
@@ -186,14 +186,14 @@ the whole object.** Everything else is 8 % of the height.
 
 | Threat | Measure |
 |---|---|
-| Drop / sweep | TPU 95A shoe wrapping the bottom 8 mm, 3 mm wall, corner bumpers concentric with the plan radii, gyroid infill. ~47 g. Cuts peak force ~3×; more importantly it is the part that fails. |
-| Slide / cable tug | Aluminium base (~190 g) + 60A silicone feet (μ 1.2–1.5 on wood). Panel-mount USB-C in the rear wall; the internal clamp grips the jacket so the Pi's jack never sees a load. |
+| Drop / sweep | TPU 95A shoe wrapping the bottom 5 mm, 3 mm wall, corner bumpers concentric with the plan radii, gyroid infill. 45 g. Cuts peak force ~3×; more importantly it is the part that fails. |
+| Slide / cable tug | **No aluminium.** An earlier draft of this table bought a ~190 g machined base plate and a panel-mount USB-C coupler, both of which this document abandons a few lines above — the build target is one ordinary FDM printer and no machined parts. Mass comes instead from two printed ballast pods filled with dry sand (~200 g, free, and lower down than a base plate would sit), on 60A silicone feet (μ 1.2–1.5 on wood). The mains cable enters through a Ø14 grommet into an open printed saddle that is zip-tied over the jacket, so the Pi's own jack never sees a load. A panel-mount coupler would put two more contact interfaces in series with a 5 A rail feeding a board that is fussy about supply voltage. |
 | Glass | Recessed 2 mm behind the printed bezel — the bezel is always the first thing to touch anything. 1 mm silicone under the panel flange, so it is never point-loaded by printed plastic. |
 | Spill / dust | **Target IP52.** **GORE GAW3343.06.0** ePTFE acoustic vents (ID 3.0 / OD 6.0, 0.31 mm) bonded into the counterbores over the four mic ports: < 2 dB at 1 kHz, IP68 in themselves, ~$0.50 each. *(An earlier draft named GAW331 — that series does not exist in Gore's catalogue.)* Mesh behind the speaker grille. Solid diffuser sealing the light-bar slot if fitted. The shoe drains rather than holding a spill. |
-| Thermal creep | Heat-set inserts (M3 4.6 × 5.8, M2.5 4.0 × 4.0), boss OD ≥ 7.0 mm, 0.4 N·m and 0.25 N·m. **One exception**, named rather than hidden: the four mic posts still self-tap M2.5 into PETG, because a Ø66 pitch circle on a Ø73 PCB has no room for a Ø7.5 boss. Acceptable there because the load is a compressed elastomer, the screws bottom on a hard stop so preload is bounded by geometry, and the top of the box is the coolest part of it. |
+| Thermal creep | Heat-set inserts in three sizes — M3 4.6 × 5.8, M3 4.0 × 4.0, M2.5 3.5 × 5.0 — boss OD ≥ 7.0 mm, 0.4 N·m and 0.25 N·m. **No exception any more.** This table used to name one: four mic posts self-tapping M2.5 into PETG, because a Ø66 pitch circle had no room for a Ø7.5 boss. The array moved to a Ø44 pitch circle and a two-screw clamp ring, which removed the constraint, and **no thread is cut into plastic anywhere in rev D**. Every insert hole is bored *smaller* than the insert's own diameter; bored at the insert diameter there is nothing for the melt to grip and it spins out on first torque. |
 | Backlight wear | The real ageing mechanism is **not** burn-in — it is an IPS panel. It is backlight L70 at **2.3–4.4 years** of 24/7 full drive. Blank after 3 min idle and wake on the wake word; run the idle clock at 15–20 %. Roughly 6× the life, in software. |
 | SD wear + corruption | `synchronous = FULL`, a rotating backup with `PRAGMA integrity_check`, and **at least one generation on a second device**. |
-| Repair | Display: 4 screws, from the front, without opening the box. Everything else: 4 screws from below. Ten screws total. |
+| Repair | Display: 4 screws, from the front, without opening the box. Driver, mic array and Pi: 4 screws from below. Eight screws to reach anything. The whole device is 24 inserts, 24 screws and 4 standoffs — the per-joint list is in [`../hardware/assembly.md`](../hardware/assembly.md). |
 
 ---
 
@@ -203,17 +203,16 @@ the whole object.** Everything else is 8 % of the height.
 
 | | |
 |---|---|
-| Core electronics (Pi 2 GB, display, FFC, **Flex 4-mic**, PSU, SD, heatsink, driver) | **$239** |
+| Core electronics (Pi 2 GB, display, FFC, **Flex 4-mic**, PSU, SD, heatsink, driver, backup stick) | **$251** |
 | Mechanical (filament ×2 spools, inserts, fasteners, gaskets, membranes, grommet) | **$100** |
-| Off-card backup stick | **$6** |
-| **Total, no light bar** | **≈ $339** |
-| with the light bar (sticks, shifter, cap, fuse, diffuser) | ≈ $357 |
+| **Total, no light bar** | **≈ $351** |
+| with the light bar (sticks, shifter, cap, fuse, diffuser) | ≈ $369 |
 
 Plus shipping from three or four vendors — realistically **≈ $400 delivered**.
 
-The biggest single correction is the mic array: the BOM buys a **2-mic
-rectangular reSpeaker Lite at $25** while the CAD, the README and `design.md`
-all describe a **4-mic 73 mm round Flex at $55**. Those are not interchangeable
+The biggest single correction is the mic array: every costing this project ever
+wrote bought a **2-mic rectangular reSpeaker Lite at $25** while the CAD, the
+README and `design.md` all describe a **4-mic 73 mm round Flex at $55**. Those are not interchangeable
 and the enclosure only works with one of them.
 
 Deleted: the second 5 V supply. Measured against the shipped palette in

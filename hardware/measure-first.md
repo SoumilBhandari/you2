@@ -5,7 +5,7 @@ listing. Vendor listings for these parts are routinely wrong, and several of
 them are wrong in ways that scrap a print.
 
 **Do not print the shell until this table is filled in.** It is a ~30 h print
-and 430 g of filament. The faceplate is 56 g and about 4 h, so iterate on that.
+and 400 g of filament. The faceplate is 56 g and about 4 h, so iterate on that.
 
 The parameters below are the ones the enclosure actually derives from. Change
 them and the model re-sizes itself — that is deliberate, and it is the main
