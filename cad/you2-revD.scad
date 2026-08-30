@@ -45,7 +45,13 @@ BALLAST  = true;
 BED_X = 220; BED_Y = 220; BED_Z = 250;
 
 /* [Overall form] ----------------------------------------------------------- */
-W            = 152;   // set by the faceplate screw flange, not by the display
+// Both are hand-picked constants that the asserts GUARD rather than derive.
+// The light bar lengthens the faceplate, which needs depth for the array AND
+// width for the side lip: at W = 152 with LED_BAR the flange margin falls to
+// 13.5 mm against an assert threshold of 13, the top-front corner of the rebate
+// pinches against the plan roll, and the shell exports with a 1.7 x 1.2 x 2.0 mm
+// chip floating at each side. The asserts pass. check.py is what catches it.
+W            = LED_BAR ? 158 : 152;
 D            = LED_BAR ? 158 : 150;
 wall         = 3.0;
 face_wall    = 4.6;
