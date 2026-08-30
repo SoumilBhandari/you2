@@ -19,9 +19,15 @@ Usage:
 
 A result under 0.01 cm3 is clear. Between 0.01 and 0.05 is a coplanar contact —
 two faces touching, the way a gasket seat or a screw boss is meant to. Above
-that is real interference. In practice no pair in this suite has ever landed in
-the contact band: the parts here meet across gaskets, which are separate solids,
-so every honest answer is either 0.000 or a defect.
+that is real interference.
+
+Exactly one pair lands in the contact band, and it is worth knowing why before
+you assume a number in it is a problem. The faceplate sits in a rebate whose
+floor is coplanar with the plate's back, and once both outlines took a 16 mm
+corner radius the tessellation of those two arcs began to overlap: 0.015 cm3,
+which is 15 mm3 spread over a 4310 mm2 seat, or 0.0035 mm thick. That is the
+band doing its job. Everything else here meets across a gasket — a separate
+solid — so its honest answer is 0.000.
 
 Every pair in this suite currently reads 0.000, which is the answer a completely
 broken harness also gives. So it runs two controls first: an empty model, which

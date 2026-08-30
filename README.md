@@ -169,7 +169,9 @@ A wedge. Angled face so the screen looks at you rather than the ceiling, microph
 
 The front is one big round display — the "eye" — sitting 2.2 mm behind a chamfered bezel, so the rim is always the first thing to touch anything.
 
-**Almost nothing about the size was chosen.** The display carrier sets the face length, the driver box sets the skirt, and the mic array sets the depth — the height is derived, not picked. Width and depth are the exception: they are hand-typed constants that the asserts *guard* rather than derive, and they are the two numbers to raise when one fires. Change a part dimension at the top of the model and the enclosure re-sizes itself; if a measurement makes it unbuildable, 16 asserts fail with the reason rather than rendering a shell you cannot assemble.
+Everything else on the object is structural, and only one number in the model is purely about how it looks: `fp_r`, the corner radius of the faceplate and the rebate it drops into. At 6 mm the face was a hard-cornered rectangle carrying a circle, inside the shell's own rectangle — three outlines arguing. At 16 the plate reads as one soft shape around the eye and the four exposed screws land on the curve rather than in square corners. It cannot go higher: at 17 the corner arc leaves under three perimeters of material outboard of a screw counterbore, and an assert says so with the shortfall in millimetres.
+
+**Almost nothing about the size was chosen.** The display carrier sets the face length, the driver box sets the skirt, and the mic array sets the depth — the height is derived, not picked. Width and depth are the exception: they are hand-typed constants that the asserts *guard* rather than derive, and they are the two numbers to raise when one fires. Change a part dimension at the top of the model and the enclosure re-sizes itself; if a measurement makes it unbuildable, 17 asserts fail with the reason rather than rendering a shell you cannot assemble.
 
 | | |
 |---|---|
@@ -210,7 +212,7 @@ python3 cad/check.py cad/you2-revD.scad   # every part is ONE connected solid
 python3 cad/fit.py   cad/you2-revD.scad   # no two parts share space
 ```
 
-Between them and 16 in-model asserts they caught **23 defects renders did not show** — a microphone array overhanging the top face by 2 mm, a driver that never touched its own seal, eight insert holes bored at the insert's own diameter, and two Ø10 × 24 mm horizontal cantilevers that would have needed support towers built from the bare bed inside a sealed cavity.
+Between them and 17 in-model asserts they caught **23 defects renders did not show** — a microphone array overhanging the top face by 2 mm, a driver that never touched its own seal, eight insert holes bored at the insert's own diameter, and two Ø10 × 24 mm horizontal cantilevers that would have needed support towers built from the bare bed inside a sealed cavity.
 
 Model: [cad/you2-revD.scad](cad/you2-revD.scad) · Renders: [cad/renders/revD/](cad/renders/revD/) · **Build document: [docs/build.html](docs/build.html)**
 
@@ -240,7 +242,7 @@ The LLM runs on an API (Groq's free tier covers ~480× this workload), which del
 with it the expensive half of the hardware. A Pi 5 **2 GB** at $65 is the same quad Cortex-A76 silicon as the $175 8 GB
 board; the RAM was only ever there to hold a model that now lives elsewhere.
 
-The enclosure is gated rather than merely rendered — every part exports as a single connected solid, no two parts occupy the same space, and 16 asserts check the things neither gate can see. **That still is not a claim that it fits.** Every dimension came from a datasheet, and vendor listings for these parts are routinely wrong.
+The enclosure is gated rather than merely rendered — every part exports as a single connected solid, no two parts occupy the same space, and 17 asserts check the things neither gate can see. **That still is not a claim that it fits.** Every dimension came from a datasheet, and vendor listings for these parts are routinely wrong.
 
 **One number can invalidate the design.** Seeed describes the mic array as *"44 mm spacing arranged in a circular layout"*. If that is the pitch-circle diameter, this works. If it means the distance between adjacent capsules — which is what "spacing" means on the linear-4 sibling — the pitch circle is 62.2 mm, and at that value the model refuses to render. Not because the ports fall off the board: the membrane's outer edge still sits 2.3 mm inside a Ø73 PCB. Because 2.3 mm of rim is not a bond line for an adhesive-backed Ø6 vent, and the model asserts a 4 mm land. Settle it with calipers before ordering: [hardware/measure-first.md](hardware/measure-first.md).
 
