@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+*.stl
+*.3mf
+*.gcode
+models/
+data/
+memory.db
+.DS_Store
