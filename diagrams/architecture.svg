@@ -1,0 +1,193 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1160 780" width="1160" height="780" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">
+  <style>
+    :root { color-scheme: light dark; }
+    .bg    { fill: #fbfbfa; }
+    .box   { fill: #ffffff; stroke: #1a1a1a; stroke-width: 1.6; }
+    .hot   { fill: #fff3e0; stroke: #e8a13a; stroke-width: 2; }
+    .mem   { fill: #eef4ff; stroke: #3b6ea5; stroke-width: 1.8; }
+    .io    { fill: #1a1a1a; stroke: none; }
+    .flow  { stroke: #1a1a1a; stroke-width: 1.8; fill: none; }
+    .slow  { stroke: #3b6ea5; stroke-width: 1.6; fill: none; stroke-dasharray: 7 5; }
+    .t     { fill: #1a1a1a; font-size: 13px; }
+    .tb    { fill: #1a1a1a; font-size: 14px; font-weight: 700; letter-spacing: .5px; }
+    .ts    { fill: #6a6a6a; font-size: 11px; }
+    .tw    { fill: #fbfbfa; font-size: 13px; font-weight: 700; }
+    .ttl   { fill: #1a1a1a; font-size: 22px; letter-spacing: 3px; }
+    .sub   { fill: #6a6a6a; font-size: 12px; letter-spacing: 1.5px; }
+    .frame { fill: none; stroke: #1a1a1a; stroke-width: 1.4; }
+    .barA  { fill: #1a1a1a; } .barB { fill: #e8a13a; } .barC { fill: #3b6ea5; }
+    @media (prefers-color-scheme: dark) {
+      .bg{fill:#101215} .box{fill:#1b1f24;stroke:#e7e7e5} .hot{fill:#2e2415;stroke:#e8a13a}
+      .mem{fill:#16202c;stroke:#6fa8dc} .io{fill:#e7e7e5} .flow{stroke:#e7e7e5}
+      .slow{stroke:#6fa8dc} .t,.tb,.ttl{fill:#e7e7e5} .ts,.sub{fill:#9aa0a6}
+      .tw{fill:#101215} .frame{stroke:#e7e7e5} .barA{fill:#e7e7e5}
+    }
+    :root[data-theme="dark"] .bg{fill:#101215}
+    :root[data-theme="dark"] .box{fill:#1b1f24;stroke:#e7e7e5}
+    :root[data-theme="dark"] .hot{fill:#2e2415}
+    :root[data-theme="dark"] .mem{fill:#16202c;stroke:#6fa8dc}
+    :root[data-theme="dark"] .io{fill:#e7e7e5}
+    :root[data-theme="dark"] .flow{stroke:#e7e7e5}
+    :root[data-theme="dark"] .slow{stroke:#6fa8dc}
+    :root[data-theme="dark"] .t,:root[data-theme="dark"] .tb,:root[data-theme="dark"] .ttl{fill:#e7e7e5}
+    :root[data-theme="dark"] .ts,:root[data-theme="dark"] .sub{fill:#9aa0a6}
+    :root[data-theme="dark"] .tw{fill:#101215}
+    :root[data-theme="dark"] .frame{stroke:#e7e7e5}
+    :root[data-theme="dark"] .barA{fill:#e7e7e5}
+    :root[data-theme="light"] .bg{fill:#fbfbfa}
+  </style>
+  <defs>
+    <marker id="ar" markerWidth="10" markerHeight="10" refX="9" refY="3.2" orient="auto">
+      <path d="M0,0 L9,3.2 L0,6.4 z" fill="#1a1a1a"/>
+    </marker>
+    <marker id="arb" markerWidth="10" markerHeight="10" refX="9" refY="3.2" orient="auto">
+      <path d="M0,0 L9,3.2 L0,6.4 z" fill="#3b6ea5"/>
+    </marker>
+  </defs>
+
+  <rect class="bg" width="1160" height="780"/>
+
+  <text class="ttl" x="52" y="52">Y O U 2</text>
+  <text class="sub" x="52" y="72">SIGNAL FLOW · EVERYTHING BELOW RUNS ON-DEVICE</text>
+  <line class="frame" x1="52" y1="88" x2="1108" y2="88"/>
+
+  <!-- ══════ HOT PATH ══════ -->
+  <text class="sub" x="52" y="126">HOT PATH — must complete in under ~1 s or the device feels broken</text>
+
+  <g transform="translate(52,146)">
+    <!-- mic -->
+    <rect class="io" x="0" y="14" width="96" height="62" rx="8"/>
+    <text class="tw" x="48" y="42" text-anchor="middle">MIC ×4</text>
+    <text class="tw" x="48" y="60" text-anchor="middle" font-size="10">ARRAY</text>
+
+    <line class="flow" x1="96" y1="45" x2="132" y2="45" marker-end="url(#ar)"/>
+
+    <!-- always on -->
+    <rect class="box" x="136" y="0" width="150" height="90" rx="8"/>
+    <text class="tb" x="211" y="26" text-anchor="middle">WAKE + VAD</text>
+    <text class="ts" x="211" y="46" text-anchor="middle">openWakeWord</text>
+    <text class="ts" x="211" y="62" text-anchor="middle">Silero VAD</text>
+    <text class="ts" x="211" y="80" text-anchor="middle">always on · &lt;1 % CPU</text>
+
+    <line class="flow" x1="286" y1="45" x2="322" y2="45" marker-end="url(#ar)"/>
+
+    <rect class="hot" x="326" y="0" width="150" height="90" rx="8"/>
+    <text class="tb" x="401" y="26" text-anchor="middle">ASR</text>
+    <text class="ts" x="401" y="46" text-anchor="middle">Moonshine /</text>
+    <text class="ts" x="401" y="62" text-anchor="middle">faster-whisper</text>
+    <text class="ts" x="401" y="80" text-anchor="middle">streaming</text>
+
+    <line class="flow" x1="476" y1="45" x2="512" y2="45" marker-end="url(#ar)"/>
+
+    <rect class="hot" x="516" y="0" width="164" height="90" rx="8"/>
+    <text class="tb" x="598" y="26" text-anchor="middle">LLM</text>
+    <text class="ts" x="598" y="46" text-anchor="middle">3–8 B quantised</text>
+    <text class="ts" x="598" y="62" text-anchor="middle">local or LAN</text>
+    <text class="ts" x="598" y="80" text-anchor="middle">first token &lt; 300 ms</text>
+
+    <line class="flow" x1="680" y1="45" x2="716" y2="45" marker-end="url(#ar)"/>
+
+    <rect class="hot" x="720" y="0" width="150" height="90" rx="8"/>
+    <text class="tb" x="795" y="26" text-anchor="middle">TTS</text>
+    <text class="ts" x="795" y="46" text-anchor="middle">Piper / Kokoro</text>
+    <text class="ts" x="795" y="62" text-anchor="middle">streaming out</text>
+    <text class="ts" x="795" y="80" text-anchor="middle">sentence by sentence</text>
+
+    <line class="flow" x1="870" y1="45" x2="906" y2="45" marker-end="url(#ar)"/>
+
+    <rect class="io" x="910" y="14" width="96" height="62" rx="8"/>
+    <text class="tw" x="958" y="42" text-anchor="middle">SPEAKER</text>
+    <text class="tw" x="958" y="60" text-anchor="middle" font-size="10">+ AEC</text>
+
+    <!-- echo cancellation feedback -->
+    <path class="flow" d="M 958,76 L 958,112 L 211,112 L 211,90" stroke-dasharray="6 4" marker-end="url(#ar)" opacity=".6"/>
+    <text class="ts" x="584" y="128" text-anchor="middle">acoustic echo cancellation — the device must not hear itself</text>
+  </g>
+
+  <!-- ══════ MEMORY ══════ -->
+  <line class="frame" x1="52" y1="326" x2="1108" y2="326"/>
+  <text class="sub" x="52" y="360">COLD PATH — this is the actual product</text>
+
+  <g transform="translate(52,378)">
+    <rect class="mem" x="180" y="0" width="176" height="84" rx="8"/>
+    <text class="tb" x="268" y="26" text-anchor="middle">CAPTURE</text>
+    <text class="ts" x="268" y="46" text-anchor="middle">every turn, verbatim</text>
+    <text class="ts" x="268" y="64" text-anchor="middle">+ timestamp + context</text>
+
+    <line class="slow" x1="356" y1="42" x2="392" y2="42" marker-end="url(#arb)"/>
+
+    <rect class="mem" x="396" y="0" width="176" height="84" rx="8"/>
+    <text class="tb" x="484" y="26" text-anchor="middle">SALIENCE</text>
+    <text class="ts" x="484" y="46" text-anchor="middle">is this worth keeping?</text>
+    <text class="ts" x="484" y="64" text-anchor="middle">most of it is not</text>
+
+    <line class="slow" x1="572" y1="42" x2="608" y2="42" marker-end="url(#arb)"/>
+
+    <rect class="mem" x="612" y="0" width="196" height="84" rx="8"/>
+    <text class="tb" x="710" y="26" text-anchor="middle">CONSOLIDATE</text>
+    <text class="ts" x="710" y="46" text-anchor="middle">nightly, while idle</text>
+    <text class="ts" x="710" y="64" text-anchor="middle">summarise · link · supersede</text>
+
+    <!-- stores -->
+    <g transform="translate(0,132)">
+      <rect class="box" x="180" y="0" width="176" height="72" rx="8"/>
+      <text class="tb" x="268" y="26" text-anchor="middle">EPISODIC</text>
+      <text class="ts" x="268" y="46" text-anchor="middle">what was said, when</text>
+      <text class="ts" x="268" y="62" text-anchor="middle">sqlite + embeddings</text>
+
+      <rect class="box" x="396" y="0" width="176" height="72" rx="8"/>
+      <text class="tb" x="484" y="26" text-anchor="middle">SEMANTIC</text>
+      <text class="ts" x="484" y="46" text-anchor="middle">durable facts about you</text>
+      <text class="ts" x="484" y="62" text-anchor="middle">versioned · supersedable</text>
+
+      <rect class="box" x="612" y="0" width="196" height="72" rx="8"/>
+      <text class="tb" x="710" y="26" text-anchor="middle">GRAPH</text>
+      <text class="ts" x="710" y="46" text-anchor="middle">people · projects · things</text>
+      <text class="ts" x="710" y="62" text-anchor="middle">and how they connect</text>
+    </g>
+
+    <line class="slow" x1="268" y1="84" x2="268" y2="128" marker-end="url(#arb)"/>
+    <line class="slow" x1="484" y1="84" x2="484" y2="128" marker-end="url(#arb)"/>
+    <line class="slow" x1="710" y1="84" x2="710" y2="128" marker-end="url(#arb)"/>
+
+    <!-- retrieval back into the hot path -->
+    <path class="slow" d="M 872,168 L 924,168 L 924,-244 L 630,-244" marker-end="url(#arb)"/>
+    <text class="ts" x="938" y="60">retrieved into</text>
+    <text class="ts" x="938" y="76">the LLM context</text>
+    <text class="ts" x="938" y="92">at query time</text>
+
+    <text class="ts" x="0" y="42">RAW AUDIO</text>
+    <text class="ts" x="0" y="58">NEVER LEAVES</text>
+    <text class="ts" x="0" y="74">THE DEVICE</text>
+    <line class="slow" x1="112" y1="42" x2="172" y2="42" marker-end="url(#arb)"/>
+  </g>
+
+  <!-- ══════ LATENCY BUDGET ══════ -->
+  <line class="frame" x1="52" y1="638" x2="1108" y2="638"/>
+  <text class="sub" x="52" y="666">LATENCY BUDGET — overlap everything, or you lose</text>
+
+  <g transform="translate(52,684)">
+    <!-- naive -->
+    <text class="ts" x="0" y="14">SEQUENTIAL</text>
+    <rect class="barA" x="110" y="4" width="120" height="13" rx="2" opacity=".85"/>
+    <rect class="barB" x="232" y="4" width="150" height="13" rx="2"/>
+    <rect class="barC" x="384" y="4" width="290" height="13" rx="2"/>
+    <rect class="barA" x="676" y="4" width="120" height="13" rx="2" opacity=".5"/>
+    <text class="ts" x="806" y="14">≈ 1.9 s — feels broken</text>
+
+    <!-- streamed -->
+    <text class="ts" x="0" y="46">OVERLAPPED</text>
+    <rect class="barA" x="110" y="36" width="120" height="13" rx="2" opacity=".85"/>
+    <rect class="barB" x="180" y="36" width="150" height="13" rx="2" opacity=".9"/>
+    <rect class="barC" x="300" y="36" width="200" height="13" rx="2" opacity=".9"/>
+    <rect class="barA" x="430" y="36" width="120" height="13" rx="2" opacity=".5"/>
+    <text class="ts" x="806" y="46">≈ 0.8 s — feels alive</text>
+
+    <g transform="translate(110,64)">
+      <rect class="barA" x="0" y="0" width="11" height="11" rx="2" opacity=".85"/><text class="ts" x="18" y="10">VAD endpoint</text>
+      <rect class="barB" x="120" y="0" width="11" height="11" rx="2"/><text class="ts" x="138" y="10">ASR</text>
+      <rect class="barC" x="200" y="0" width="11" height="11" rx="2"/><text class="ts" x="218" y="10">LLM</text>
+      <rect class="barA" x="280" y="0" width="11" height="11" rx="2" opacity=".5"/><text class="ts" x="298" y="10">TTS + playout</text>
+    </g>
+  </g>
+</svg>
