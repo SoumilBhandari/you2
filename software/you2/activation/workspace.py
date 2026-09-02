@@ -26,6 +26,8 @@ from typing import Sequence
 
 from ..clock import DAY, iso
 from ..config import BrainConfig
+from typing import Any
+
 from ..substrate.neuron import BLOCK_ORDER, Kind, Neuron, Tier
 from ..substrate.store import Store
 from .baselevel import availability, on_retrieval
@@ -41,6 +43,10 @@ CANDIDATE_POOL = 60
 #: low end is used so the estimate errs toward over-counting and the real
 #: budget is never exceeded. On device, swap in the model's own tokeniser.
 CHARS_PER_TOKEN = 3.6
+
+#: Utility multiplier for an episode whose claim has since been superseded.
+#: Not zero: "what did I used to prefer" has to still work.
+OUTDATED_PENALTY = 0.20
 
 _HEADERS: dict[Kind, str] = {
     Kind.FACT: "known",
@@ -90,6 +96,9 @@ class Workspace:
     cues: CueSet | None = None
     suppressed: list[tuple[int, int, float]] = field(default_factory=list)
     now: float = 0.0
+    inferences: list[Any] = field(default_factory=list)
+    """Derived claims riding along, from inference.engine.cheap(). Rendered in
+    their own labelled section -- see block()."""
 
     def ids(self) -> list[int]:
         return [i.neuron.id for i in self.items]
@@ -124,6 +133,12 @@ class Workspace:
                 continue
             out.append(f"{_HEADERS[kind]}:")
             out.extend(f"  - {i.line}" for i in group)
+        if self.inferences:
+            # Labelled, always. Without this the model asserts an inference
+            # back to the person as something they told it, and that is the
+            # fastest way to lose their trust in the whole device.
+            out.append("inferred (not stated — say so if you use it):")
+            out.extend(f"  - {i.render()}" for i in self.inferences)
         return "\n".join(out)
 
     def explain(self) -> str:
@@ -162,6 +177,12 @@ def render(neuron: Neuron, now: float) -> str:
     """One line per neuron. Terse: every character is budget."""
     text = neuron.text().strip().replace("\n", " ")
     if neuron.kind is Kind.FACT:
+        if neuron.meta.get("derived"):
+            # A compiled inference rendered like a stated fact is
+            # indistinguishable from something the person said, which is
+            # exactly the trust failure the "inferred" section exists to
+            # prevent. Compilation must not be a loophole around the label.
+            return f"(inferred) {text} [{neuron.confidence:.0%}]"
         since = neuron.valid_at or neuron.created_at
         return f"{text} [{ago(now - since)}]"
     if neuron.kind is Kind.LOOP:
@@ -214,7 +235,14 @@ def compete(store: Store, cascade: Cascade, cfg: BrainConfig, *,
         if not line.strip():
             continue
         rendered[nid] = (line, estimate_tokens(line) + 3)   # +3 for "  - \n"
-        scores[nid] = activation * n.utility
+        utility = n.utility
+        if not include_superseded and n.meta.get("outdated_by"):
+            # An episode whose extracted claim has since been superseded.
+            # Still true, still live, and no longer what the person thinks --
+            # so it is heavily penalised rather than excluded, and an
+            # explicitly historical query can still reach it.
+            utility *= OUTDATED_PENALTY
+        scores[nid] = activation * utility
     ws.considered = len(scores)
 
     while scores and len(ws.items) < cfg.workspace_max_items:
