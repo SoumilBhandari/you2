@@ -25,7 +25,7 @@ __all__ = [
 
 def recall(store: Store, text: str, cfg: BrainConfig | None = None, *,
            context=(), now: float | None = None, budget: int | None = None,
-           learn: bool = False) -> Workspace:
+           learn: bool = False, infer: bool = False) -> Workspace:
     """Cue -> spread -> compete, in one call.
 
     The whole hot-path retrieval. `learn=False` by default because retrieval
@@ -38,6 +38,9 @@ def recall(store: Store, text: str, cfg: BrainConfig | None = None, *,
     cascade = spread(store.graph, cues.cues, cfg,
                      availability=availability_fn(store, cfg, now))
     ws = compete(store, cascade, cfg, cues=cues, now=now, budget=budget)
+    if infer:
+        from ..inference import attach
+        attach(store, ws, cfg, now)
     if learn:
         broadcast(store, ws, cfg, now=now)
     return ws
