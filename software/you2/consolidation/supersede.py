@@ -121,6 +121,11 @@ def resolve(store: Store, llm: Model | None, key: str, text: str,
         existing.superseded_by = fact.id
         store.save(existing)
         store.connect(fact.id, existing.id, Edge.SUPERSEDES, SUPERSEDE_WEIGHT, at=now)
+        _outdate_sources(store, existing, fact.id, now)
+        # Anything concluded from the old fact is now a confident, well-cited,
+        # obsolete claim -- the worst kind, because it is invisible.
+        from ..inference.tms import invalidate
+        invalidate(store, existing.id, now, reason="premise_superseded")
         return Resolution(rel, fact=fact, replaced=existing, why=why)
 
     if rel == "conflict":
@@ -144,6 +149,35 @@ def resolve(store: Store, llm: Model | None, key: str, text: str,
     return Resolution("distinct",
                       fact=_create(store, alt, text, cites, confidence, now),
                       why=why)
+
+
+def _outdate_sources(store: Store, old: Neuron, replacement_id: int,
+                     now: float) -> None:
+    """Inhibit the episodes that produced a superseded fact.
+
+    Superseding the fact is not enough. The episode where the person said
+    "I prefer dairy milk" is still a true record of something that happened,
+    so it stays live and stays retrievable -- and then it lands in the memory
+    block right next to "prefers oat milk", which is exactly the confusion
+    supersession exists to prevent. Measured on synthetic history, this was
+    half the probes leaking a stale value with the fact layer working
+    perfectly.
+
+    So the trace stays and the pathway is inhibited: the episode keeps its
+    content and gets a retrieval penalty, applied in the workspace
+    competition. It loses to the current fact but is still findable by an
+    explicitly historical query -- which is retrieval-induced forgetting,
+    and is what actually happens to superseded autobiographical detail.
+    """
+    for episode_id in old.citations():
+        episode = store.get(episode_id)
+        if episode is None or episode.kind is not Kind.EPISODE:
+            continue
+        episode.meta["outdated_by"] = replacement_id
+        episode.meta["outdated_at"] = now
+        store.save(episode)
+        store.connect(replacement_id, episode.id, Edge.SUPERSEDES,
+                      SUPERSEDE_WEIGHT * 0.8, at=now)
 
 
 def _judge(llm: Model | None, existing: Neuron, text: str,
