@@ -126,7 +126,13 @@ class Truth:
     """key -> when the replacement was stated. Before that instant the old
     value is *current*, and counting it as leakage measures nothing."""
     probes: list[tuple[str, str]] = field(default_factory=list)
-    """(query, distinctive token that a correct answer contains)."""
+    """(query, distinctive token that a correct answer contains). These are
+    answerable from the nightly profile, so they measure the system end to
+    end and are deliberately NOT sensitive to retrieval quality."""
+    hard_probes: list[tuple[str, str]] = field(default_factory=list)
+    """(query, token that an on-topic retrieved item contains). Episodic and
+    relational, so the profile cannot answer them and only the cascade can.
+    These are what the ablations move."""
     recurrence: str = ""
     bridge: tuple[str, str] = ("", "")
     contradiction_key: str = ""
@@ -237,6 +243,19 @@ def generate(days: int = 365, *, seed: int = 0, start: float = 1767225600.0,
         ("what is happening with the Kestrel migration", "kestrel"),
         ("tell me about the garden wall", "wall"),
         ("what about the Halloway report", "halloway"),
+    ]
+    # Deliberately not answerable from the profile: the profile holds durable
+    # facts, and these ask about episodes, people and projects. Without a set
+    # like this every ablation scores 1.00 and the harness says nothing.
+    truth.hard_probes = [
+        ("what has been going on with the Kestrel migration", "kestrel"),
+        ("tell me about the garden wall", "wall"),
+        ("what is happening with the Halloway report", "halloway"),
+        ("how are things with David Anderson", "anderson"),
+        ("what about Priya Raman", "priya"),
+        ("anything about Marta Nilsen", "marta"),
+        ("what happened with the planning meeting", "meeting"),
+        ("what did I say about the boiler", "boiler"),
     ]
     return out, truth
 
