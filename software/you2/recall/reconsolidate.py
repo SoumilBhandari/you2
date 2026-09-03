@@ -23,6 +23,8 @@ from ..config import BrainConfig
 from ..consolidation.supersede import Resolution, resolve
 from ..substrate.neuron import Kind, Neuron
 from ..substrate.store import Store
+from ..substrate.synapse import Edge
+from ..inference.tms import invalidate
 
 _CORRECTION = re.compile(
     r"\b(no,?\s+(that|it|i)|that'?s (not|wrong|out of date|old|no longer)|"
@@ -54,13 +56,18 @@ def looks_like_deletion(text: str) -> bool:
     return bool(_HARD_DELETE.search(text))
 
 
-def target(store: Store, ws: Workspace | None, text: str) -> Neuron | None:
-    """Which memory is being corrected?
+#: Correcting an episode is meaningless -- it happened. Deleting one is the
+#: main case, so the two operations look at different kinds.
+CORRECTABLE = (Kind.FACT, Kind.LOOP, Kind.INSIGHT)
+DELETABLE = (Kind.FACT, Kind.LOOP, Kind.INSIGHT, Kind.EPISODE)
+
+
+def target(store: Store, ws: Workspace | None, text: str, *,
+           kinds: tuple[Kind, ...] = CORRECTABLE) -> Neuron | None:
+    """Which memory is being corrected, or deleted?
 
     The workspace that was just broadcast, because that is what the device
-    said and therefore what the person is reacting to. Facts first: correcting
-    an episode is meaningless (it happened), while correcting a fact is the
-    whole point.
+    said and therefore what the person is reacting to.
     """
     if ws is None or not ws.items:
         return None
@@ -68,7 +75,7 @@ def target(store: Store, ws: Workspace | None, text: str) -> Neuron | None:
     best: tuple[float, Neuron] | None = None
     for item in ws.items:
         n = item.neuron
-        if n.kind not in (Kind.FACT, Kind.LOOP, Kind.INSIGHT):
+        if n.kind not in kinds:
             continue
         v = store.vectors.get(n.id)
         sim = 0.0
@@ -88,7 +95,7 @@ def apply(store: Store, llm: Any | None, ws: Workspace | None, text: str,
           cfg: BrainConfig, now: float) -> Repair:
     """Handle a correction or a deletion, right now."""
     if looks_like_deletion(text):
-        victim = target(store, ws, text)
+        victim = target(store, ws, text, kinds=DELETABLE)
         if victim is not None:
             removed = store.entomb(victim.id)
             store.log("repair", {"kind": "deleted", "target": victim.id,
@@ -123,16 +130,31 @@ def apply(store: Store, llm: Any | None, ws: Workspace | None, text: str,
     resolution = resolve(store, llm, key, _restate(text, victim),
                          victim.citations() or [victim.id],
                          confidence=0.9, now=now, cfg=cfg)
-    # A user correction is authoritative. It is not a "conflict" to be asked
-    # about later -- they just told us.
-    if resolution.relation == "conflict" and resolution.fact is not None:
+
+    # A user correction is authoritative, and the judge's opinion of the
+    # relation is beside the point: they have just told us the old claim is
+    # wrong. Whatever the judge called it -- conflict, distinct, refinement --
+    # the old fact dies here.
+    #
+    # This matters because a correction usually shares almost no vocabulary
+    # with what it corrects ("no, not any more"), so a similarity-based judge
+    # reliably answers "distinct", creates a disambiguated key, and leaves the
+    # wrong fact live and retrievable. The device then repeats it tomorrow,
+    # which is the exact failure the whole repair path exists to prevent.
+    if resolution.fact is not None and resolution.fact.id != victim.id:
         victim.invalid_at = now
         victim.superseded_by = resolution.fact.id
         victim.meta.pop("question", None)
+        store.save(victim)
+        store.connect(resolution.fact.id, victim.id, Edge.SUPERSEDES, 1.0, at=now)
+        if resolution.fact.key != victim.key and victim.key:
+            # Put the replacement under the key it is actually about, so the
+            # next statement on this dimension supersedes it in turn.
+            resolution.fact.key = victim.key
         resolution.fact.meta.pop("question", None)
         resolution.fact.confidence = 0.95
-        store.save(victim)
         store.save(resolution.fact)
+        invalidate(store, victim.id, now, reason="user_correction")
         resolution.relation = "reversal"
     if resolution.fact is not None:
         resolution.fact.pinned = True
@@ -151,7 +173,17 @@ def _restate(text: str, victim: Neuron) -> str:
     inherits the subject of what it corrects. Without this the store fills
     with facts that read "not any more" and mean nothing six months later.
     """
-    cleaned = _CORRECTION.sub("", text).strip(" ,.").strip()
-    if len(cleaned) < 8:
+    # Take the clause *after* the correction marker rather than deleting the
+    # marker in place: "no, that's out of date, I'm at Lumen now" minus the
+    # matched span leaves "'s out of date, I'm at Lumen now", which is what
+    # then gets stored as a fact and means nothing six months later.
+    best = ""
+    for clause in re.split(r"[,;.]", text):
+        clause = clause.strip()
+        if not clause or _CORRECTION.search(clause):
+            continue
+        if len(clause) > len(best):
+            best = clause
+    if len(best) < 8:
         return f"the user says this is no longer true: {victim.text()}"
-    return cleaned
+    return best
