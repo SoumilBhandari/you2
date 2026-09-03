@@ -275,6 +275,11 @@ class Store:
             self.vectors.drop(nid)
             self.soma.pop(nid, None)
         self.log("entomb", {"root": neuron_id, "removed": killed})
+        # Deleting a memory has to reach the conclusions drawn from it, or
+        # "forget that" leaves a derivative behind that still asserts it.
+        from ..inference.tms import invalidate
+        for nid in list(killed):
+            invalidate(self, nid, self.clock.now(), reason="entombed")
         return killed
 
     # -------------------------------------------------------------- aliases
