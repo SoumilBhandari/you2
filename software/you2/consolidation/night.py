@@ -46,7 +46,7 @@ from ..config import BrainConfig
 from ..discovery import contradiction, openloops, recurrence, scoring
 from ..substrate.neuron import Kind, Tier
 from ..substrate.store import Store
-from . import abstraction, dream, forgetting, homeostasis, replay
+from . import abstraction, dream, forgetting, homeostasis, replay, storage
 from .supersede import Tally, open_questions
 
 Interrupt = Callable[[], bool]
@@ -79,6 +79,7 @@ class NightReport:
     profile: str = ""
     growth: dict[str, float] = field(default_factory=dict)
     coverage: dict[str, float] = field(default_factory=dict)
+    storage: dict[str, Any] = field(default_factory=dict)
     audit_failures: list[int] = field(default_factory=list)
 
     @property
@@ -99,7 +100,7 @@ class NightReport:
             "stale_derivatives": self.stale_derivatives,
             "bridges": self.bridges, "questions": len(self.questions),
             "interrupted": self.interrupted, "growth": self.growth,
-            "coverage": self.coverage,
+            "coverage": self.coverage, "storage": self.storage,
             "audit_failures": self.audit_failures,
         }
 
@@ -128,6 +129,11 @@ class NightReport:
             f"{self.bridges} bridges considered",
             f"  reasoning  {self.inferences} drawn, {len(self.compiled)} compiled, "
             f"{self.stale_derivatives} derivatives went stale",
+            f"  storage    {self.storage.get('total_mb', 0):.1f} MB, "
+            f"{self.storage.get('bytes_per_day', 0) / 1e3:.1f} kB/day, "
+            f"~{self.storage.get('projected_10y_mb', 0):.0f} MB at 10y"
+            + (f"  [pressure: {', '.join(self.storage['pressure']['applied'])}]"
+               if self.storage.get("pressure") else ""),
         ]
         if self.questions:
             lines.append("  to ask:")
@@ -207,6 +213,11 @@ def run(store: Store, llm: Any | None = None, cfg: BrainConfig | None = None, *,
     from ..inference import tms as _tms
     report.audit_failures += _tms.audit(store)
 
+    report.storage = storage.measure(store).as_dict()
+    pressure = storage.enforce(store, cfg, now)
+    if pressure.applied:
+        report.storage["pressure"] = pressure.as_dict()
+
     report.questions = [q["question"] for q in open_questions(store)]
     report.profile = build_profile(store, cfg, now)
     report.growth = forgetting.growth_curve(store, cfg)
@@ -230,7 +241,15 @@ def _merge(into: Tally, other: Tally) -> None:
 
 def _rem(store: Store, llm: Any | None, cfg: BrainConfig, now: float,
          report: NightReport, rng: np.random.Generator) -> None:
-    bridges = dream.propose(store, llm, cfg, now, rng=rng)
+    if cfg.bridge_every_days > 1 and int(now / DAY) % cfg.bridge_every_days:
+        # Not a bridging night. Counterfactual probing still runs -- it is
+        # cheap and it is what keeps weakly-grounded regions honest.
+        report.probes.extend(dream.counterfactual(store, llm, cfg, now, rng=rng))
+        return
+    # One per night at most. A wrong analogy is embarrassing in a way a
+    # wrong contradiction is not, and volume is what turns a good
+    # feature into noise the user learns to ignore.
+    bridges = dream.propose(store, llm, cfg, now, limit=1, rng=rng)
     report.bridges += len(bridges)
     for bridge in bridges:
         if not bridge.useful or not bridge.text:
