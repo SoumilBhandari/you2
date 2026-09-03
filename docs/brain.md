@@ -26,12 +26,14 @@ deliberate departure that says why.
 9. [Forgetting — the part nobody ships](#9-forgetting--the-part-nobody-ships)
 10. [Discovery — the connections engine](#10-discovery--the-connections-engine)
 11. [Recall — the hot path](#11-recall--the-hot-path)
-12. [The numbers](#12-the-numbers)
-13. [Software layout](#13-software-layout)
-14. [Evaluation](#14-evaluation)
-15. [Build order](#15-build-order)
-16. [Standing decisions](#16-standing-decisions)
-17. [Open questions](#17-open-questions)
+12. [Inference — the weights are the cortex](#12-inference--the-weights-are-the-cortex)
+13. [The numbers](#13-the-numbers)
+14. [Software layout](#14-software-layout)
+15. [Evaluation](#15-evaluation)
+16. [Build order](#16-build-order)
+17. [Standing decisions](#17-standing-decisions)
+18. [Open questions](#18-open-questions)
+19. [Corrections log](#19-corrections-log)
 
 ---
 
@@ -717,7 +719,143 @@ with you twice about the same thing.
 
 ---
 
-## 12. The numbers
+## 12. Inference — the weights are the cortex
+
+Everything above this section *recalls*. A second brain that only recalls what
+you told it is a filing cabinet. A brain concludes things you never said, and
+that is the difference between a good memory system and something worth
+building a device around.
+
+### 12.1 The division of labour
+
+The obvious objection to a "second brain" is storage: a person's life is
+enormous, and this has to run on a $65 board. The answer is that most of what
+makes an answer intelligent is **not the person's**.
+
+A language model is already a very high-parameter net. It holds world
+knowledge, language, and reasoning operators — and it costs us nothing, because
+it is a download and it lives on someone else's silicon or in 1.5 GB of
+weights. What it does *not* hold, and cannot, is you.
+
+So:
+
+| | holds | size | who owns it |
+|---|---|---|---|
+| **Weights** | world knowledge, language, inference operators | 8B–70B params | rented, replaceable |
+| **Graph** | episodes, personal semantics, the connectome | ~350 MB at ten years | yours, uncopyable |
+
+**Inference is running the weights over the graph.** The graph supplies a
+small set of pointers — a name, a preference, an open loop — and those pointers
+condition an enormous net. That is why the store can be a few hundred megabytes
+and the device can still be sharp: *the intelligence is rented; the identity is
+owned.*
+
+It also extends the project's founding line. "The model is a download, the
+memory is the product" becomes: **the model is the cortex, the memory is the
+person.**
+
+### 12.2 Three rules that keep it small
+
+```
+never store what the weights already know      parsimony
+never store what is cheap to re-derive         laziness
+do store what gets re-derived over and over    compilation
+```
+
+**Parsimony.** The encoding filter is not "is this true" or "is this
+important" — it is *is this about this person, and could the model have
+guessed it?* "Penicillin is an antibiotic" is in the weights; storing it costs
+bytes and, worse, costs retrieval precision, because every generic fact is one
+more thing that looks superficially relevant to some future query. Categorical
+definitions and universals are refused structurally, for free. The genuinely
+ambiguous remainder can cost one batched model call at night — and **ambiguous
+cases are kept**, because dropping a real personal fact is a far worse error
+than storing a generic one, and that asymmetry should be visible in the code.
+
+**Laziness.** Materialising every implication is a combinatorial explosion, and
+it is also just wrong about how people work: nobody holds "my sister's
+husband's employer is in Lisbon" as a stored fact. They work it out when asked.
+So inference writes nothing by default.
+
+**Compilation.** Except when re-deriving stops being worth it. A conclusion
+reached three times is materialised as a stored fact carrying its premises —
+which is ACT-R's production compilation, and is how a derivation you keep
+repeating becomes a thing you simply know. It is bounded and self-limiting, and
+it is **the only thing in the system that grows with *use* rather than with
+elapsed time.** Most derivations are drawn once and never cost a byte.
+
+### 12.3 The rules, split by cost
+
+| Rule | Kind | Cost | What it does |
+|---|---|---|---|
+| `transitive` | deduction | graph | A part-of B part-of C ⇒ A part-of C |
+| `inherit` | defeasible | graph | properties of a whole apply to its parts, weaker |
+| `contrast` | temporal | graph | how a belief has moved, from the supersession chain |
+| `gap` | completion | graph | a schema member missing what the rest share |
+| `abduce` | explanation | model | what best explains this? |
+| `project` | prediction | model | what is likely to matter next? |
+| `transfer` | analogy | model | structure mapping (§8.2) |
+
+The graph rules are microseconds, so they **ride along with every turn** and
+appear in the workspace. The model rules cost a call each and are a night job
+or an explicit question. That split is the whole reason inference is affordable
+inside a sub-second budget.
+
+**Association is deliberately not chainable.** `part_of` composes; `assoc`
+emphatically does not, and chaining it is spreading activation with a straight
+face. It is precisely where *"you mentioned coffee here, and also here"* comes
+from, and it is not reasoning.
+
+**Confidence multiplies down a chain.** Four steps at 0.85 lands at 0.52, and a
+prediction lands at 0.45 before anything else. Stating a weak inference firmly
+is worse than not making it.
+
+### 12.4 Derived claims are labelled as derived
+
+In the block, always:
+
+```
+known:
+  - the user prefers oat milk [3mo]
+inferred (not stated — say so if you use it):
+  - the login rewrite is blocked on the test team — so probably also for … (63%)
+```
+
+Without the label the model asserts an inference back to the person as
+something they told it. That is the fastest way to lose their trust in the
+entire device, and it costs one line to prevent. Compiled inferences get the
+same treatment — compilation must not become a loophole around the label.
+
+### 12.5 Truth maintenance, or compilation is a liability
+
+Every derived thing is a frozen claim about a state of affairs. When a premise
+is superseded, the derivative is silently wrong and keeps being retrieved,
+because nothing marked it.
+
+This is not hypothetical. On 180 simulated days, retrieval precision was a
+clean 1.00 while **half the probes still leaked a superseded value** — and every
+single leak was a stored insight quoting a fact replaced months earlier. The
+fact layer was working perfectly. The derivatives were rotting.
+
+A justification-based truth maintenance system fixes it in about eighty lines:
+every derivative records its premises, and invalidating a premise invalidates
+everything justified by it, transitively. A conclusion resting on many premises
+survives losing one, weakened; one resting on two does not, because an insight
+built from two facts one of which was just replaced is probably about the
+replaced one.
+
+**Invalidate, don't delete.** A derivative whose premise changed is often
+re-derivable, to a better conclusion. That is what updating a belief looks
+like.
+
+`tms.audit()` returns every live derivative whose premises are all dead. It must
+always be empty, and the night asserts it. A store full of confident,
+well-cited, obsolete conclusions is a worse failure than forgetting, because it
+is invisible.
+
+---
+
+## 13. The numbers
 
 Assumptions: 30 exchanges/day, ~8 episodes/day after segmentation, 10 years.
 
@@ -756,7 +894,7 @@ dwell_seconds 8.0       hot_tier_days 90         replay_β 0.60
 
 ---
 
-## 13. Software layout
+## 14. Software layout
 
 ```
 software/
@@ -770,6 +908,8 @@ software/
     consolidation/   night orchestrator, replay, abstraction, supersession,
                      homeostasis, forgetting, dream
     discovery/       contradiction, recurrence, open loops, bridging, scoring
+    inference/       engine (rules by cost), compile (knowledge compilation),
+                     tms (truth maintenance), parsimony (what not to store)
     recall/          retrieve, memory-answerable, reconsolidation
     llm/             OpenAI-compatible streaming client + deterministic fake
     runtime/         hot-path pipeline, intent router, night scheduler, CLI
@@ -787,7 +927,7 @@ offline, and deterministic.
 
 ---
 
-## 14. Evaluation
+## 15. Evaluation
 
 The design doc's most uncomfortable observation is that there is no benchmark for the thing that defines the product.
 Three instruments, in the order they pay off:
@@ -808,7 +948,7 @@ earning its complexity and should be deleted — that check is worth running bef
 
 ---
 
-## 15. Build order
+## 16. Build order
 
 Strictly bottom-up, because everything above depends on activation being right.
 
@@ -828,7 +968,7 @@ Phases 1–8 need no hardware and no network. That is roughly the whole product.
 
 ---
 
-## 16. Standing decisions
+## 17. Standing decisions
 
 Not to relitigate without a specific reason.
 
@@ -852,9 +992,22 @@ flowing between them and the graph stops being a brain.
 
 **Time is injected everywhere.**
 
+**Never store what the weights already know.** The graph holds the person; the
+cortex is rented.
+
+**Inference is lazy; compilation is the only exception**, and it is gated on
+repeated use rather than on plausibility.
+
+**Every derived claim is labelled as derived**, including compiled ones.
+
+**No derivative outlives its premises.** `tms.audit()` must return empty.
+
+**The write path makes no model call.** It works offline, adds no latency
+variance, and cannot fail a turn.
+
 ---
 
-## 17. Open questions
+## 18. Open questions
 
 - **Is `γ = 0.45` right?** Two hops feels correct introspectively; three may be where analogy lives. Tunable, and the
   eval harness can answer it — but only once there's a year of synthetic history to answer it against.
@@ -873,7 +1026,7 @@ flowing between them and the graph stops being a brain.
 
 ---
 
-## 18. Corrections log
+## 19. Corrections log
 
 Kept in the style of [design.md §13](design.md#13-corrections-log) — a correction you can't see is one you'll make
 again.
@@ -886,6 +1039,24 @@ again.
 | Nightly consolidation means "summarise the day" | Summarising is stage 3 of eleven. The stage that matters is downscaling, and it involves no LLM at all. |
 | Connections come from embedding similarity | Similarity finds *related*; the useful connections are structural or temporal. Embeddings cannot find analogy in principle — SME exists precisely because surface features must be ignored. |
 | Forgetting means deleting | Forgetting is loss of *access*. Storage strength never decreases. Deletion is a separate, gated, user-facing operation. |
+
+### Found while building it
+
+These came out of the implementation and the eval harness rather than from reading. Several were load-bearing.
+
+| Believed | Actually |
+|---|---|
+| Lateral inhibition makes the block diverse | Only if it can **exclude**. With spare capacity, suppression merely reorders and the block fills with paraphrases exactly as if inhibition were off. Entry to the workspace now uses the same firing threshold as the cascade. |
+| Downscaling improves contrast every night | It does not, and the coefficient-of-variation metric that claimed so was measuring the wrong thing — pruning a mass of near-zero noise *reduces* variance relative to the mean. The mechanism is compounding against reinforcement over **weeks**: 90 nights on a graph of one reinforced cluster plus 900 noise edges takes activation-in-cluster from 0.785 to 1.000 and the graph from 832 edges to 45. |
+| Salience should discard low-surprise repeats | A recurring complaint is *exactly* what scores low-surprise and low-novelty, so the gate made the fourth Tuesday in a row invisible and recurrence undetectable. Repeats now strengthen the existing trace and are counted as occurrences — which is also what happens to you: no fresh memory forms for the commute you have made four hundred times. |
+| Entity extraction belongs in the write path | Moving it to rules is strictly better: no network, no latency variance, cannot fail a turn. The night reads the same episodes with the model anyway. The write path now makes **no model call at all**. |
+| One non-obviousness measure fits all connection types | Graph distance is right for a bridge and wrong for everything else. A recurrence cites episodes that are closely connected *by construction* — that is what makes it a pattern. Distance-scoring rejected 100% of contradictions, recurrences and open loops while passing bridges. Each type supplies its own measure. |
+| Superseding a fact is enough | The episodes that produced it stay live and keep landing in the block beside the replacement. Half the leakage in the first measured run was episodes, with the fact layer working perfectly. They now carry a retrieval penalty rather than an exclusion, so "what did I used to prefer" still works. |
+| Facts are the only thing that can go stale | Every *derivative* — insight, schema, compiled inference — is a frozen claim about a state of affairs. Precision read 1.00 while half the probes leaked, and every leak was a stored insight quoting a fact replaced months earlier. Hence truth maintenance (§12.5). |
+| Jaccard is fine for matching a closure to its commitment | "I'll look into the Anderson contract by Friday" against "the Anderson contract is sorted" is a Jaccard of 0.29 and an obvious match to any reader. Containment asks the right question. |
+| A deterministic fake can stand in for the model everywhere | Not for judging analogies. Returning `useful=true` unconditionally manufactured 78 meaningless bridges over a simulated year, which then polluted every measurement taken against them. The fake now declines, and the harness reports bridging as *untested* — which is the true statement. |
+| The harness should score the retrieved block | The model is given the nightly profile **plus** the block. Scoring the block alone under-measures the system by exactly the profile, which is the thing the profile exists to provide. |
+| An exponentially-decayed count can be stored as an integer | `int(n * 0.9999)` floors to zero every update, so the count never passes 1 and the prosody baseline silently never gains confidence. |
 
 ---
 
