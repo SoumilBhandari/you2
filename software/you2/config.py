@@ -154,6 +154,16 @@ class BrainConfig:
     salience_strong: float = 0.55
     """Above this: flagged for priority replay tonight."""
 
+    # Surprise and novelty are cosine distances, and raw distances are not
+    # calibrated -- with any embedder, closely related sentences still sit
+    # around 0.3-0.6. These map distance onto [0, 1] through a logistic
+    # centred at a reference similarity. Re-fit them if the embedder changes;
+    # they are the only two constants in the system that are embedder-specific.
+    surprise_ref_sim: float = 0.35
+    surprise_sharpness: float = 6.0
+    novelty_ref_sim: float = 0.40
+    novelty_sharpness: float = 6.0
+
     # ---- discovery -------------------------------------------------------
     recurrence_min_lift: float = 2.0
     recurrence_min_count: int = 4
