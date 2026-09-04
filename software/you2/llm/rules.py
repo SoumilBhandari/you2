@@ -71,6 +71,21 @@ _PREF = re.compile(
     r"(prefer|like|love|hate|enjoy|avoid|can't stand|cannot stand|"
     r"don't like|do not like|dislike)\s+(.{2,60}?)(?:[.,;!?]|$)")
 
+#: First person to third person. These facts get read aloud, and "the user
+#: don't like meetings" is the kind of thing that makes a device sound broken
+#: for a reason that has nothing to do with what it knows.
+_THIRD_PERSON: dict[str, str] = {
+    "can't stand": "cannot stand", "cannot stand": "cannot stand",
+    "don't like": "does not like", "do not like": "does not like",
+}
+
+
+def third_person(verb: str) -> str:
+    fixed = _THIRD_PERSON.get(verb)
+    if fixed is not None:
+        return fixed
+    return verb if verb.endswith("s") else verb + "s"
+
 _HABIT = re.compile(
     r"\bi\s+(always|never|usually|tend to|generally|mostly)\s+(.{3,60}?)(?:[.,;!?]|$)")
 
@@ -213,7 +228,8 @@ def _facts_in_clause(low: str, add) -> None:
 
     for m in _PREF.finditer(low):
         verb, obj = m.group(1), m.group(2).strip()
-        add(f"user/pref_{topic(obj)}", f"the user {verb}s {obj}", 0.8)
+        add(f"user/pref_{topic(obj)}",
+            f"the user {third_person(verb)} {obj}", 0.8)
 
     for m in _STATE.finditer(low):
         state, obj = m.group(1), m.group(2).strip()
