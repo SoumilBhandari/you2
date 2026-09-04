@@ -29,12 +29,18 @@ from ..perception.prosody import Baseline
 from ..recall import reconsolidate
 from ..substrate import Kind, Store
 from ..substrate.embed import Embedder
+from . import viz
+from .events import BUS, Bus, State
 from .router import OFFLINE_FALLBACK, Router, Routed
 
 #: Turns of raw dialogue kept in the prompt. Small on purpose: the memory
 #: block is the context, and a long verbatim history both costs tokens and
 #: makes the cacheable prefix shorter.
 HISTORY_TURNS = 4
+
+#: Handled entirely by the device, and about the device. Nothing here says
+#: anything about the person, so none of it is encoded.
+DEVICE_INTENTS = frozenset({"time", "timer_set", "timer_cancel", "timer_list"})
 
 
 @dataclass(slots=True)
@@ -69,6 +75,7 @@ class Reply:
     encoded: Any = None
     timing: Timing = field(default_factory=Timing)
     cites: list[int] = field(default_factory=list)
+    intent: str = ""
 
     def __repr__(self) -> str:
         return f"Reply({self.route}, {self.timing.total_ms:.0f} ms, {self.text[:48]!r})"
@@ -79,7 +86,7 @@ class Brain:
 
     def __init__(self, cfg: BrainConfig | None = None, *, clock: Clock | None = None,
                  llm: Any | None = None, embedder: Embedder | None = None,
-                 path: str | None = None) -> None:
+                 path: str | None = None, bus: Bus | None = None) -> None:
         self.cfg = cfg or DEFAULT
         self.clock = clock or RealClock()
         self.store = Store(self.cfg, self.clock, embedder, path)
@@ -93,6 +100,11 @@ class Brain:
         self._history: list[dict[str, str]] = []
         self._last_workspace: Workspace | None = None
         self._previous_episode: int | None = None
+        #: Everything a person could watch is published here. Nothing in the
+        #: brain reads it back, so unsubscribing every consumer changes
+        #: nothing -- the visualisation observes state, it never creates it.
+        self.bus = bus or BUS
+        self.bus.state_changed(State.IDLE)
 
     # -------------------------------------------------------------- session
 
@@ -100,6 +112,7 @@ class Brain:
         orienting = self.attention.wake(now)
         if self.attention.session_id:
             self.store.open_session(self.attention.session_id)
+        self.bus.state_changed(State.LISTENING, session=self.attention.session_id)
         return orienting
 
     def close(self, now: float | None = None) -> None:
@@ -133,6 +146,7 @@ class Brain:
         if turn is None:
             return Reply(route="ignored", timing=timing)
         timing.mark("attend")
+        self.bus.publish("transcript", text=text)
 
         # ---- retrieve ------------------------------------------------------
         cues = build_cues(self.store, text, self.cfg, context=self._context, now=now)
@@ -146,6 +160,11 @@ class Brain:
         # turn. Model-backed inference never touches the critical path.
         attach_inferences(self.store, ws, self.cfg, now)
         timing.mark("infer")
+
+        # The cascade, as it actually happened. The data structure that exists
+        # so `you2 why` can print a path is already an animation.
+        self.bus.state_changed(State.REMEMBERING)
+        self.bus.publish("cascade", **viz.scene(self.store, ws, query=text).as_dict())
 
         reply = Reply(workspace=ws, timing=timing)
 
@@ -169,11 +188,19 @@ class Brain:
         timing.mark("route")
         if routed.handled:
             reply.text = routed.text
+            reply.intent = routed.intent
             reply.route = "router" if not routed.intent.startswith("memory") else "memory"
             reply.cites = routed.cites
-            return self._finish(reply, turn, ws, now, prosody, source)
+            # A device command is not an experience about the person. "What
+            # time is it" was being stored as an episode, competing for
+            # retrieval with things they actually told you about their life.
+            # Memory questions still encode: what someone tries to recall is
+            # itself evidence about what matters to them.
+            return self._finish(reply, turn, ws, now, prosody, source,
+                                skip_encode=routed.intent in DEVICE_INTENTS)
 
         # ---- the model -----------------------------------------------------
+        self.bus.state_changed(State.THINKING)
         reply.text, reply.route = self._generate(ws, text)
         timing.mark("generate")
         return self._finish(reply, turn, ws, now, prosody, source)
@@ -220,6 +247,9 @@ class Brain:
                 prosody: Prosody | None, source: str,
                 *, skip_encode: bool = False) -> Reply:
         self.attention.reply_start(now)
+        self.bus.state_changed(State.SPEAKING)
+        self.bus.publish("reply", text=reply.text, route=reply.route,
+                         ms=reply.timing.total_ms, tokens=ws.tokens)
         self._last_workspace = ws
         self._context = ws.context()
         self._history = (self._history + [{"role": "user", "content": turn.text},
@@ -249,6 +279,8 @@ class Brain:
         reply.timing.mark("encode")
 
         self.attention.reply_end(now)
+        self.bus.state_changed(State.LISTENING if self.attention.accepts(now)
+                               else State.IDLE)
         self.store.log("turn", {"route": reply.route,
                                 "timing": reply.timing.as_dict(),
                                 "workspace": ws.ids(), "tokens": ws.tokens,
@@ -262,9 +294,14 @@ class Brain:
               seed: int | None = None) -> night.NightReport:
         now = now if now is not None else self.clock.now()
         self.close(now)
-        report = night.run(self.store, self.llm, self.cfg, now=now,
-                           interrupt=interrupt, seed=seed)
+        self.bus.state_changed(State.DREAMING)
+        try:
+            report = night.run(self.store, self.llm, self.cfg, now=now,
+                               interrupt=interrupt, seed=seed)
+        finally:
+            self.bus.state_changed(State.IDLE)
         self.profile = report.profile
+        self.bus.publish("night", **viz.night_frame(report, "done"))
         return report
 
     def load_profile(self, now: float | None = None) -> str:
