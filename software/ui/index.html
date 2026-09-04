@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>you2</title>
+<link rel="stylesheet" href="/brain.css">
+</head>
+<body>
+
+<!-- The eye. 800x800 of glass, masked to a circle, and nothing else on the
+     panel. Everything the device is doing has to be legible here from across
+     a room, which is why there is no chrome, no scrollbars and no text
+     smaller than 13px. -->
+<main id="eye" class="eye" data-state="boot">
+
+  <canvas id="stage" width="800" height="800" aria-hidden="true"></canvas>
+
+  <!-- idle -->
+  <div class="layer" data-layer="idle">
+    <div class="clock" id="clock">--:--</div>
+    <div class="date" id="date"></div>
+    <div class="held" id="held"></div>
+  </div>
+
+  <!-- listening / speaking share the transcript slot -->
+  <div class="layer" data-layer="voice">
+    <div class="transcript" id="transcript"></div>
+  </div>
+
+  <!-- remembering: the cascade legend and the workspace as it forms -->
+  <div class="layer" data-layer="remember">
+    <div class="rlabel" id="rquery"></div>
+    <ul class="workspace" id="workspace"></ul>
+    <div class="rmeta" id="rmeta"></div>
+  </div>
+
+  <!-- dreaming -->
+  <div class="layer" data-layer="dream">
+    <div class="dtitle">consolidating</div>
+    <div class="dstage" id="dstage"></div>
+    <ul class="dstats" id="dstats"></ul>
+  </div>
+
+  <div class="statusbar" id="statusbar"><span id="statename">boot</span></div>
+</main>
+
+<!-- The bench: everything a developer needs and the device itself never
+     shows. Hidden on the panel by the 800x800 media query, because the
+     product is the eye and this is scaffolding. -->
+<aside id="bench" class="bench">
+  <header>
+    <strong>you2</strong>
+    <span id="benchstate" class="pill">boot</span>
+    <span id="benchcount" class="dim"></span>
+  </header>
+
+  <form id="askform">
+    <input id="ask" placeholder="say something…" autocomplete="off" spellcheck="false">
+    <button type="submit">say</button>
+  </form>
+
+  <div class="row">
+    <button id="btn-night" type="button">run the night</button>
+    <button id="btn-idle" type="button">idle view</button>
+    <label class="chk"><input type="checkbox" id="slow"> slow motion</label>
+  </div>
+
+  <pre id="log" class="log"></pre>
+</aside>
+
+<script src="/brain.js"></script>
+</body>
+</html>
