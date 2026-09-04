@@ -1,0 +1,210 @@
+/* The eye.
+ *
+ * Designed for one panel: Waveshare 3.4" DSI round, 800x800, ~87.6 mm of
+ * glass. Three consequences run through everything below.
+ *
+ *   The corners do not exist. Anything outside the inscribed circle is
+ *   physically not there, so content lives inside a 720 px safe circle and
+ *   the mask is real rather than decorative.
+ *
+ *   It is read from across a room, often at a glance, often with your back
+ *   half-turned. Nothing under 13 px, state legible from colour alone.
+ *
+ *   It sits in a dark room at 3 a.m. Pure black background, no white
+ *   surfaces, and brightness carries meaning rather than decoration.
+ */
+
+:root {
+  --bg:      #06070a;
+  --ink:     #e8eaf0;
+  --dim:     #8b93a7;
+  --faint:   #3a4152;
+  --idle:    #6f8cff;
+  --listen:  #35d6a4;
+  --remember:#8b6cff;
+  --think:   #ffb547;
+  --speak:   #ff8a3d;
+  --dream:   #a06cff;
+  --error:   #ff5470;
+  --accent:  var(--idle);
+  --safe: 720px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  width: 100%; height: 100%;
+  background: #000;
+  color: var(--ink);
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ------------------------------------------------------------------ the eye */
+
+.eye {
+  position: relative;
+  width: 800px; height: 800px;
+  margin: 0 auto;
+  /* The panel is exactly 800x800 and a development machine is not, so the
+     eye scales to fit rather than being cropped. --scale is 1 on the device.
+     Everything inside is laid out in panel pixels, which keeps the design
+     honest: what you see on a laptop is what lands on the glass. */
+  transform: scale(var(--scale, 1));
+  transform-origin: center center;
+  border-radius: 50%;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 42%,
+      color-mix(in oklab, var(--accent) 12%, transparent) 0%,
+      transparent 62%),
+    var(--bg);
+  transition: background 900ms ease;
+}
+
+/* The state colour is one variable; everything else reads from it. */
+.eye[data-state="idle"]        { --accent: var(--idle); }
+.eye[data-state="listening"]   { --accent: var(--listen); }
+.eye[data-state="remembering"] { --accent: var(--remember); }
+.eye[data-state="thinking"]    { --accent: var(--think); }
+.eye[data-state="speaking"]    { --accent: var(--speak); }
+.eye[data-state="dreaming"]    { --accent: var(--dream); }
+.eye[data-state="error"]       { --accent: var(--error); }
+
+#stage { position: absolute; inset: 0; width: 800px; height: 800px; }
+
+.layer {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: var(--safe);
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  pointer-events: none;
+}
+
+.eye[data-state="idle"]        .layer[data-layer="idle"],
+.eye[data-state="boot"]        .layer[data-layer="idle"],
+.eye[data-state="listening"]   .layer[data-layer="voice"],
+.eye[data-state="speaking"]    .layer[data-layer="voice"],
+.eye[data-state="thinking"]    .layer[data-layer="voice"],
+.eye[data-state="remembering"] .layer[data-layer="remember"],
+.eye[data-state="dreaming"]    .layer[data-layer="dream"] { display: flex; }
+
+/* ---------------------------------------------------------------- idle */
+
+.clock {
+  font-size: 108px; font-weight: 200; letter-spacing: -3px;
+  color: var(--ink); opacity: .82; font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.date { margin-top: 12px; font-size: 17px; color: var(--dim); letter-spacing: 2px; }
+.held { margin-top: 26px; font-size: 13px; color: var(--faint); letter-spacing: 1px; }
+
+/* -------------------------------------------------------------- voice */
+
+.transcript {
+  font-size: 26px; line-height: 1.45; color: var(--ink);
+  max-width: 560px; min-height: 120px;
+  display: flex; align-items: center; justify-content: center;
+  text-wrap: balance;
+}
+.transcript:empty::after {
+  content: "…"; color: var(--faint); font-size: 40px; letter-spacing: 6px;
+}
+
+/* --------------------------------------------------------- remembering */
+
+.rlabel {
+  font-size: 14px; color: var(--dim); letter-spacing: .5px;
+  max-width: 430px; margin-bottom: 12px;
+}
+.workspace {
+  list-style: none; display: flex; flex-direction: column; gap: 4px;
+  max-width: 430px; width: 100%;
+}
+.workspace li {
+  display: flex; align-items: baseline; gap: 8px;
+  font-size: 14px; line-height: 1.28; text-align: left;
+  opacity: 0; transform: translateY(6px);
+  animation: rise 380ms cubic-bezier(.2,.8,.3,1) forwards;
+}
+.workspace li .k {
+  font-size: 10px; letter-spacing: 1px; text-transform: uppercase;
+  color: hsl(var(--h) 70% 68%); flex: 0 0 62px; text-align: right;
+}
+.workspace li .v { color: var(--ink); opacity: .92; }
+.workspace li.derived .v { color: var(--dim); font-style: italic; }
+@keyframes rise { to { opacity: 1; transform: none; } }
+
+.rmeta { margin-top: 14px; font-size: 12px; color: var(--faint); letter-spacing: 1px; }
+
+/* ------------------------------------------------------------- dreaming */
+
+.dtitle { font-size: 15px; letter-spacing: 5px; text-transform: uppercase; color: var(--dim); }
+.dstage { margin-top: 10px; font-size: 30px; font-weight: 300; color: var(--ink); }
+.dstats {
+  list-style: none; margin-top: 26px; display: grid;
+  grid-template-columns: repeat(2, minmax(0, 190px)); gap: 8px 34px;
+  font-size: 14px; color: var(--dim); text-align: left;
+}
+.dstats b { color: var(--ink); font-weight: 500; float: right; font-variant-numeric: tabular-nums; }
+
+/* ------------------------------------------------------------ statusbar */
+
+.statusbar {
+  position: absolute; left: 50%; bottom: 96px; transform: translateX(-50%);
+  font-size: 11px; letter-spacing: 4px; text-transform: uppercase;
+  color: color-mix(in oklab, var(--accent) 78%, var(--dim));
+}
+
+/* ----------------------------------------------------------------- bench */
+
+.bench {
+  position: fixed; top: 0; right: 0; width: 400px; height: 100%;
+  background: #0b0d12; border-left: 1px solid #1b1f2a;
+  padding: 16px; display: flex; flex-direction: column; gap: 12px;
+  font-size: 13px;
+}
+.bench header { display: flex; align-items: center; gap: 10px; }
+.pill {
+  padding: 2px 9px; border-radius: 999px; font-size: 11px;
+  background: color-mix(in oklab, var(--accent) 24%, transparent);
+  color: var(--accent); letter-spacing: 1px;
+}
+.dim { color: var(--dim); font-size: 11px; margin-left: auto; }
+
+.bench form { display: flex; gap: 6px; }
+.bench input[type=text], .bench input:not([type]) {
+  flex: 1; background: #12151d; border: 1px solid #232838; color: var(--ink);
+  padding: 8px 10px; border-radius: 6px; font: inherit;
+}
+.bench button {
+  background: #1a1f2b; border: 1px solid #2b3243; color: var(--ink);
+  padding: 8px 12px; border-radius: 6px; font: inherit; cursor: pointer;
+}
+.bench button:hover { background: #232a39; }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.chk { color: var(--dim); display: flex; align-items: center; gap: 5px; }
+
+.log {
+  flex: 1; overflow: auto; background: #0e1017; border: 1px solid #1b1f2a;
+  border-radius: 6px; padding: 10px; font-size: 11.5px; line-height: 1.55;
+  color: var(--dim); white-space: pre-wrap; word-break: break-word;
+}
+.log .hi { color: var(--ink); }
+.log .ac { color: var(--accent); }
+
+/* On the panel there is no bench, and the eye is the whole world. */
+@media (max-width: 820px), (max-height: 820px) {
+  .bench { display: none; }
+  body { display: grid; place-items: center; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workspace li { animation: none; opacity: 1; transform: none; }
+}
