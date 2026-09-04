@@ -1,0 +1,210 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 900" width="1180" height="900" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">
+  <style>
+    :root { color-scheme: light dark; }
+    .bg    { fill: #fbfbfa; }
+    .box   { fill: #ffffff; stroke: #1a1a1a; stroke-width: 1.6; }
+    .hot   { fill: #fff3e0; stroke: #e8a13a; stroke-width: 2; }
+    .mem   { fill: #eef4ff; stroke: #3b6ea5; stroke-width: 1.8; }
+    .night { fill: #f0ecfa; stroke: #6b52a8; stroke-width: 1.8; }
+    .inf   { fill: #eaf6ee; stroke: #3f8f5c; stroke-width: 1.8; }
+    .io    { fill: #1a1a1a; stroke: none; }
+    .flow  { stroke: #1a1a1a; stroke-width: 1.8; fill: none; }
+    .slow  { stroke: #6b52a8; stroke-width: 1.6; fill: none; stroke-dasharray: 7 5; }
+    .thin  { stroke: #3b6ea5; stroke-width: 1.3; fill: none; }
+    .t     { fill: #1a1a1a; font-size: 13px; }
+    .tb    { fill: #1a1a1a; font-size: 14px; font-weight: 600; }
+    .ts    { fill: #5c5c5c; font-size: 11px; }
+    .th    { fill: #8a6a1f; font-size: 11px; }
+    .tn    { fill: #4a3a7a; font-size: 11px; }
+    .ti    { fill: #2c6b44; font-size: 11px; }
+    .hdr   { fill: #1a1a1a; font-size: 15px; font-weight: 700; letter-spacing: 1.5px; }
+    @media (prefers-color-scheme: dark) {
+      .bg { fill: #131313; }
+      .box { fill: #1c1c1c; stroke: #d8d8d8; }
+      .hot { fill: #33270f; stroke: #e8a13a; }
+      .mem { fill: #16202e; stroke: #6f9fd0; }
+      .night { fill: #1f1a2c; stroke: #a08fd0; }
+      .inf { fill: #16281d; stroke: #6fbb8b; }
+      .io { fill: #d8d8d8; }
+      .flow { stroke: #d8d8d8; }
+      .slow { stroke: #a08fd0; }
+      .thin { stroke: #6f9fd0; }
+      .t, .tb, .hdr { fill: #ececec; }
+      .ts { fill: #9a9a9a; }
+      .th { fill: #e8a13a; }
+      .tn { fill: #a08fd0; }
+      .ti { fill: #6fbb8b; }
+    }
+  </style>
+
+  <rect class="bg" x="0" y="0" width="1180" height="900"/>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="context-stroke"/>
+    </marker>
+  </defs>
+
+  <!-- ================= HOT PATH ================= -->
+  <text class="hdr" x="40" y="44">HOT PATH — under a second, no model call before the reply</text>
+
+  <rect class="hot" x="40" y="66" width="120" height="52" rx="5"/>
+  <text class="tb" x="100" y="88" text-anchor="middle">listen</text>
+  <text class="th" x="100" y="105" text-anchor="middle">wake · dwell 8 s</text>
+
+  <rect class="hot" x="188" y="66" width="126" height="52" rx="5"/>
+  <text class="tb" x="251" y="88" text-anchor="middle">cues</text>
+  <text class="th" x="251" y="105" text-anchor="middle">entity &gt; kNN &gt; ctx</text>
+
+  <rect class="hot" x="342" y="66" width="152" height="52" rx="5"/>
+  <text class="tb" x="418" y="88" text-anchor="middle">spreading activation</text>
+  <text class="th" x="418" y="105" text-anchor="middle">γ .45 · θ .05 · ≤800</text>
+
+  <rect class="hot" x="522" y="66" width="150" height="52" rx="5"/>
+  <text class="tb" x="597" y="88" text-anchor="middle">workspace</text>
+  <text class="th" x="597" y="105" text-anchor="middle">400 tok · inhibition</text>
+
+  <rect class="inf" x="700" y="66" width="132" height="52" rx="5"/>
+  <text class="tb" x="766" y="88" text-anchor="middle">infer (graph)</text>
+  <text class="ti" x="766" y="105" text-anchor="middle">µs · labelled</text>
+
+  <rect class="box" x="860" y="66" width="120" height="52" rx="5"/>
+  <text class="tb" x="920" y="88" text-anchor="middle">router</text>
+  <text class="ts" x="920" y="105" text-anchor="middle">or memory answer</text>
+
+  <rect class="box" x="1008" y="66" width="132" height="52" rx="5"/>
+  <text class="tb" x="1074" y="88" text-anchor="middle">model</text>
+  <text class="ts" x="1074" y="105" text-anchor="middle">one base_url</text>
+
+  <path class="flow" marker-end="url(#a)" d="M160 92 H186"/>
+  <path class="flow" marker-end="url(#a)" d="M314 92 H340"/>
+  <path class="flow" marker-end="url(#a)" d="M494 92 H520"/>
+  <path class="flow" marker-end="url(#a)" d="M672 92 H698"/>
+  <path class="flow" marker-end="url(#a)" d="M832 92 H858"/>
+  <path class="flow" marker-end="url(#a)" d="M980 92 H1006"/>
+
+  <text class="ts" x="920" y="140" text-anchor="middle">answers offline</text>
+  <text class="ts" x="1074" y="140" text-anchor="middle">only if needed</text>
+
+  <!-- the reply line -->
+  <path class="flow" marker-end="url(#a)" d="M1074 118 V166 H100 V196"/>
+  <text class="tb" x="590" y="160" text-anchor="middle">— reply spoken —</text>
+  <text class="ts" x="590" y="180" text-anchor="middle">everything below happens after the person has heard it</text>
+
+  <!-- ================= WRITE PATH ================= -->
+  <rect class="box" x="40" y="196" width="150" height="52" rx="5"/>
+  <text class="tb" x="115" y="218" text-anchor="middle">salience</text>
+  <text class="ts" x="115" y="235" text-anchor="middle">= prediction error</text>
+
+  <rect class="box" x="218" y="196" width="150" height="52" rx="5"/>
+  <text class="tb" x="293" y="218" text-anchor="middle">segment</text>
+  <text class="ts" x="293" y="235" text-anchor="middle">boundary on surprise</text>
+
+  <rect class="box" x="396" y="196" width="150" height="52" rx="5"/>
+  <text class="tb" x="471" y="218" text-anchor="middle">bind</text>
+  <text class="ts" x="471" y="235" text-anchor="middle">no model call</text>
+
+  <rect class="box" x="574" y="196" width="168" height="52" rx="5"/>
+  <text class="tb" x="658" y="218" text-anchor="middle">broadcast</text>
+  <text class="ts" x="658" y="235" text-anchor="middle">Hebbian: winners wire</text>
+
+  <path class="flow" marker-end="url(#a)" d="M190 222 H216"/>
+  <path class="flow" marker-end="url(#a)" d="M368 222 H394"/>
+  <path class="flow" marker-end="url(#a)" d="M546 222 H572"/>
+
+  <!-- ================= SUBSTRATE ================= -->
+  <rect class="mem" x="40" y="296" width="1100" height="120" rx="6"/>
+  <text class="hdr" x="60" y="322">THE SUBSTRATE — one node type, uniform dynamics</text>
+  <text class="t" x="60" y="348">episode · fact · entity · schema · insight · loop · affect</text>
+  <text class="ts" x="60" y="368">bitemporal validity · storage strength never decreases · four tiers · absorption-gated deletion</text>
+  <text class="ts" x="60" y="386">graph: CSR in RAM, 10 typed edges, per-type forward/back conduction · vectors: int8 cold, float32 hot</text>
+  <text class="ts" x="60" y="404">one SQLite file — "copy the file" is the whole backup story</text>
+
+  <path class="thin" marker-end="url(#a)" d="M418 250 V294"/>
+  <path class="thin" marker-end="url(#a)" d="M700 294 V252"/>
+  <path class="thin" marker-end="url(#a)" d="M418 294 V120" stroke-dasharray="3 4"/>
+
+  <!-- ================= NIGHT ================= -->
+  <text class="hdr" x="40" y="470">THE NIGHT — eight idle hours, plugged in</text>
+
+  <rect class="night" x="40" y="490" width="1100" height="182" rx="6"/>
+
+  <text class="tn" x="60" y="516" font-weight="700">NREM  ·  consolidation</text>
+  <rect class="box" x="60" y="528" width="128" height="46" rx="4"/>
+  <text class="t" x="124" y="548" text-anchor="middle">replay</text>
+  <text class="ts" x="124" y="564" text-anchor="middle">prioritised</text>
+
+  <rect class="box" x="200" y="528" width="128" height="46" rx="4"/>
+  <text class="t" x="264" y="548" text-anchor="middle">ripple batch</text>
+  <text class="ts" x="264" y="564" text-anchor="middle">1 call / 5–15</text>
+
+  <rect class="box" x="340" y="528" width="128" height="46" rx="4"/>
+  <text class="t" x="404" y="548" text-anchor="middle">abstract</text>
+  <text class="ts" x="404" y="564" text-anchor="middle">facts, entities</text>
+
+  <rect class="box" x="480" y="528" width="128" height="46" rx="4"/>
+  <text class="t" x="544" y="548" text-anchor="middle">supersede</text>
+  <text class="ts" x="544" y="564" text-anchor="middle">or ask</text>
+
+  <rect class="box" x="620" y="528" width="150" height="46" rx="4"/>
+  <text class="t" x="695" y="548" text-anchor="middle">downscale</text>
+  <text class="ts" x="695" y="564" text-anchor="middle">w ← w·0.97, prune</text>
+
+  <rect class="box" x="782" y="528" width="128" height="46" rx="4"/>
+  <text class="t" x="846" y="548" text-anchor="middle">decay · tier</text>
+  <text class="ts" x="846" y="564" text-anchor="middle">hot→warm→cold</text>
+
+  <rect class="box" x="922" y="528" width="198" height="46" rx="4"/>
+  <text class="t" x="1021" y="548" text-anchor="middle">profile + storage</text>
+  <text class="ts" x="1021" y="564" text-anchor="middle">cacheable prefix, budget</text>
+
+  <text class="tn" x="60" y="606" font-weight="700">REM  ·  discovery</text>
+  <rect class="box" x="60" y="618" width="148" height="42" rx="4"/>
+  <text class="t" x="134" y="644" text-anchor="middle">remote association</text>
+
+  <rect class="box" x="220" y="618" width="168" height="42" rx="4"/>
+  <text class="t" x="304" y="638" text-anchor="middle">structure mapping</text>
+  <text class="ts" x="304" y="653" text-anchor="middle">shape, minus content</text>
+
+  <rect class="box" x="400" y="618" width="148" height="42" rx="4"/>
+  <text class="t" x="474" y="644" text-anchor="middle">counterfactual probe</text>
+
+  <rect class="box" x="560" y="618" width="210" height="42" rx="4"/>
+  <text class="t" x="665" y="638" text-anchor="middle">insight scoring</text>
+  <text class="ts" x="665" y="653" text-anchor="middle">grounding is binary; most die</text>
+
+  <rect class="box" x="782" y="618" width="338" height="42" rx="4"/>
+  <text class="t" x="951" y="638" text-anchor="middle">contradiction · recurrence · open loops may push</text>
+  <text class="ts" x="951" y="653" text-anchor="middle">bridges are pull-only — a wrong analogy is embarrassing</text>
+
+  <path class="slow" marker-end="url(#a)" d="M590 418 V488"/>
+  <path class="slow" marker-end="url(#a)" d="M1150 560 H1160" opacity="0"/>
+  <path class="slow" marker-end="url(#a)" d="M30 560 H26 V418" opacity="0"/>
+
+  <!-- ================= INFERENCE ================= -->
+  <text class="hdr" x="40" y="722">INFERENCE — the weights are the cortex, the graph is the person</text>
+
+  <rect class="inf" x="40" y="742" width="330" height="120" rx="6"/>
+  <text class="tb" x="60" y="768">never store what the weights know</text>
+  <text class="ts" x="60" y="788">parsimony — definitions and universals refused;</text>
+  <text class="ts" x="60" y="805">ambiguous cases KEPT, because dropping a real</text>
+  <text class="ts" x="60" y="822">personal fact is the worse error</text>
+  <text class="ti" x="60" y="847">world knowledge is rented, not stored</text>
+
+  <rect class="inf" x="392" y="742" width="330" height="120" rx="6"/>
+  <text class="tb" x="412" y="768">lazy by default</text>
+  <text class="ts" x="412" y="788">graph rules ride along every turn:</text>
+  <text class="ts" x="412" y="805">transitive · inherit · contrast · gap</text>
+  <text class="ts" x="412" y="822">model rules are a night job: abduce · project</text>
+  <text class="ti" x="412" y="847">assoc is never chained — that is not reasoning</text>
+
+  <rect class="inf" x="744" y="742" width="396" height="120" rx="6"/>
+  <text class="tb" x="764" y="768">compile what repeats · invalidate what rots</text>
+  <text class="ts" x="764" y="788">a derivation drawn 3× becomes a stored fact,</text>
+  <text class="ts" x="764" y="805">carrying its premises — the only thing here that</text>
+  <text class="ts" x="764" y="822">grows with USE rather than elapsed time</text>
+  <text class="ti" x="764" y="847">premise superseded ⇒ conclusion goes stale, transitively</text>
+
+  <path class="thin" marker-end="url(#a)" d="M205 742 V680" stroke-dasharray="3 4"/>
+  <path class="thin" marker-end="url(#a)" d="M557 742 V680" stroke-dasharray="3 4"/>
+  <path class="thin" marker-end="url(#a)" d="M942 742 V680" stroke-dasharray="3 4"/>
+</svg>
