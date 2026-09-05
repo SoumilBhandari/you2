@@ -272,6 +272,64 @@ def cmd_demo(args: argparse.Namespace) -> int:
     return _serve(build(args), args, open_browser=True)
 
 
+def cmd_listen(args: argparse.Namespace) -> int:
+    """The whole device: ears, brain, voice.
+
+    With a microphone it is the real loop. Without one it reads typed lines
+    and synthesises audio with the right shape, so the VAD, the endpointer,
+    the dwell window and barge-in all behave exactly as they will on hardware.
+    """
+    from ..audio import ScriptedASR, converse, make, typed_frames
+    from .events import BUS, State
+
+    brain = build(args)
+    brain.load_profile()
+    listener = make(brain.cfg, bus=brain.bus)
+    stages = getattr(listener, "stages", {})
+
+    print(f"wake word: \"{brain.cfg.wake_phrase}\"")
+    for name, how in stages.items():
+        print(f"  {name:<5} {how}")
+    print()
+
+    source = None
+    if args.mic:
+        try:
+            from ..audio import SoundDevice
+            source = SoundDevice(device=args.device)
+            source.start()
+            listener.playout = source.play
+            frames = source.frames()
+            print("listening on the microphone. Ctrl-C to stop.")
+        except Exception as exc:                       # noqa: BLE001
+            print(f"! no microphone ({exc}); falling back to typed input\n",
+                  file=sys.stderr)
+            source = None
+    if source is None:
+        if not isinstance(listener.asr, ScriptedASR):
+            listener.asr = ScriptedASR()
+        frames = typed_frames(listener.asr,
+                              prompt=f"[say \"{brain.cfg.wake_phrase}\"] > ")
+
+    def report(turn, reply):
+        print(f"  {reply.text}")
+        if args.verbose:
+            print(f"  [{reply.route} {reply.timing.total_ms:.0f}ms "
+                  f"{reply.workspace.tokens if reply.workspace else 0}tok "
+                  f"woken={turn.woken}]")
+
+    try:
+        converse(brain, listener, frames, on_reply=report)
+    except KeyboardInterrupt:
+        print()
+    finally:
+        if source is not None:
+            source.stop()
+        brain.close()
+        brain.close_store()
+    return 0
+
+
 def cmd_eval(args: argparse.Namespace) -> int:
     from ..eval import ablate, compare, run
     if args.ablate:
@@ -340,6 +398,12 @@ def main(argv: list[str] | None = None) -> int:
     sv.add_argument("--no-night", dest="night", action="store_false",
                     help="do not consolidate automatically")
     sv.set_defaults(fn=cmd_serve, night=True)
+
+    ls = sub.add_parser("listen", parents=[common],
+                        help="the whole device: ears, brain, voice")
+    ls.add_argument("--mic", action="store_true", help="use a real microphone")
+    ls.add_argument("--device", default=None, help="sound device name or index")
+    ls.set_defaults(fn=cmd_listen)
 
     dm = sub.add_parser("demo", parents=[common],
                         help="seed a month of life and open the eye")
