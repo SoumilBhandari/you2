@@ -26,7 +26,7 @@ Last revised 7 August 2026. This document is self-contained: read only this and 
 
 ## 1. What it is
 
-A small object on your desk. You say **"Friday"**, you talk to it, it answers out loud. It has a round display that shows
+A small object on your desk. You say **"Hey Friday"**, you talk to it, it answers out loud. It has a round display that shows
 what it's doing and a light bar that tells you what state it's in.
 
 The part that matters: **it remembers.** Every conversation is captured, distilled overnight into durable facts, and
@@ -38,12 +38,17 @@ in parts.
 
 ### On the two names
 
-The project and the object are **you2**. The wake word is **"Friday"**. These are deliberately different things.
+The project and the object are **you2**. The wake word is **"Hey Friday"**. These are deliberately different things.
 
 *you2* describes what the device is — a second you, an accumulating record — and that's the right name for the thing
 and the repo. But a wake word has a different job: it has to be phonetically distinctive, rare enough in ordinary
 speech not to false-trigger, and pleasant to say a dozen times a day. "you2" fails the second test badly, being a
 homophone for "you too."
+
+The carrier syllable is doing work too. "Friday" alone is rare enough in ordinary speech, but it does appear in
+"see you Friday" and "the Friday deadline" — and a device that answers those is worse than one that occasionally
+misses. "Hey" gives the detector a run-up and a much cleaner onset to key on, which is the standard reason every
+shipped wake word has one.
 
 Nothing in the build depends on either name. The wake word is a custom openWakeWord model you train yourself in about
 90 minutes, so it can change at any point without touching a line of pipeline code.
@@ -134,7 +139,7 @@ mic → wake word → VAD → turn detection → ASR → LLM → TTS → speaker
 
 | Stage | Component | Measured cost (Cortex-A76 @ 2.4 GHz) |
 |---|---|---|
-| Wake word | openWakeWord, custom **"Friday"** | <5 ms per 80 ms frame (~6% of one core) |
+| Wake word | openWakeWord, custom **"Hey Friday"** | <5 ms per 80 ms frame (~6% of one core) |
 | VAD | Silero VAD v6 | <1 ms per 30 ms chunk |
 | Turn detection | pipecat smart-turn v3 | 60–120 ms on ARM |
 | ASR | Moonshine Tiny, streaming | **237 ms** |
