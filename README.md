@@ -85,12 +85,37 @@ halves block diversity; plain top-k scores the *highest* topical focus and the *
 RAG's failure mode measured rather than asserted. One mechanism — the salience gate — changes nothing measurable,
 and [docs/brain.md §15.2](docs/brain.md) says so rather than defending it.
 
+### And who they are
+
+Memory answers *what did they say*. A second brain has to answer *who are they*,
+and that is derived from what is already in the store rather than from a
+settings page: the shape of their week, how they feel about each thing and
+**which way it is moving**, how they talk and therefore how to talk back, what
+is weighing on them, and what has changed about them lately.
+
+On a seeded month it says things only something that has watched you for weeks
+can say — *souring on the Kestrel contract* over eleven mentions and five weeks,
+*at their best in the morning*, *boiler service, overdue*, *they speak in short
+sentences, match that*. Every claim carries its sample size, and thin evidence
+produces silence rather than a hedge: telling someone something wrong about
+themselves is the moment they stop believing any of it.
+
+### And ears
+
+The wake word is **"Hey Friday"**. Wake, VAD, endpointing, ASR and TTS are each
+an interface with a real adapter and a working fallback, so the whole loop —
+including barge-in, the thing most likely to sink the project — runs and is
+tested with no hardware and no models.
+
 ```bash
 cd software && python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
-.venv/bin/you2 chat --fake     # talk to it: no network, no model download
+.venv/bin/you2 demo            # seed a month of life and open the eye
+.venv/bin/you2 listen          # the whole device: ears, brain, voice
 .venv/bin/you2 why "..."       # print the whole retrieval
 .venv/bin/you2 eval --ablate   # check every mechanism earns its place
 ```
+
+Flashing a card: **[deploy/](deploy/)**.
 
 ---
 
