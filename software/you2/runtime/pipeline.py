@@ -96,6 +96,9 @@ class Brain:
         self.router = Router(self.clock)
         self.baseline = Baseline(self.store, "user")
         self.profile: str = ""
+        #: Who they are. Rebuilt nightly, stable all day, and placed ahead
+        #: of everything else so the cacheable prefix is as long as possible.
+        self.persona: str = ""
         self._context: list[tuple[int, float]] = []
         self._history: list[dict[str, str]] = []
         self._last_workspace: Workspace | None = None
@@ -213,7 +216,7 @@ class Brain:
         if self.llm is None:
             yield OFFLINE_FALLBACK
             return
-        block = self.profile + ("\n" + ws.block() if ws.block() else "")
+        block = "\n".join(x for x in (self.persona, self.profile, ws.block()) if x)
         yield from self.llm.stream(prompts.answer(block, self._history[-HISTORY_TURNS:],
                                                   text))
 
@@ -227,9 +230,10 @@ class Brain:
     def _generate(self, ws: Workspace, text: str) -> tuple[str, str]:
         if self.llm is None:
             return OFFLINE_FALLBACK, "offline"
-        # The nightly profile first, then this turn's retrieval. The profile is
-        # stable, so it stays inside the cacheable prefix.
-        block = self.profile
+        # Persona, then profile, then this turn's retrieval. The first two are
+        # stable all day and stay inside the cacheable prefix; only the last
+        # changes per turn.
+        block = "\n".join(x for x in (self.persona, self.profile) if x)
         if ws.block():
             block = (block + "\n" + ws.block()).strip()
         try:
@@ -301,13 +305,21 @@ class Brain:
         finally:
             self.bus.state_changed(State.IDLE)
         self.profile = report.profile
+        self.persona = report.persona
         self.bus.publish("night", **viz.night_frame(report, "done"))
         return report
 
     def load_profile(self, now: float | None = None) -> str:
-        self.profile = night.build_profile(self.store, self.cfg,
-                                           now or self.clock.now())
+        now = now or self.clock.now()
+        self.profile = night.build_profile(self.store, self.cfg, now)
+        from ..person import build as build_person
+        self.persona = build_person(self.store, self.cfg, now).persona(now)
         return self.profile
+
+    def who(self, now: float | None = None):
+        """The model of the person, with its evidence."""
+        from ..person import build as build_person
+        return build_person(self.store, self.cfg, now or self.clock.now())
 
     # ----------------------------------------------------------------- misc
 
