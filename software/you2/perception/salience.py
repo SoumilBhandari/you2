@@ -190,6 +190,16 @@ def evaluate(store: Store, text: str, cfg: BrainConfig | None = None, *,
     if s_explicit >= 1.0:
         total = max(total, cfg.salience_strong + 0.05)
 
+    # Commitments and their resolutions are structurally important regardless
+    # of how surprising they are — and a closure is *unsurprising by
+    # construction*, because it is about a commitment we already recorded.
+    # Left to the weighted score, "sent him the numbers, that's done" scores
+    # below the floor, gets discarded, and the open loop it resolves stays
+    # open forever. Same shape as the recurring-complaint problem: the gate
+    # is right that we knew this, and wrong that it therefore does not matter.
+    if d.commitments or d.is_closure:
+        total = max(total, cfg.salience_floor + 0.05)
+
     # Very short acknowledgements are never worth an episode, however
     # surprising the embedder finds them. "ok" against an empty workspace
     # scores 1.0 on surprise, which is exactly the failure this catches.
