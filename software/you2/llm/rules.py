@@ -121,14 +121,32 @@ def slug(text: str, limit: int = 3) -> str:
     return "_".join(words) if words else "x"
 
 
+#: A prepositional phrase attaches *after* the head noun, so everything from
+#: here on is modifier rather than topic.
+_ATTACHMENT = re.compile(
+    r"\b(in|on|at|with|for|from|about|during|before|after|over|under|by|"
+    r"than|because|since|while|unless|these days|nowadays|any more|anymore|"
+    r"right now|at the moment|lately|generally|usually|most of the time)\b")
+
+
 def topic(phrase: str) -> str:
     """The dimension a claim is about.
 
-    Last content word: English noun phrases are head-final, so "cow milk" and
-    "oat milk" both reduce to `milk` and a later preference can replace an
-    earlier one instead of sitting beside it.
+    Take the **last content word of the phrase up to its first attachment**.
+    English noun phrases are head-final -- "cow milk" and "oat milk" both
+    reduce to `milk` -- but a prepositional phrase hangs off the *end*, and
+    taking the literal last word lets it steal the head:
+
+        "meetings in the morning"             -> morning
+        "meetings in the afternoon these days" -> days
+
+    Two different keys for the same dimension, so the later statement sits
+    next to the earlier one forever and the profile ends up asserting both.
+    Cutting at the attachment gives `meeting` for both, and as a bonus fixes
+    "oat milk in my coffee", which previously keyed on `coffee`.
     """
-    words = tokenize(phrase)
+    head = _ATTACHMENT.split(phrase.lower(), maxsplit=1)[0]
+    words = tokenize(head) or tokenize(phrase)
     if not words:
         return "x"
     return stem(words[-1])
