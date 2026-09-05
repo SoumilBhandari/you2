@@ -368,7 +368,7 @@ KV prefix caching helps enormously. Structure every prompt as `[stable persona +
 
 | Stage | Pick | License | Note |
 |---|---|---|---|
-| Wake word | **openWakeWord**, custom **"Friday"** | Apache 2.0 | Train your own on Colab (~75–90 min) from synthetic Piper audio. The *bundled* models are CC BY-NC-SA — training your own also escapes that. |
+| Wake word | **openWakeWord**, custom **"Hey Friday"** | Apache 2.0 | Train your own on Colab (~75–90 min) from synthetic Piper audio. The *bundled* models are CC BY-NC-SA — training your own also escapes that. |
 | VAD | Silero VAD v6 | MIT | <1 ms/chunk, cheap gate only |
 | Turn detection | **pipecat smart-turn v3** | BSD-2 | ~65 ms on one core. **Highest-leverage latency component in the build** — a naive 700 ms silence timeout burns 70% of your budget every turn. |
 | Orchestration | **pipecat** ≥ 0.0.85 | BSD-2 | Streaming and barge-in are first-class |
