@@ -33,7 +33,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Iterable
+from typing import Iterable, Sequence
 
 from ..perception.discourse import commitments, is_closure
 from ..substrate.embed import stem, tokenize
@@ -275,6 +275,104 @@ def topic(phrase: str) -> str:
     return stem(words[-1])
 
 
+# --------------------------------------------------------- nominal ellipsis
+#
+# "We've run out of milk again — I only ever buy semi-skimmed."
+#
+# The object of `buy` is a bare modifier: the head noun was said a clause ago
+# and dropped, which English does constantly for consumables and products
+# ("I only get free-range", "she takes decaf", "we always order large").
+# A reader supplies *milk* without noticing.
+#
+# An extractor that does not costs the whole mechanism this project is built
+# on. The claim becomes "the user buys semi-skimmed", which keys on `skimm`;
+# six weeks later "I've switched to oat milk" keys on `milk`; the two are
+# different dimensions as far as the store can tell, so supersession never
+# fires and both sit in the profile forever, contradicting each other.
+#
+# The detection is deliberately narrow, because a false positive welds a
+# wrong noun onto a right claim: fire only on a **single-token object that is
+# morphologically an adjective**. "oat milk" is two tokens and keeps its own
+# head; "meetings in the morning" heads on a noun. Only the elliptical case
+# is left.
+
+_ADJECTIVAL_SUFFIX = ("-", "less", "free", "ish", "ous", "ic", "al", "ive")
+
+#: One-word modifiers that stand in for a noun so routinely that morphology
+#: alone would miss them.
+_BARE_MODIFIER = frozenset("""
+decaf organic large small medium regular diet skimmed semi whole plain
+unsalted salted wholemeal white brown black green herbal sparkling still
+vegan veggie gluten dairy lactose instant ground filter loose
+""".split())
+
+#: Not nouns, so never an antecedent. Kept small on purpose — the point is to
+#: skip the obvious verbs in "we've run out of milk", not to be a tagger.
+_NOT_A_NOUN = frozenset("""
+run out get got have has had buy buys bought take takes took use uses used
+go goes went do does did make makes made keep keeps kept need needs come
+comes came want wants like likes prefer prefers say says said think thinks
+been being was were are is am put puts finish finished ran gone done
+""".split())
+
+#: A noun is usually introduced. Preferring an introduced token over the
+#: merely-last one is what picks *milk* out of "we've run out of milk again"
+#: rather than the verb that precedes it.
+_INTRODUCER = re.compile(
+    r"\b(?:the|a|an|of|my|our|some|any|more|no|out of|that|this)\s+([a-z][\w-]{2,20})\b")
+
+
+def is_elliptical(phrase: str) -> bool:
+    # Whitespace, not `tokenize`: the tokenizer splits on the hyphen, so
+    # "semi-skimmed" arrives as two tokens and the one-word test — which is
+    # the entire safety of this mechanism — silently never fires.
+    words = phrase.strip().lower().split()
+    if len(words) != 1:
+        return False
+    word = words[0].strip(".,;:!?\"'")
+    if not word:
+        return False
+    if word in _BARE_MODIFIER:
+        return True
+    if "-" in word:
+        return True
+    last = tokenize(word)[-1] if tokenize(word) else word
+    if last in _NOT_A_NOUN or last in _BARE_MODIFIER:
+        return last in _BARE_MODIFIER
+    if last.endswith("ed"):
+        return True
+    return any(last.endswith(s) for s in _ADJECTIVAL_SUFFIX if s != "-")
+
+
+def antecedent_noun(prior: list[str]) -> str:
+    """The head noun a bare modifier is standing in for.
+
+    Nearest first, and within a clause the *introduced* noun wins: "we've run
+    out of milk again" offers `run`, `out` and `milk` as content words, and
+    only `milk` arrives behind a preposition.
+    """
+    for clause in reversed(prior):
+        introduced = [w for w in _INTRODUCER.findall(clause.lower())
+                      if w not in _NOT_A_NOUN and w not in _BARE_MODIFIER]
+        if introduced:
+            return introduced[-1]
+        words = [w for w in tokenize(clause)
+                 if w not in _NOT_A_NOUN and not w.endswith("ly")]
+        if words:
+            return words[-1]
+    return ""
+
+
+def restore_head(phrase: str, prior: list[str]) -> str:
+    """"semi-skimmed" -> "semi-skimmed milk", when the head is recoverable."""
+    if not is_elliptical(phrase):
+        return phrase
+    head = antecedent_noun(prior)
+    if not head or any(stem(head) == stem(w) for w in tokenize(phrase)):
+        return phrase
+    return f"{phrase.strip()} {head}"
+
+
 @dataclass(slots=True)
 class Extracted:
     gist: str = ""
@@ -382,23 +480,38 @@ def _antecedent(prior: list[str]) -> str:
 
 
 def _resolve(obj: str, prior: list[str]) -> str:
-    if not _PRONOUN_OBJECT.match(obj.strip()):
-        return obj
-    antecedent = _antecedent(prior)
-    if not antecedent:
-        return obj
-    return _PRONOUN_OBJECT.sub(antecedent, obj.strip(), count=1)
+    """Both kinds of anaphora an object phrase can carry.
+
+    A pronoun says *there is a referent, go and find it*; ellipsis says
+    nothing at all and relies on the reader noticing an absence. They are the
+    same repair — recover the noun from prior discourse — so they resolve in
+    one place.
+    """
+    obj = obj.strip()
+    if _PRONOUN_OBJECT.match(obj):
+        antecedent = _antecedent(prior)
+        return _PRONOUN_OBJECT.sub(antecedent, obj, count=1) if antecedent else obj
+    return restore_head(obj, prior)
 
 
-def find_facts(text: str) -> list[dict]:
+def find_facts(text: str, context: Sequence[str] = ()) -> list[dict]:
+    """`context` is the earlier episodes of the same batch.
+
+    Batching exists so that a claim spanning several turns is visible; an
+    antecedent one turn back is exactly that case, and it costs nothing to
+    let the reference reach it.
+    """
     facts: list[dict] = []
 
     def add(key: str, claim: str, confidence: float = 0.7) -> None:
         facts.append({"key": key, "text": trim(claim), "confidence": confidence})
 
+    earlier: list[str] = []
+    for previous in context:
+        earlier.extend(clauses(previous))
     parts = clauses(text)
     for i, clause in enumerate(parts):
-        _facts_in_clause(clause, parts[:i], text, add)
+        _facts_in_clause(clause, earlier + parts[:i], text, add)
 
     # De-duplicate by key, keeping the most confident.
     best: dict[str, dict] = {}
@@ -542,8 +655,8 @@ def extract(texts: Iterable[str], ids: Iterable[int], now: float) -> Extracted:
     out = Extracted()
     seen_entities: dict[str, dict] = {}
 
-    for text, nid in zip(texts, ids):
-        for f in find_facts(text):
+    for i, (text, nid) in enumerate(zip(texts, ids)):
+        for f in find_facts(text, context=texts[:i]):
             f["cites"] = [nid]
             out.facts.append(f)
         for e in find_entities(text):
