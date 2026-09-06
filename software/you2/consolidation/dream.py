@@ -102,13 +102,19 @@ def _degree_similarity(a: list[int], b: list[int]) -> float:
     return num / den if den else 0.0
 
 
-def alignment(store: Store, a: int, b: int) -> Bridge | None:
+def alignment(store: Store, a: int, b: int, hops: int | None = None) -> Bridge | None:
     """Structural alignment between two neighbourhoods.
 
     Cheap filters first -- relation-type multiset, degree sequence -- so that
     only survivors cost a model call.
+
+    `hops` is passed in by the only caller that has already computed it. It
+    is carried for reporting and does not enter the score, so recomputing it
+    here was a second full breadth-first search per pair for a number nobody
+    reads.
     """
-    hops = store.graph.hops(a, b, max_hops=6)
+    if hops is None:
+        hops = store.graph.hops(a, b, max_hops=6)
     sig_a = store.graph.relation_signature(a)
     sig_b = store.graph.relation_signature(b)
     if not sig_a or not sig_b:
@@ -179,7 +185,7 @@ def candidates(store: Store, cfg: BrainConfig, now: float,
         hops = store.graph.hops(a, b, max_hops=cfg.bridge_min_hops)
         if 0 <= hops < cfg.bridge_min_hops:
             continue
-        bridge = alignment(store, a, b)
+        bridge = alignment(store, a, b, hops=hops)
         if bridge is not None and bridge.alignment >= cfg.bridge_min_alignment:
             out.append(bridge)
     out.sort(key=lambda br: -br.alignment)
