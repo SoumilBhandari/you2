@@ -25,6 +25,7 @@ the separate 5 V rail is sized for.
 from __future__ import annotations
 
 import math
+import queue
 import threading
 import time
 from dataclasses import dataclass
@@ -116,11 +117,26 @@ class Bar:
         if self._thread is not None:
             return
 
+        # The bar polled bus.state and nothing else, so set_level was never
+        # called and self._level stayed 0.0 for the life of the process. Both
+        # LISTENING and SPEAKING render mode "level" — the two states anyone
+        # actually watches were drawing a meter pinned at zero, while the audio
+        # loop published a "level" event 33 times a second that had no consumer.
+        q = bus.subscribe()
+
         def loop() -> None:
             t0 = time.monotonic()
             while not self._stop.is_set():
+                while True:
+                    try:
+                        event = q.get_nowait()
+                    except queue.Empty:
+                        break
+                    if event.type == "level":
+                        self.set_level(float(event.data.get("level", 0.0)))
                 self.write(self.frame(bus.state, time.monotonic() - t0))
                 self._stop.wait(1.0 / self.fps)
+            bus.unsubscribe(q)
 
         self._thread = threading.Thread(target=loop, daemon=True, name="you2-leds")
         self._thread.start()
