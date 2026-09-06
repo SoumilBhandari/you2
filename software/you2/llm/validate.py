@@ -218,6 +218,28 @@ _TRANSIENT = re.compile(
     r"running late|late for|ill|unwell|sick|busy|swamped|annoyed|stressed|"
     r"in a meeting|on a call|on the train|on the way|about to)\b", re.I)
 
+#: "The Kestrel migration is moving along." A progress report is a state of
+#: the world this week, not a fact about it, and storing one as durable is the
+#: same error as storing "running late" — it just wears a project's name
+#: instead of a person's.
+#:
+#: Found by reading a day-730 retrieval block rather than by a test: `the
+#: Kestrel migration is moving along` and `the garden wall is moving along`
+#: were both live facts, both scoring high, and neither says anything. They
+#: cost a slot in the workspace every time their project comes up.
+#:
+#: Anchored to the end of the claim, because what makes these vacuous is that
+#: the progress phrase is the *whole* predicate. "The boiler service is due in
+#: October" is a status too, and it names a date, so it stays.
+_VAGUE_STATUS = re.compile(
+    r"\b(?:is|are|was|were|seems?|feels?|looks?)\s+"
+    r"(?:still\s+|about\s+|more or less\s+)?"
+    r"(?:moving along|coming along|going well|going fine|going ok(?:ay)?|"
+    r"on track|under control|as expected|about the same|the same as ever|"
+    r"fine|ok|okay|good|alright|all right|nothing new|no change)"
+    r"[\s,]*(?:nicely|slowly|steadily|quietly|well|now|though|really)?[\s.,!]*$",
+    re.IGNORECASE)
+
 _RECURRING = re.compile(
     r"\b(always|usually|every|each|keeps|again|tends|generally|often|never|"
     r"repeatedly|most (?:days|weeks|mornings|evenings)|after every|whenever)\b",
@@ -255,6 +277,8 @@ def undurable(text: str) -> str | None:
         return "true today, not tomorrow"
     if _TRANSIENT.search(body) and not _RECURRING.search(body):
         return "a passing state"
+    if _VAGUE_STATUS.search(body) and not _RECURRING.search(body):
+        return "a progress report, not a fact"
     if len(tokenize(body)) < MIN_CONTENT:
         return "too short to be a claim"
     return None
