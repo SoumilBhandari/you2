@@ -67,9 +67,11 @@ _COMMON_NOUN_ENTITY = re.compile(
     r"account|migration|deadline|review|rota)\b")
 
 _PREF = re.compile(
-    r"\bi\s+(?:really\s+|quite\s+|generally\s+)?"
+    r"\bi\s+(?:really\s+|quite\s+|generally\s+|only\s+ever\s+|always\s+|"
+    r"usually\s+|mostly\s+|tend\s+to\s+)?"
     r"(prefer|like|love|hate|enjoy|avoid|can't stand|cannot stand|"
-    r"don't like|do not like|dislike)\s+(.{2,60}?)(?:[.,;!?]|$)")
+    r"don't like|do not like|dislike|buy|drink|take|order|use|wear|"
+    r"go for|stick to)\s+(.{2,60}?)(?:[.,;!?]|$)")
 
 #: First person to third person. These facts get read aloud, and "the user
 #: don't like meetings" is the kind of thing that makes a device sound broken
@@ -105,20 +107,141 @@ _RELATION = re.compile(
 _DECISION = re.compile(
     r"\bi(?:'ve| have)?\s*decided\s+(?:to\s+)?(.{3,60}?)(?:[.,;!?]|$)")
 
-_THING_STATE = re.compile(
-    r"\bthe\s+([a-z][\w -]{2,30}?)\s+(?:is|are|needs|need|has|have|keeps)\s+"
+#: "I'd rather die than sit through another all-hands." Hyperbole is a
+#: preference, and the comparative is what carries it: whatever follows
+#: `than` is the thing actually disliked. Taking the sentence literally
+#: stores a claim about dying.
+_RATHER = re.compile(
+    r"\bi'?d?\s+rather\s+.{2,40}?\s+than\s+(.{3,50}?)(?:[.,;!?]|$)")
+
+#: A standing inability is a constraint on every future suggestion, which
+#: makes it one of the more useful things to know. "I can't stand X" is a
+#: preference and belongs to _PREF, so those verbs are excluded here.
+_CANNOT = re.compile(
+    r"\bi\s+(?:really\s+)?(?:can'?t|cannot|am not able to)\s+"
+    r"(?!stand|believe|help|wait|tell|remember|imagine|think|see|say)"
     r"(.{3,50}?)(?:[.,;!?]|$)")
+
+#: "no coriander in anything, ever." A bare negative with no subject and no
+#: verb. The quantifier is what makes it a standing rule rather than a
+#: refusal of whatever was just offered, so it is required.
+_NEVER_WANT = re.compile(
+    r"^\s*no\s+([a-z][\w-]{2,25})\b(?=[^.!?]*\b"
+    r"(?:ever|anything|everything|at all|any more|anymore|again)\b)",
+    re.IGNORECASE)
+
+#: "Priya's flat is in Alfama." A possessive subject names both the owner and
+#: the dimension, which is a better key than anything derivable from the
+#: predicate.
+#: The name class excludes the apostrophe deliberately: `[\w'-]+` swallows
+#: "Priya's" whole and then finds no possessive left to match.
+_POSSESSIVE_STATE = re.compile(
+    r"\b([A-Z][\w-]+)'s\s+([a-z][\w]{2,18}(?:\s+[a-z][\w]{2,18})?)\s+"
+    r"(is|are|was|were)\s+(.{3,40}?)(?:[.,;!?]|$)")
+
+#: The verb is captured, not consumed. Dropping it produced "the car
+#: insurance on the third of March" from "the car insurance renews on the
+#: third of March" -- a fact with a subject, a date, and no claim, which
+#: reads as true and says nothing.
+_THING_STATE = re.compile(
+    r"\bthe\s+([a-z][\w -]{2,30}?)\s+"
+    r"(is|are|needs|need|has|have|keeps|renews|expires|runs out|starts|"
+    r"ends|arrives|comes up|goes|falls|lands)\s+"
+    r"(.{3,50}?)(?:[.,;!?]|$)")
+
+#: A change of practice. Two shapes, and the distinction matters: when the
+#: dimension is named ("moved my *meetings* to the afternoon") it is the key,
+#: and when it is not ("switched to oat *milk*") the head of the new value is.
+_SHIFT_NAMED = re.compile(
+    r"\bi(?:'ve| have)?\s+(?:just\s+|now\s+)?"
+    r"(?:moved|switched|changed|shifted)\s+my\s+([\w-]{3,20})\s+to\s+"
+    r"(.{2,50}?)(?:[.,;!?]|$)")
+_SHIFT_BARE = re.compile(
+    r"\bi(?:'ve| have)?\s+(?:just\s+|now\s+)?"
+    r"(?:moved|switched|changed)\s+(?:over\s+)?to\s+(.{2,50}?)(?:[.,;!?]|$)")
+
+#: Somebody else's preference, which must land under *their* subject. A
+#: third-party opinion filed under `user/` is the most damaging extraction
+#: error there is: the device tells you what you think, and is wrong.
+_OTHER_PREF = re.compile(
+    r"\b([A-Z][\w'-]+(?:\s+[A-Z][\w'-]+)*)\s+"
+    r"(?:said|says|told me)?\s*(?:that\s+)?(?:he|she|they)?\s*"
+    r"(prefers|likes|hates|wants|needs|refuses|insists on|avoids)\s+"
+    r"(.{2,60}?)(?:[.,;!?]|$)")
+
+#: "Anderson is the project manager." Capitalised subject, role predicate.
+#: Deliberately requires an article, so "Anderson is away" does not become a
+#: durable claim about who Anderson is.
+_ROLE = re.compile(
+    r"\b([A-Z][\w'-]+(?:\s+[A-Z][\w'-]+)*)\s+is\s+(?:the|a|an|our|my)\s+"
+    r"(.{3,45}?)(?:[.,;!?]|$)")
+
+#: Employment stated without the verb "work": "I'm at Lumen now", "I've
+#: joined Fenwick". Guarded on capitalisation in the source so "I'm at home"
+#: and "I'm at the dentist" do not become employers.
+_AT_EMPLOYER = re.compile(
+    r"\bi(?:'m| am)\s+(?:now\s+)?at\s+([\w'-]{3,30}?)(?:\s+now)?(?:[.,;!?]|$)")
+_JOINED = re.compile(
+    r"\bi(?:'ve| have)?\s+(?:just\s+)?(?:joined|started at|moved to)\s+"
+    r"([\w'-]{3,30}?)(?:[.,;!?]|$)")
 
 # Episodes join their turns with " / ", so a pattern that spans the join
 # invents facts nobody said: "the garden wall is moving along / actually I
 # prefer oat milk now" produced the fact `garden_wall/state = "prefer oat milk
 # now"`. Clause-splitting first is not an optimisation, it is correctness.
-_SPLIT = re.compile(r"(?<=[.!?])\s+|\s*/\s*|\s*\|\s*|;\s*")
+#
+# The comma case is the same bug in miniature. "I don't work at Fenwick any
+# more, I'm at Lumen now" is two claims, and only the second one is true. So
+# a comma splits when a new subject follows it and not otherwise -- splitting
+# on every comma would cut "meetings in the morning, useless after three"
+# into two fragments that mean nothing apart.
+_SPLIT = re.compile(
+    r"(?<=[.!?])\s+|\s*/\s*|\s*\|\s*|;\s*|\s+[—–]\s+|\s+-\s+"
+    r"|,\s+(?:and\s+|but\s+|though\s+|although\s+|so\s+|then\s+)?"
+    r"(?=i\b|i'|the\s|my\s|we\b|we')"
+    # A conjunction followed by a fresh subject is a clause boundary too, and
+    # without it a second clause runs past the length limit of every pattern
+    # here: "Priya's flat is in Alfama and she starts at the hospital in
+    # March" matched nothing at all. Bare "and" is left alone — "fish and
+    # chips" is not two clauses.
+    r"|\s+and\s+(?=i\b|i'|he\b|she\b|they\b|it\b|we\b|the\s|my\s)",
+    re.IGNORECASE)
+
+#: A bare pronoun object carries no dimension: "I'm allergic to it" keyed
+#: `user/allergic_x` and stored a claim naming no allergen, which is a fact
+#: that can never be retrieved and can never be corrected.
+_PRONOUN_OBJECT = re.compile(r"^(it|that|this|them|those|these|him|her|one)\b",
+                             re.IGNORECASE)
 
 
 def slug(text: str, limit: int = 3) -> str:
     words = [w for w in tokenize(text)][:limit]
     return "_".join(words) if words else "x"
+
+
+#: Trailing discourse markers. "my name is Soumil by the way" stored the name
+#: as "soumil by the way", which is then said back to them.
+_FILLER_TAIL = re.compile(
+    r"[\s,]+(by the way|anyway|anyhow|actually|though|i guess|i think|"
+    r"i suppose|you know|obviously|of course|to be honest|honestly|"
+    r"apparently|as it happens|or something|or whatever|really)\s*$", re.I)
+
+
+def trim(text: str) -> str:
+    out = text.strip(" ,;:-–—")
+    while True:
+        cut = _FILLER_TAIL.sub("", out)
+        if cut == out:
+            return cut.strip(" ,;:-–—")
+        out = cut
+
+
+def original_case(word: str, source: str) -> str:
+    """Names come back from a lowercased clause. A persona block that calls
+    them "soumil" reads as broken in a way that has nothing to do with what
+    it knows."""
+    m = re.search(rf"\b{re.escape(word)}\b", source, re.IGNORECASE)
+    return m.group(0) if m else word
 
 
 #: A prepositional phrase attaches *after* the head noun, so everything from
@@ -165,6 +288,34 @@ class Extracted:
                 "loops": self.loops, "closed": self.closed}
 
 
+#: What a name is, read off the preposition in front of it. Cheap, general,
+#: and far better than the previous default of calling every unrecognised
+#: capitalised word an organisation -- a confident wrong answer, which is the
+#: worst kind for something the device says out loud.
+_AS_ORG = re.compile(r"\b(?:at|for|joined|with the|works? at|started at)\s+$", re.I)
+_AS_PERSON = re.compile(
+    r"\b(?:my\s+(?:wife|husband|partner|sister|brother|mother|father|mum|mom|"
+    r"dad|son|daughter|boss|neighbour|neighbor|friend|colleague|landlord|"
+    r"doctor|dentist)|with|met|meeting|saw|spoke to|talked to|called|"
+    r"lunch with|dinner with|asked|told)\s+$", re.I)
+_AS_PLACE = re.compile(r"\b(?:in|to|from|near|around|live in|lives in|"
+                       r"moving to|moved to|back in)\s+$", re.I)
+
+
+def classify(name: str, source: str, head: str | None = None) -> str:
+    if head:
+        return "project"
+    m = re.search(rf"\b{re.escape(name)}\b", source, re.IGNORECASE)
+    before = source[: m.start()] if m else ""
+    for pattern, kind in ((_AS_PERSON, "person"), (_AS_ORG, "org"),
+                          (_AS_PLACE, "place")):
+        if pattern.search(before):
+            return kind
+    if len(name.split()) >= 2:
+        return "person"
+    return "thing"
+
+
 def find_entities(text: str) -> list[dict]:
     out: dict[str, dict] = {}
 
@@ -200,8 +351,7 @@ def find_entities(text: str) -> list[dict]:
             if len(parts) > 1:
                 aliases.add(parts[0].lower())
                 aliases.add(parts[-1].lower())
-            kind = "person" if len(parts) == 2 and not head else \
-                ("project" if head else "org")
+            kind = classify(m.group(1).strip(), sentence, head)
             existing = out.get(key)
             if existing:
                 existing["aliases"] = sorted(set(existing["aliases"]) | aliases)
@@ -210,14 +360,45 @@ def find_entities(text: str) -> list[dict]:
     return list(out.values())
 
 
+def clauses(text: str) -> list[str]:
+    return [c.strip() for c in _SPLIT.split(text) if c and c.strip()]
+
+
+def _antecedent(prior: list[str]) -> str:
+    """What a bare pronoun in this clause refers back to.
+
+    The **first** content word of the nearest preceding clause, not the last.
+    English clauses are subject-initial and a pronoun in a following clause
+    almost always picks up the subject: in "penicillin is an antibiotic, but
+    I'm allergic to it", the last content word is *antibiotic* and the right
+    answer is *penicillin*. One rule, and it is right far more often than the
+    recency heuristic that looks obvious.
+    """
+    for clause in reversed(prior):
+        words = tokenize(clause)
+        if words and not _PRONOUN_OBJECT.match(words[0]):
+            return words[0]
+    return ""
+
+
+def _resolve(obj: str, prior: list[str]) -> str:
+    if not _PRONOUN_OBJECT.match(obj.strip()):
+        return obj
+    antecedent = _antecedent(prior)
+    if not antecedent:
+        return obj
+    return _PRONOUN_OBJECT.sub(antecedent, obj.strip(), count=1)
+
+
 def find_facts(text: str) -> list[dict]:
     facts: list[dict] = []
 
     def add(key: str, claim: str, confidence: float = 0.7) -> None:
-        facts.append({"key": key, "text": claim, "confidence": confidence})
+        facts.append({"key": key, "text": trim(claim), "confidence": confidence})
 
-    for clause in _SPLIT.split(text):
-        _facts_in_clause(clause.strip().lower(), add)
+    parts = clauses(text)
+    for i, clause in enumerate(parts):
+        _facts_in_clause(clause, parts[:i], text, add)
 
     # De-duplicate by key, keeping the most confident.
     best: dict[str, dict] = {}
@@ -228,33 +409,51 @@ def find_facts(text: str) -> list[dict]:
     return list(best.values())
 
 
-def _facts_in_clause(low: str, add) -> None:
+def _facts_in_clause(clause: str, prior: list[str], whole: str, add) -> None:
+    """`clause` keeps its original case: three of these patterns need it."""
+    low = clause.lower()
     if len(low) < 6:
         return
 
     m = _NAME.search(low)
     if m:
-        add("user/name", f"the user's name is {m.group(1).strip()}", 0.95)
+        name = trim(m.group(1))
+        add("user/name",
+            f"the user's name is {original_case(name, whole)}", 0.95)
 
     m = _WORK.search(low)
     if m:
         add("user/employer", f"the user works at {m.group(1).strip()}", 0.85)
+    else:
+        for pattern, conf in ((_JOINED, 0.8), (_AT_EMPLOYER, 0.7)):
+            m = pattern.search(low)
+            if m and _is_proper(m.group(1), whole):
+                add("user/employer", f"the user works at {m.group(1).strip()}", conf)
+                break
 
     m = _LIVE.search(low)
     if m:
         add("user/location", f"the user lives in {m.group(1).strip()}", 0.85)
 
     for m in _PREF.finditer(low):
-        verb, obj = m.group(1), m.group(2).strip()
+        verb, obj = m.group(1), _resolve(m.group(2).strip(), prior)
         add(f"user/pref_{topic(obj)}",
             f"the user {third_person(verb)} {obj}", 0.8)
 
+    for m in _SHIFT_NAMED.finditer(low):
+        dim, value = m.group(1).strip(), m.group(2).strip()
+        add(f"user/pref_{topic(dim)}",
+            f"the user has moved {dim} to {value}", 0.8)
+    for m in _SHIFT_BARE.finditer(low):
+        value = _resolve(m.group(1).strip(), prior)
+        add(f"user/pref_{topic(value)}", f"the user has switched to {value}", 0.8)
+
     for m in _STATE.finditer(low):
-        state, obj = m.group(1), m.group(2).strip()
+        state, obj = m.group(1), _resolve(m.group(2).strip(), prior)
         add(f"user/{slug(state, 2)}_{topic(obj)}", f"the user is {state} {obj}", 0.85)
 
     for m in _HABIT.finditer(low):
-        adverb, rest = m.group(1), m.group(2).strip()
+        adverb, rest = m.group(1), _resolve(m.group(2).strip(), prior)
         add(f"user/habit_{topic(rest)}", f"the user {adverb} {rest}", 0.7)
 
     for m in _RELATION.finditer(low):
@@ -265,11 +464,76 @@ def _facts_in_clause(low: str, add) -> None:
         rest = m.group(1).strip()
         add(f"user/decision_{topic(rest)}", f"the user has decided to {rest}", 0.8)
 
+    for m in _RATHER.finditer(low):
+        obj = _resolve(m.group(1).strip(), prior)
+        add(f"user/pref_{topic(obj)}", f"the user dislikes {obj}", 0.7)
+
+    for m in _CANNOT.finditer(low):
+        obj = m.group(1).strip()
+        add(f"user/cannot_{topic(obj)}", f"the user cannot {obj}", 0.75)
+
+    m = _NEVER_WANT.search(clause)
+    if m:
+        obj = m.group(1).strip().lower()
+        add(f"user/pref_{topic(obj)}", f"the user does not want {obj}", 0.75)
+
+    for m in _POSSESSIVE_STATE.finditer(clause):
+        who, thing, verb, rest = (m.group(1).strip(), m.group(2).strip(),
+                                  m.group(3).strip(), m.group(4).strip())
+        if _skip_subject(who):
+            continue
+        add(f"{_subject_key(who)}/{topic(thing)}",
+            f"{who}'s {thing} {verb} {rest}", 0.7)
+
     for m in _THING_STATE.finditer(low):
-        subject, rest = m.group(1).strip(), m.group(2).strip()
+        subject, verb, rest = (m.group(1).strip(), m.group(2).strip(),
+                               m.group(3).strip())
         if subject in ("user", "thing", "same", "other", "first", "last"):
             continue
-        add(f"{slug(subject, 2)}/state", f"the {subject} {rest}", 0.65)
+        add(f"{slug(subject, 2)}/state", f"the {subject} {verb} {rest}", 0.65)
+
+    # ---- other people, from the original casing ----------------------------
+    for m in _OTHER_PREF.finditer(clause):
+        who, verb, obj = (m.group(1).strip(), m.group(2).strip(),
+                          m.group(3).strip())
+        if _skip_subject(who):
+            continue
+        add(f"{_subject_key(who)}/pref_{topic(obj)}",
+            f"{who} {verb} {obj}", 0.75)
+
+    for m in _ROLE.finditer(clause):
+        who, role = m.group(1).strip(), m.group(2).strip()
+        if _skip_subject(who) or _PRONOUN_OBJECT.match(role):
+            continue
+        add(f"{_subject_key(who)}/role", f"{who} is the {role}", 0.75)
+
+
+def _skip_subject(name: str) -> bool:
+    parts = [p.lower() for p in name.split()]
+    return (not parts or parts[0] in _SENTENCE_STARTERS
+            or all(p in _NEVER_ENTITY for p in parts))
+
+
+def _subject_key(name: str) -> str:
+    """Surname for people, because that is what gets said next time.
+
+    "David Anderson is the project manager" and "Anderson prefers everything
+    in writing" have to reach the same subject or the two claims never meet.
+    """
+    return tokenize(name)[-1] if tokenize(name) else slug(name, 2)
+
+
+def _is_proper(word: str, source: str) -> bool:
+    """Capitalised somewhere in the original text, and not sentence-initial.
+
+    "I'm at Lumen now" is an employer; "I'm at home" is not, and no amount of
+    pattern work distinguishes them without looking at the capitalisation the
+    speaker (or the transcriber) already provided.
+    """
+    for m in re.finditer(rf"\b{re.escape(word)}\b", source, re.IGNORECASE):
+        if m.group(0)[:1].isupper() and m.start() > 0:
+            return True
+    return False
 
 
 def extract(texts: Iterable[str], ids: Iterable[int], now: float) -> Extracted:
