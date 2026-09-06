@@ -71,7 +71,7 @@ python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
 this runs on a 2 GB Pi beside an audio stack, and every import costs RSS.
 
 ```bash
-.venv/bin/pytest                      # 239 tests. ~4 min (the eval tests dominate)
+.venv/bin/pytest                      # 257 tests. ~4 min (the eval tests dominate)
 .venv/bin/pytest --ignore=tests/test_eval.py   # ~25 s, what you want while iterating
 
 .venv/bin/you2 demo                   # seed a month of life, open the eye
@@ -96,7 +96,7 @@ deterministic model; without an API key it runs offline and says so.
 
 ## Current state
 
-**Everything in `docs/brain.md` phases 1–9 is built and tested.** 239 tests,
+**Everything in `docs/brain.md` phases 1–9 is built and tested.** 257 tests,
 offline, deterministic, no network or model downloads.
 
 | file | tests | covers |
@@ -105,35 +105,49 @@ offline, deterministic, no network or model downloads.
 | `test_activation.py` | 22 | spreading, base-level, inhibition, workspace, cues |
 | `test_perception.py` | 22 | prosody, attention, discourse, salience |
 | `test_encoding.py` | 21 | segmentation, binding, loops, rule extraction |
-| `test_consolidation.py` | 21 | supersession, homeostasis, forgetting, the night |
+| `test_consolidation.py` | 23 | supersession, homeostasis, forgetting, the night |
 | `test_inference.py` | 16 | graph rules, compilation, TMS, parsimony |
 | `test_person.py` | 15 | rhythms, stance, style, the persona block |
 | `test_audio.py` | 20 | wake word, VAD, endpointing, barge-in, the loop |
 | `test_runtime.py` | 17 | the whole turn, routing, reconsolidation |
 | `test_experience.py` | 15 | event bus, cascade scene, server, LEDs |
-| `test_extraction.py` | 44 | **the extraction corpus**, the validator, key discipline, corrections |
+| `test_extraction.py` | 60 | **the extraction corpus**, the validator, key discipline, corrections |
 | `test_eval.py` | 10 | harness + **ablation claims** (slow) |
 
 ### Measured
 
 One simulated year, 1,178 utterances, 353 nights, ~50 s per run:
 
-| day | precision | focus | diversity | stale | neurons | edges |
-|---|---|---|---|---|---|---|
-| 30 | 0.50 | 0.73 | 0.88 | 0.00 | 119 | 692 |
-| 365 | **1.00** | 0.89 | 0.91 | **0.00** | 1,085 | 2,084 |
+| day | precision | focus | diversity | stale | neurons | live facts | edges |
+|---|---|---|---|---|---|---|---|
+| 30 | 0.50 | 0.73 | 0.88 | 0.00 | 119 | 8 | 692 |
+| 365 | **1.00** | 0.88 | 0.92 | **0.00** | 1,078 | 14 | 2,004 |
 
-Precision *rises* with elapsed time and superseded values never reach the
-block. **That curve is the primary regression test of the whole project.** If
+And two years (`you2 eval --days 730`, 2,325 utterances, 707 nights, ~143 s),
+because "does retrieval hold at month 24" is the question the product is
+built around and it is cheap to actually ask:
+
+| day | precision | focus | diversity | stale | neurons | live facts | edges |
+|---|---|---|---|---|---|---|---|
+| 730 | **1.00** | 0.92 | 0.68 | **0.00** | 2,070 | 14 | 2,920 |
+
+Precision *rises* with elapsed time, superseded values never reach the block,
+and after two years of daily use the store is 2,070 neurons holding 14 live
+facts. **That curve is the primary regression test of the whole project.** If
 it ever falls, consolidation has broken.
+
+The live-facts column is worth watching as closely as precision. It should
+stay small and roughly flat — the planted history only ever has a dozen or so
+durable claims in it. When it jumped to 90 it was a correction hijacking
+unrelated keys, and nothing else in the suite noticed.
 
 And extraction, against 24 hand-labelled sessions (`you2 extract`):
 
 | | precision | recall | key stability | traps | grounded |
 |---|---|---|---|---|---|
-| rules | 1.00 | 1.00 | 0.67 | 0/22 | 0.89 |
+| rules | 1.00 | 1.00 | **1.00** | 0/22 | 0.89 |
 | a sloppy model, raw | 0.66 | 1.00 | **0.00** | 4/22 | 0.64 |
-| the same model, checked | 1.00 | 1.00 | **0.67** | 0/22 | 0.89 |
+| the same model, checked | 1.00 | 1.00 | **1.00** | 0/22 | 0.89 |
 
 The stability column is what the validator is for. Unchecked, every dimension
 gets a fresh key, so supersession never fires and the store keeps every
@@ -236,6 +250,26 @@ and watch **stability** and **collisions** together: stability alone is
 trivially gamed by snapping everything onto one key, which destroys the store
 in the opposite direction.
 
+### 10. A correction can reach further than you think
+
+`recall/reconsolidate.py` picks the memory a correction is aimed at, and then
+puts the replacement **under that memory's key**. Get the aim wrong and you
+do not merely miss — you invalidate a live fact and file an unrelated claim
+in its place.
+
+It ranked candidates by activation and similarity together, so the most
+*active* memory could win against a total semantic mismatch. "The coffee
+machine is making that noise again / actually I prefer oat milk now" filed the
+milk preference as `coffee_machine/state`. Every later mention of the coffee
+machine then failed to match its own holder and forked a new key — forty of
+them by day 365, live facts 14 → 90, suite green throughout.
+
+The guard is on the **subject, not the wording**, and the distinction is the
+whole lesson. A lexical floor catches the coffee machine and breaks "no, I
+drink semi-skimmed now" against a stored "prefers dairy milk" — same
+dimension, almost no shared vocabulary, an entirely ordinary repair. If you
+touch this path, test both.
+
 ---
 
 ## Honest gaps
@@ -247,13 +281,11 @@ it caught real defects. What it still cannot tell you is how a *particular* 8B
 model behaves on *your* speech: `you2 extract --live` is one command and needs
 a key, and until someone runs it that column is empty.
 
-Two things to hold in mind when reading the 1.00s. The corpus is mine and I
-fixed what it found — the rule held to was that a fix must be a whole
-construction, never a patch for one sentence, but the number is still
-generous. And one labelled failure is deliberately left standing: "I only ever
-buy semi-skimmed" said after "we're out of milk" is about milk, and no rule
-recovers a head noun that was never spoken. It is what keeps rules stability
-at 0.67, and it is exactly the gap a real model should close.
+One thing to hold in mind when reading the 1.00s: the corpus is mine and I
+fixed what it found. The rule held to was that a fix must be a whole
+construction, never a patch for one sentence — but the number is still
+generous, and a corpus you patch sentence by sentence measures your patience
+rather than your extractor.
 
 **Bridging (analogy) reports as untested, not working.** The fake declines to
 judge analogies because a rule-based judge genuinely cannot. Whether structure
