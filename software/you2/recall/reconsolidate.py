@@ -21,6 +21,7 @@ import numpy as np
 from ..activation.workspace import Workspace
 from ..config import BrainConfig
 from ..consolidation.supersede import Resolution, resolve
+from ..llm import validate
 from ..substrate.neuron import Kind, Neuron
 from ..substrate.store import Store
 from ..substrate.synapse import Edge
@@ -31,6 +32,12 @@ _CORRECTION = re.compile(
     r"not any ?more|no longer|i don'?t .* any ?more|you'?re wrong|"
     r"that'?s outdated|actually,?\s+(it|i|that|we)|i stopped|i quit|"
     r"forget (that|what i said)|scratch that)\b", re.IGNORECASE)
+
+#: A correction marker at the *start* of a clause, where it is prefixed to the
+#: replacement rather than being a clause of its own.
+_LEADING_MARKER = re.compile(
+    r"^(?:no|nope|nah|actually|sorry|wait|hang on|hold on|i meant|"
+    r"scratch that|correction)\b[,:]?\s*", re.IGNORECASE)
 
 _HARD_DELETE = re.compile(
     r"\b(forget (that|about that|what i said|it)|delete that|"
@@ -126,8 +133,37 @@ def apply(store: Store, llm: Any | None, ws: Workspace | None, text: str,
         store.log("repair", {"kind": "closed_loop", "target": victim.id})
         return Repair("corrected", victim)
 
+    # Through the same checks as everything else that writes a fact. This
+    # path used to bypass them entirely, which is how "no, that is not right"
+    # became a stored claim reading "that is not right" and "no, I drink
+    # semi-skimmed now" became one reading "I drink semi-skimmed now" — in
+    # the first person, under the milk key, ready to be said back to them.
+    replacement = _restate(text)
+    if replacement is not None:
+        replacement = validate.to_third_person(replacement)
+        if validate.undurable(replacement):
+            replacement = None
+    if replacement is None:
+        # A retraction with nothing to put in its place. "No, forget that" is
+        # a complete instruction and it means exactly what `invalid_at`
+        # already encodes, so the fact simply dies.
+        #
+        # This used to store a fact reading "the user says this is no longer
+        # true: <the old claim>", which is the tombstone written as content.
+        # It is not a claim about the person, it holds the dimension's key,
+        # and the next real statement on that dimension supersedes *it* rather
+        # than the thing it was retracting — so the demo month accumulated
+        # three versions of `boiler_service/state` saying the same thing.
+        victim.invalid_at = now
+        victim.meta["retracted"] = True
+        victim.meta.pop("question", None)
+        store.save(victim)
+        invalidate(store, victim.id, now, reason="user_retraction")
+        store.log("repair", {"kind": "retracted", "target": victim.id})
+        return Repair("corrected", victim)
+
     key = victim.key or f"user/corrected_{victim.id}"
-    resolution = resolve(store, llm, key, _restate(text, victim),
+    resolution = resolve(store, llm, key, replacement,
                          victim.citations() or [victim.id],
                          confidence=0.9, now=now, cfg=cfg)
 
@@ -166,24 +202,29 @@ def apply(store: Store, llm: Any | None, ws: Workspace | None, text: str,
     return Repair("corrected", victim, resolution)
 
 
-def _restate(text: str, victim: Neuron) -> str:
-    """Turn a correction into a standalone claim.
+def _restate(text: str) -> str | None:
+    """Turn a correction into a standalone claim, or None if it is a bare
+    retraction.
 
-    "no, not any more" carries no content on its own, so a bare negation
-    inherits the subject of what it corrects. Without this the store fills
-    with facts that read "not any more" and mean nothing six months later.
+    "no, not any more" carries no content on its own. Without this the store
+    fills with facts that read "not any more" and mean nothing six months
+    later — and inventing a replacement is worse, so None means *nothing goes
+    in*, which the caller turns into a plain invalidation.
     """
-    # Take the clause *after* the correction marker rather than deleting the
-    # marker in place: "no, that's out of date, I'm at Lumen now" minus the
-    # matched span leaves "'s out of date, I'm at Lumen now", which is what
-    # then gets stored as a fact and means nothing six months later.
-    best = ""
+    # The replacement comes **last**. "No, that's out of date, I'm at Lumen
+    # now" — a correction states what is wrong and then what is right, in that
+    # order, so taking the last clause with content beats taking the longest.
+    # Longest picked "that's out of date" over "I'm at Lumen now" on exactly
+    # that sentence, which is the whole content of the correction lost to a
+    # tiebreak.
+    best: str | None = None
     for clause in re.split(r"[,;.]", text):
-        clause = clause.strip()
+        clause = _LEADING_MARKER.sub("", clause.strip()).strip()
+        # A marker with nothing attached ("no", "actually") is not the
+        # replacement; a marker with a clause attached ("actually I prefer oat
+        # milk now") is the whole of it, which is why the marker is stripped
+        # here rather than the clause discarded.
         if not clause or _CORRECTION.search(clause):
             continue
-        if len(clause) > len(best):
-            best = clause
-    if len(best) < 8:
-        return f"the user says this is no longer true: {victim.text()}"
+        best = clause
     return best
