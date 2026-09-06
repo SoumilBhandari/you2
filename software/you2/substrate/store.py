@@ -410,6 +410,21 @@ class Store:
         return [{"ts": r["ts"], "kind": r["kind"], **json.loads(r["payload"])}
                 for r in self.conn.execute(sql, args).fetchall()]
 
+    def journal_count(self, kind: str, since: float | None = None) -> int:
+        """How many, not how many fit in the window.
+
+        `journal()` takes a limit, and reporting `len()` of a limited query as
+        a count is how the eval came to print "500 rejected" after every run —
+        the limit, reported as a measurement, in a summary whose whole purpose
+        is to be believed.
+        """
+        sql = "SELECT COUNT(*) FROM journal WHERE kind=?"
+        args: list[Any] = [kind]
+        if since is not None:
+            sql += " AND ts >= ?"
+            args.append(since)
+        return int(self.conn.execute(sql, args).fetchone()[0])
+
     def rate(self, neuron_id: int | None, surfaced_as: str,
              axes: dict[str, float] | None = None,
              verdict: int | None = None) -> int:
