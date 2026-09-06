@@ -1034,7 +1034,7 @@ entity. Deterministic, so it regresses.
 | | precision | key stability | traps fired | grounding |
 |---|---|---|---|---|
 | a sloppy model, raw | 0.66 | **0.00** | 4 | 0.64 |
-| the same model, checked | **1.00** | **0.67** | **0** | 0.89 |
+| the same model, checked | **1.00** | **1.00** | **0** | 0.89 |
 
 The stability row is the one that matters. Unchecked, *every* dimension gets a fresh key, so nothing ever supersedes
 anything and the store keeps every version of every preference forever — the exact rot this whole design exists to
@@ -1047,14 +1047,26 @@ there. That is what the `quote` field is for, and the direction is worth stating
 stricter, not looser.** A verbatim span proves the model read something real and proves nothing about whether the
 claim follows, so the quote is verified against the source and then the claim is graded against *the quote alone*.
 
-**What it does not measure.** The rules score 1.00 on precision and recall here, and that number should be read with
+**What it does not measure.** The rules score 1.00 across the board here, and that number should be read with
 suspicion: I wrote the corpus and then fixed what it found. The discipline held to is that a fix has to be a whole
-construction — the comparative in "I'd rather X than Y", possessive subjects, elided pronoun objects — or it does
-not go in. A corpus you patch sentence by sentence measures your patience.
+construction or it does not go in — the comparative in "I'd rather X than Y", possessive subjects, pronoun objects,
+nominal ellipsis. A corpus you patch sentence by sentence measures your patience.
 
-One labelled failure is left standing, deliberately. "I only ever buy semi-skimmed", said after "we're out of
-milk", is about milk, and no rule can recover a head noun that was never spoken. It keeps rules stability at 0.67
-and it is exactly the gap a real model should close — which is the point of having the number.
+**The last one to fall was the one worth writing down.** "We've run out of milk — I only ever buy semi-skimmed."
+The object of *buy* is a bare modifier; the head noun was said a clause earlier and dropped, which English does
+constantly for consumables ("I only get free-range", "she takes decaf", "we always order large"). A reader supplies
+*milk* without noticing it was missing.
+
+An extractor that does not costs the entire mechanism this design rests on. The claim becomes "the user buys
+semi-skimmed", which keys on `skimm`; six weeks later "I've switched to oat milk" keys on `milk`; the two are
+different dimensions as far as the store can tell, so **supersession never fires** and both sit in the profile
+forever, contradicting each other. That is the rot in §1 arriving through a gap in the grammar rather than a gap in
+the architecture — which is the general lesson, and the reason extraction earns an instrument of its own.
+
+Resolving it is the same repair as resolving a pronoun: recover the noun from prior discourse, reaching back
+through the batch. The two live in one function for that reason. The detection is deliberately narrow — a
+single-token object that is morphologically an adjective — because a false positive welds a wrong noun onto a right
+claim, which is worse than the miss it was fixing.
 
 ---
 
