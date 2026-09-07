@@ -14,7 +14,8 @@ python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
 .venv/bin/you2 night                # run consolidation now
 .venv/bin/you2 eval --days 365      # simulate a year, measure the curve
 .venv/bin/you2 eval --ablate        # check every mechanism earns its place
-.venv/bin/pytest                    # 194 tests, offline, deterministic
+.venv/bin/you2 extract              # is what goes INTO the store correct
+.venv/bin/pytest                    # 279 tests, offline, deterministic
 ```
 
 Nothing here needs hardware, a network, or a model download. `numpy` is the
@@ -147,14 +148,18 @@ why the test suite is offline, fast, and byte-identical everywhere.
 
 ## What the numbers say
 
-One simulated year, 1,178 utterances, 353 nights, ~44 s wall clock:
+Two simulated years, 2,325 utterances, 707 nights, ~133 s wall clock:
 
-| day | probe precision | stale leakage | neurons | live facts | edges |
-|---|---|---|---|---|---|
-| 30 | 0.50 | 0.00 | 118 | 8 | 762 |
-| 90 | 0.50 | 0.00 | 297 | 8 | 1,333 |
-| 180 | 0.50 | 0.00 | 556 | 9 | 1,495 |
-| 365 | **1.00** | **0.00** | 1,075 | 13 | 2,150 |
+| day | probe precision | focus | stale leakage | neurons | live facts | edges |
+|---|---|---|---|---|---|---|
+| 30 | 0.50 | 0.86 | 0.00 | 117 | 5 | 671 |
+| 90 | 0.50 | 0.88 | 0.00 | 294 | 5 | 1,320 |
+| 365 | 0.50 | 0.73 | 0.00 | 1,065 | 7 | 1,915 |
+| **730** | **1.00** | **0.91** | **0.00** | 2,077 | 11 | 2,743 |
+
+Two years of daily use is **8.9 MB on disk**. The whole premise — put the
+world knowledge in the weights and the store stays small — measured rather
+than asserted.
 
 Precision **rises** with elapsed time and superseded values never reach the
 block. That is the one chart that matters: if it fell, consolidation would not
