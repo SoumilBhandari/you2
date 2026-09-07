@@ -257,3 +257,73 @@ def test_parsimony_audit_is_non_destructive(store):
     flagged = parsimony.audit(store, store.cfg)
     assert flagged
     assert store.count(Kind.FACT) == 1, "audit must not delete anything"
+
+
+def test_a_broken_chain_retires_even_though_most_premises_survive(store):
+    """A rule's premises are conjunctive; evidence is redundant. The
+    survival heuristic did not know the difference.
+
+    "The test suite is part of the Kestrel contract" is derived by chaining
+    through the Kestrel migration. Kill the middle link and the conclusion
+    rests on nothing — but two of its three premises are still perfectly
+    alive, so the heuristic kept it, halved its confidence, and left a
+    confident well-cited claim supported by a chain with a hole in it.
+    `audit()` reported the store clean, because it only asked whether *all*
+    premises were dead.
+
+    That is the exact failure this module exists to prevent, produced by the
+    module itself.
+    """
+    from you2.activation import recall
+    from you2.inference import compile as compilation
+    from you2.inference import engine, tms
+
+    now = store.clock.now()
+    a = store.add(Neuron(kind=Kind.ENTITY, content="the test suite"))
+    b = store.add(Neuron(kind=Kind.ENTITY, content="the Kestrel migration"))
+    c = store.add(Neuron(kind=Kind.ENTITY, content="the Kestrel contract"))
+    store.connect(a.id, b.id, Edge.PART_OF, 0.9, at=now)
+    store.connect(b.id, c.id, Edge.PART_OF, 0.9, at=now)
+
+    at = now
+    for i in range(1, store.cfg.inference_compile_threshold + 1):
+        at = now + i * DAY
+        compilation.sweep(store, engine.cheap(
+            store, recall(store, "the test suite", now=at), store.cfg, at),
+            store.cfg, at)
+
+    derived = [n for n in store.by_kind(Kind.FACT, limit=9, live_only=False)
+               if n.meta.get("derived")]
+    assert len(derived) == 1, "the chain should compile exactly once"
+
+    b.invalid_at = at
+    b.superseded_by = a.id
+    store.save(b)
+    tms.invalidate(store, b.id, at)
+
+    assert not store.get(derived[0].id).is_live, "the chain still has a hole"
+    assert tms.audit(store) == []
+    assert derived[0].id in [n.id for n in tms.stale(store)]
+
+
+def test_evidence_still_survives_losing_one_of_several(store):
+    """The other half: an extracted fact cites episodes, and episodes are
+    evidence. Losing one of four is not grounds for retiring the claim."""
+    from you2.inference import tms
+
+    now = store.clock.now()
+    eps = [store.add(Neuron(kind=Kind.EPISODE, content=f"said it again {i}",
+                            created_at=now)) for i in range(4)]
+    fact = store.add(Neuron(kind=Kind.FACT, key="user/pref_milk",
+                            content="the user prefers oat milk", confidence=0.9,
+                            meta={"cites": [e.id for e in eps]}))
+    for e in eps:
+        store.connect(fact.id, e.id, Edge.SUPPORTS, 0.85, at=now)
+
+    eps[0].invalid_at = now
+    store.save(eps[0])
+    tms.invalidate(store, eps[0].id, now)
+
+    survivor = store.get(fact.id)
+    assert survivor.is_live
+    assert survivor.confidence < 0.9, "weakened rather than retired"
