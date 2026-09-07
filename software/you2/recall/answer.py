@@ -212,15 +212,20 @@ def _on_topic(store: Store, topic: str, items: list[Neuron]) -> list[Neuron]:
         related |= {o for o, w, _c, _b in store.graph.neighbours(anchor.id)
                     if w > 0.0}
 
-    out: list[Neuron] = []
+    # Naming the thing beats being connected to it. Graph adjacency is what
+    # makes "spoke to Priya about it for a while" answer a question about the
+    # Kestrel migration, and it is indispensable for that — but on a small
+    # store nearly everything is connected to nearly everything, so using it
+    # alongside direct matches let a question about Lisbon return the boiler
+    # service. Adjacency is the fallback, not a peer.
+    named: list[Neuron] = []
+    adjacent: list[Neuron] = []
     for n in items:
-        if n.id in related:
-            out.append(n)
-            continue
-        have = {stem(w) for w in tokenize(n.text())}
-        if wanted & have:
-            out.append(n)
-    return out
+        if wanted & {stem(w) for w in tokenize(n.text())}:
+            named.append(n)
+        elif n.id in related:
+            adjacent.append(n)
+    return named or adjacent
 
 
 def _when_last(store: Store, ws: Workspace, text: str,
