@@ -484,3 +484,47 @@ def test_a_genuinely_different_claim_still_gets_its_own_key(store):
                           store.clock.now(), store.cfg)
     keys = {n.key for n in store.by_kind(Kind.FACT, limit=99, live_only=True)}
     assert len(keys) == 3, keys
+
+
+def test_every_batch_drawn_is_actually_consolidated(store, llm):
+    """`len(batches) // cycles` truncates. Five batches over four cycles gave
+    one per cycle, and the loop stopped at `cycle >= cycles` with the fifth
+    never consolidated — silently, while `report.batches` said five.
+
+    Batches are ordered chronologically, so the abandoned one was always the
+    most recent: the material most likely to contain a correction. On the
+    demo month "actually I prefer meetings in the afternoon these days" was
+    drawn every night, dropped every night, and never reached
+    `times_replayed = 1`. The device held the superseded preference forever.
+    """
+    now = store.clock.now()
+    for i in range(30):
+        store.add(Neuron(kind=Kind.EPISODE, content=f"a distinct thing about topic {i}",
+                         created_at=now - (30 - i) * DAY, last_access=now,
+                         salience=0.6, surprise=0.5))
+    report = night.run(store, llm, store.cfg, now=now + DAY, seed=3)
+
+    left = [n for n in store.by_kind(Kind.EPISODE, limit=99)
+            if n.times_replayed == 0]
+    assert left == [], f"{len(left)} episodes drawn but never consolidated"
+    assert report.episodes_replayed == 30
+
+
+def test_a_change_of_mind_reaches_the_store_the_same_night(store, llm):
+    """The end-to-end version, and the one that matters: the second statement
+    has to supersede the first rather than being dropped with the tail."""
+    now = store.clock.now()
+    for i, said in enumerate([
+            "I prefer meetings in the morning, I am useless after three",
+            "the garden wall needs rebuilding before winter",
+            "the boiler service is due in October",
+            "my sister Priya is moving to Lisbon in the spring",
+            "actually I prefer meetings in the afternoon these days"]):
+        store.add(Neuron(kind=Kind.EPISODE, content=said,
+                         created_at=now + i * DAY, last_access=now,
+                         salience=0.7, surprise=0.5))
+    night.run(store, llm, store.cfg, now=now + 10 * DAY, seed=1)
+
+    held = store.by_key("user/pref_meet")
+    assert held is not None
+    assert "afternoon" in held.text(), held.text()
