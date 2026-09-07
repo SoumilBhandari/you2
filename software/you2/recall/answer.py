@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from typing import Sequence
 
 from ..activation.workspace import Workspace, ago
 from ..clock import DAY, human
@@ -73,8 +74,19 @@ def answerable(text: str) -> bool:
 
 
 def answer(store: Store, ws: Workspace, text: str, cfg: BrainConfig,
-           now: float) -> Answer | None:
-    """Try to answer from the workspace alone. None means hand it to the model."""
+           now: float, recent: Sequence[str] = ()) -> Answer | None:
+    """Try to answer from the workspace alone. None means hand it to the model.
+
+    `recent` is the exchange still in progress — turns that have been said and
+    have not yet been written, because an episode is a bounded exchange and is
+    only sealed when the next one starts. Without it the device cannot answer
+    about something said thirty seconds ago, which is the first thing anyone
+    tries and the last thing a memory device should fail at.
+
+    It is a working-memory buffer in the ordinary sense: small, current,
+    consulted before long-term storage, and gone once the material it holds
+    has been consolidated properly.
+    """
     if _WORKING_ON.search(text):
         return _open_loops(store, now)
     if _ABOUT_ME.search(text):
@@ -87,7 +99,21 @@ def answer(store: Store, ws: Workspace, text: str, cfg: BrainConfig,
     if _WHEN_LAST.search(text):
         return _when_last(store, ws, text, now)
     if _WHAT_ABOUT.search(text):
-        return _what_about(store, ws, text, now)
+        return _what_about(store, ws, text, now, recent)
+    return None
+
+
+def _from_working_memory(topic: str, recent: Sequence[str]) -> str | None:
+    """The most recent unwritten turn that is about the topic."""
+    if not topic:
+        return None
+    from ..substrate.embed import stem, tokenize
+    wanted = {stem(w) for w in tokenize(topic)}
+    if not wanted:
+        return None
+    for said in reversed(list(recent)):
+        if wanted & {stem(w) for w in tokenize(said)}:
+            return said
     return None
 
 
@@ -210,13 +236,19 @@ def _when_last(store: Store, ws: Workspace, text: str,
         "whenlast", [latest.id])
 
 
-def _what_about(store: Store, ws: Workspace, text: str,
-                now: float) -> Answer | None:
+def _what_about(store: Store, ws: Workspace, text: str, now: float,
+                recent: Sequence[str] = ()) -> Answer | None:
     topic = topic_of(text)
     useful = _on_topic(store, topic, [
         n for n in ws.neurons()
         if n.kind in (Kind.FACT, Kind.EPISODE, Kind.LOOP) and n.text()])
     if not useful:
+        # Before giving up, the exchange still in progress. It has been said
+        # and not yet written, and "you just told me" is a true answer.
+        just_said = _from_working_memory(topic, recent)
+        if just_said is not None:
+            return Answer(f"Just now you said: {just_said[:160]}",
+                          "whatabout", [])
         if topic:
             return Answer(f"Nothing about {topic}, as far as I know.",
                           "whatabout", [])
