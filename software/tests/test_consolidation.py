@@ -528,3 +528,47 @@ def test_a_change_of_mind_reaches_the_store_the_same_night(store, llm):
     held = store.by_key("user/pref_meet")
     assert held is not None
     assert "afternoon" in held.text(), held.text()
+
+
+def test_a_confounded_pattern_is_blocked_by_the_one_that_explains_it(store):
+    """Lift normalises for the base rate, which stops "you mention work a
+    lot" being a discovery. It does nothing about confounding.
+
+    Someone who talks to the device after work generates `in_the_evening`
+    alongside `it_is_tuesday` on the very same episodes. Both clear lift 2.0
+    honestly, and the device reports two patterns where there is one — the
+    eval printed that false positive for the life of the project.
+
+    Kamin blocking: a cue that adds no predictive value over an established
+    one is not learned. Redundant, not wrong — and telling someone about it
+    costs the credibility of the pattern that was real.
+    """
+    from you2.discovery.recurrence import Pattern, block
+
+    strong = Pattern(context="it_is_tuesday", outcome="drained", lift=3.1,
+                     n=8, span_days=60.0, base_rate=0.2, conditional=0.62,
+                     cites=[1, 2, 3, 4, 5])
+    confounded = Pattern(context="in_the_evening", outcome="drained", lift=2.2,
+                         n=8, span_days=60.0, base_rate=0.2, conditional=0.44,
+                         cites=[1, 2, 3, 4, 9])
+    genuine = Pattern(context="after_a_deploy", outcome="drained", lift=2.6,
+                      n=5, span_days=40.0, base_rate=0.2, conditional=0.52,
+                      cites=[20, 21, 22, 23, 24])
+
+    kept = block([strong, genuine, confounded])
+    contexts = [p.context for p in kept]
+    assert "it_is_tuesday" in contexts
+    assert "after_a_deploy" in contexts, "an independent pattern must survive"
+    assert "in_the_evening" not in contexts
+
+
+def test_blocking_does_not_reach_across_different_outcomes(store):
+    """Two patterns over the same episodes but different outcomes are two
+    findings, not one."""
+    from you2.discovery.recurrence import Pattern, block
+
+    a = Pattern(context="it_is_tuesday", outcome="drained", lift=3.0, n=6,
+                span_days=50.0, base_rate=0.2, conditional=0.6, cites=[1, 2, 3])
+    b = Pattern(context="it_is_tuesday", outcome="ran_late", lift=2.5, n=6,
+                span_days=50.0, base_rate=0.2, conditional=0.5, cites=[1, 2, 3])
+    assert len(block([a, b])) == 2
