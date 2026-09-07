@@ -107,7 +107,7 @@ def encode(store: Store, episode: Episode, cfg: BrainConfig | None = None, *,
     # ---- entities ---------------------------------------------------------
     entity_ids: list[int] = []
     for found in rules.find_entities(text):
-        entity = _resolve_entity(store, found, now)
+        entity = resolve_entity(store, found, now)
         if entity is None:
             continue
         entity_ids.append(entity.id)
@@ -138,7 +138,7 @@ def encode(store: Store, episode: Episode, cfg: BrainConfig | None = None, *,
     return out
 
 
-def _resolve_entity(store: Store, found: dict, now: float) -> Neuron | None:
+def resolve_entity(store: Store, found: dict, now: float) -> Neuron | None:
     """Match against existing entities by alias first, then by embedding.
 
     Alias-first is deliberate. Embedding-first merges "David Anderson" and
