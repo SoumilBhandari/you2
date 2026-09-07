@@ -71,7 +71,7 @@ python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
 this runs on a 2 GB Pi beside an audio stack, and every import costs RSS.
 
 ```bash
-.venv/bin/pytest                      # 257 tests. ~4 min (the eval tests dominate)
+.venv/bin/pytest                      # 277 tests. ~4 min (the eval tests dominate)
 .venv/bin/pytest --ignore=tests/test_eval.py   # ~25 s, what you want while iterating
 
 .venv/bin/you2 demo                   # seed a month of life, open the eye
@@ -96,7 +96,7 @@ deterministic model; without an API key it runs offline and says so.
 
 ## Current state
 
-**Everything in `docs/brain.md` phases 1–9 is built and tested.** 257 tests,
+**Everything in `docs/brain.md` phases 1–9 is built and tested.** 277 tests,
 offline, deterministic, no network or model downloads.
 
 | file | tests | covers |
@@ -275,6 +275,40 @@ whole lesson. A lexical floor catches the coffee machine and breaks "no, I
 drink semi-skimmed now" against a stored "prefers dairy milk" — same
 dimension, almost no shared vocabulary, an entirely ordinary repair. If you
 touch this path, test both.
+
+### 11. A loop that reports success can still be dropping work
+
+Three separate defects in one session, all the same shape: a stage did less
+than it claimed and said nothing.
+
+- `night.run` processed `len(batches) // cycles` batches and stopped at the
+  cycle cap, abandoning the tail — **always the most recent**, because
+  batches are chronological. Five nights running, the demo month's "actually
+  I prefer meetings in the afternoon" was drawn, dropped, and never
+  consolidated, while the report said "5 batches".
+- `_score_discovery` reported `len(journal(..., limit=500))` as a count, so
+  every run printed exactly 500. The real figure was 1,101.
+- `supersede._disambiguate` forked `key_2 … key_39` and then absorbed
+  everything into `key_x`.
+
+When you write a loop with a cap, a limit or a budget, make it say what it
+dropped. `ripple_batches` already does (`replay_truncated`); that is the
+pattern. **A green suite cannot see any of this** — the work still happens,
+just less of it.
+
+### 12. The memory path can confabulate, and it is the fastest path in the system
+
+`recall/answer.py` answers without a model, in the user's own vocabulary, in
+about 20 ms. That is its value and its danger. It reported whatever was in
+the workspace, and retrieval *always returns something* — the ambient cues
+alone guarantee a non-empty workspace. So "what did I say about the Halloway
+report", a project this store had never heard of, was answered with a
+confident sentence about the user's sister and cilantro.
+
+Anything added to this file must filter to material actually about the topic
+asked, and must be willing to say **nothing**. `docs/brain.md` calls guessing
+about someone's life the one unrecoverable failure; this path was doing it by
+construction.
 
 ---
 
