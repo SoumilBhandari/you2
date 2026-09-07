@@ -276,3 +276,27 @@ def test_a_question_with_no_topic_still_answers_generally(brain):
     out = brain.say("what did I say")
     assert "nothing" not in out.text.lower(), out.text
     assert "cilantro" in out.text.lower(), out.text
+
+
+def test_it_can_answer_about_something_said_thirty_seconds_ago(brain):
+    """An episode is a bounded exchange and is only sealed when the next one
+    starts, so the most recent thing said is not in the store yet. The device
+    answered "nothing about plumber" one turn after being told about the
+    plumber — the first thing anyone tries, and the last thing a memory
+    device should fail at.
+
+    The fix is a working-memory buffer in the ordinary sense: small, current,
+    consulted before long-term storage, and gone once its contents have been
+    consolidated properly.
+    """
+    brain.say("I need to call the plumber tomorrow")
+    out = brain.say("what did I say about the plumber")
+    assert "plumber" in out.text.lower(), out.text
+    assert "nothing" not in out.text.lower()
+
+
+def test_working_memory_does_not_answer_for_a_topic_nobody_mentioned(brain):
+    """It must not become a second route to confabulation."""
+    brain.say("I need to call the plumber tomorrow")
+    out = brain.say("what did I say about the Tokyo trip")
+    assert "nothing" in out.text.lower(), out.text
