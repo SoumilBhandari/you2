@@ -1016,6 +1016,31 @@ second telling. That is not a series of unlucky bugs; it is one design error pre
 That is what an ablation suite is for. It is much easier to write a paragraph defending every component than to run
 the experiment that says one of them is decoration.
 
+### 15.4 Where the time actually goes
+
+The claim in §1.1 is that retrieval cost is set by the shape of the cascade rather than by the size of the store.
+Measured across a 10× range, on a synthetic store with a fixed cue:
+
+| store | cue selection | spreading | workspace | neurons visited |
+|---|---|---|---|---|
+| 10,000 neurons | 2.1 ms | **0.06 ms** | 0.33 ms | 17 |
+| 100,000 neurons | 21.0 ms | **0.06 ms** | 0.31 ms | 15 |
+
+**The traversal is exactly flat**, at both the visit count and the wall clock, over a 10× larger graph. That is the
+architectural claim and it holds precisely.
+
+What is *not* flat is picking the seeds. Cue selection scans the vector tier linearly and is 98% of the total at
+100,000 neurons. So the honest statement is narrower than "retrieval cost is constant": **traversal is bounded by
+the cascade; seeding is linear in the store.**
+
+Two reasons that is not a problem, and one reason to keep watching it. Two years of real daily use measures 2,077
+neurons, so 100,000 is roughly a human lifetime of this device and 2.1 ms is what the seeding actually costs today.
+And the fix is well understood and entirely local — an approximate index over the vector tier, behind the same
+protocol as the embedder. The reason to watch it: a bulk `you2 import` of a document vault could reach six figures
+in an afternoon, and would move the whole latency budget without touching anything the design worries about.
+
+Peak RSS at 100,000 neurons is 481 MB, which is the other number to hold against a 2 GB board.
+
 ### 15.3 Extraction — the other half of the instrument
 
 Everything above measures whether retrieval *holds*. None of it can see whether what went in was right, because the
