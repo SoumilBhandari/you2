@@ -234,3 +234,47 @@ def test_phase1_gate_scale_and_speed(tmp_path):
     assert st["neurons"] == n
     assert st["edges"] > 25_000
     s.close()
+
+
+def test_the_hot_path_does_not_slow_down_as_the_store_grows(tmp_path):
+    """The architectural claim, measured end to end rather than by visit count.
+
+    Ambient priming runs `kind = EPISODE ORDER BY created_at DESC LIMIT 12` on
+    every turn. With separate indexes on `kind` and `created_at`, SQLite picks
+    one and sorts the rest — 56 ms at 100k episodes, inside a hot path
+    budgeted for under a second end to end, and invisible because the cascade
+    still visited its usual dozen neurons.
+
+    A composite index makes it a 12-row scan: full recall went 22.6 ms to
+    0.52 ms at 100k, and flat across a 10x range.
+    """
+    import time
+
+    from you2.activation import recall
+    from you2.consolidation import forgetting
+
+    timings = {}
+    for n in (2_000, 20_000):
+        cfg = BrainConfig(db_path=str(tmp_path / f"s{n}.db"))
+        store = Store(cfg, SimClock(), HashEmbedder(dim=cfg.embed_dim))
+        now = store.clock.now()
+        for i in range(n):
+            age = 3650 * (1 - i / n)
+            store.add(Neuron(kind=Kind.EPISODE,
+                             content=f"thing {i} about topic {i % 400}",
+                             created_at=now - age * DAY,
+                             last_access=now - age * DAY))
+        store.flush()
+        forgetting.decay_and_tier(store, cfg, now)
+        store.flush()
+
+        recall(store, "warm up", now=now)
+        t0 = time.perf_counter()
+        for _ in range(10):
+            recall(store, "thing about topic 42", now=now)
+        timings[n] = (time.perf_counter() - t0) / 10
+        store.close()
+
+    # A 10x larger store must not cost 10x. Generous on purpose — this is a
+    # guard against a missing index, not a benchmark.
+    assert timings[20_000] < timings[2_000] * 3, timings
