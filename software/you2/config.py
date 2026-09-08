@@ -185,6 +185,34 @@ class BrainConfig:
     bridge_candidates_per_night: int = 60
     bridge_min_alignment: float = 0.45
 
+    # ---- inference -------------------------------------------------------
+    inference_min_confidence: float = 0.35
+    """Below this a derivation is not worth carrying. Chains multiply, so a
+    four-step deduction at 0.8 per step lands at 0.41 -- correctly low."""
+
+    inference_max_depth: int = 3
+    inference_max_items: int = 4
+    """How many derived claims may ride along in the workspace. Small: they
+    compete for the same token budget as things the person actually said, and
+    a stated fact beats an inference."""
+
+    inference_compile_threshold: int = 3
+    """Draws before a derivation is materialised as a stored fact. This is the
+    only thing in the system that grows with USE rather than elapsed time."""
+
+    inference_compile_confidence: float = 0.55
+    inference_workspace_tokens: int = 90
+    """Sub-budget for the inferred section, inside workspace_tokens."""
+
+    parsimony_use_model: bool = True
+    """Ask the model whether an ambiguous fact is person-specific or world
+    knowledge the weights already hold. One call, batched at night."""
+
+    # ---- storage ---------------------------------------------------------
+    max_db_mb: float = 512.0
+    """Soft cap. Exceeding it escalates compaction rather than failing --
+    a memory device that starts refusing memories is broken."""
+
     # ---- llm -------------------------------------------------------------
     llm_base_url: str = "https://api.groq.com/openai/v1"
     llm_model: str = "llama-3.1-8b-instant"
