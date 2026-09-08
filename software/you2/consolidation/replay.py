@@ -28,11 +28,35 @@ from ..substrate.neuron import Kind, Neuron, Tier
 from ..substrate.store import Store
 from ..substrate.synapse import Edge
 
-#: Half-life of the recency term. Two weeks: recent material dominates, but
-#: an old high-salience episode can still be drawn.
+#: Half-life of the recency term.
 RECENCY_HALFLIFE = 14.0
 
-#: Never drawn again after this many replays unless something reactivates it.
+#: Replays before an episode leaves the ordinary pool.
+#:
+#: Measured over a simulated year: the eligible pool is a median of **17**
+#: episodes against a draw limit of 600, and the oldest episode still in it
+#: is a median of **6.0 days** old. Two consequences the comments here used
+#: to deny.
+#:
+#: The priority function is **inert**. It samples by salience, surprise and
+#: recency over a pool that is always smaller than the limit, so every
+#: eligible episode is drawn every night regardless of its weight. Priority
+#: could bind on 0 of 350 nights.
+#:
+#: And nothing old is ever revisited. With nightly replay an episode exhausts
+#: its budget in six nights and no path decrements it — `dream.py` decrements
+#: only for *facts* — so "unless something reactivates it" was never true.
+#: §8.1 cites Complementary Learning Systems, whose central mechanism is
+#: *interleaving* old material with new, so the obvious reading is that the
+#: six-night window is a gap. **It is not**, and the measurement is worth
+#: keeping: giving 20% of each night to episodes past their budget took probe
+#: precision 1.00 -> 0.75 and stale leakage 0.00 -> **1.00**.
+#:
+#: The reason is specific to a store that supersedes. Re-consolidating an old
+#: episode re-extracts the claim it contained, and that claim has often
+#: already been replaced — so interleaving does not reinforce old knowledge,
+#: it *resurrects retired facts* and re-litigates settled ones. The hard
+#: window is what stops the store arguing with itself about last March.
 MAX_REPLAYS = 6
 
 
@@ -60,6 +84,21 @@ def priority(n: Neuron, now: float, cfg: BrainConfig) -> float:
             / (1.0 + n.times_replayed) ** cfg.replay_beta)
 
 
+
+def _draw(pool: list[Neuron], k: int, now: float, cfg: BrainConfig,
+          rng: np.random.Generator) -> list[Neuron]:
+    """Weighted sample without replacement, or everything if it fits."""
+    if not pool:
+        return []
+    k = min(k, len(pool))
+    weights = np.array([priority(n, now, cfg) for n in pool], dtype=np.float64)
+    total = weights.sum()
+    if total <= 0.0:
+        return pool[:k]
+    picked = rng.choice(len(pool), size=k, replace=False, p=weights / total)
+    return [pool[i] for i in picked]
+
+
 def sample(store: Store, cfg: BrainConfig, now: float, *,
            limit: int | None = None, rng: np.random.Generator | None = None,
            since: float | None = None) -> list[Neuron]:
@@ -72,20 +111,14 @@ def sample(store: Store, cfg: BrainConfig, now: float, *,
     rng = rng or np.random.default_rng()
     limit = limit or cfg.replay_max_batches * cfg.replay_batch_max
 
-    pool = [n for n in store.by_kind(Kind.EPISODE, limit=6000,
-                                     tiers=(Tier.HOT, Tier.WARM))
-            if n.times_replayed < MAX_REPLAYS
-            and (since is None or n.created_at >= since)]
+    everything = [n for n in store.by_kind(Kind.EPISODE, limit=6000,
+                                           tiers=(Tier.HOT, Tier.WARM))
+                  if since is None or n.created_at >= since]
+    pool = [n for n in everything if n.times_replayed < MAX_REPLAYS]
     if not pool:
         return []
 
-    weights = np.array([priority(n, now, cfg) for n in pool], dtype=np.float64)
-    total = weights.sum()
-    if total <= 0.0:
-        return pool[:limit]
-    k = min(limit, len(pool))
-    picked = rng.choice(len(pool), size=k, replace=False, p=weights / total)
-    chosen = [pool[i] for i in picked]
+    chosen = _draw(pool, limit, now, cfg, rng)
     # Chronological within the night: consolidating a Tuesday before the
     # Monday that set it up produces worse supersession decisions.
     chosen.sort(key=lambda n: n.created_at)
