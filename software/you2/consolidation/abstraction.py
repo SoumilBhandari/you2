@@ -23,6 +23,7 @@ from ..llm.rules import extract as rule_extract
 from ..substrate.neuron import Kind, Neuron
 from ..substrate.store import Store
 from ..substrate.synapse import Edge
+from ..inference import parsimony
 from . import supersede
 from .forgetting import mark_absorbed
 from .replay import Batch, mark_replayed
@@ -42,6 +43,7 @@ class BatchResult:
     loops_closed: list[int] = field(default_factory=list)
     episodes: list[int] = field(default_factory=list)
     absorbed: int = 0
+    refused: int = 0
     degraded: bool = False
     """True when the model was unreachable and the rule extractor stood in.
     Recorded so a later pass can upgrade what the rules produced."""
@@ -52,6 +54,7 @@ class BatchResult:
                 "loops_new": len(self.loops_new),
                 "loops_closed": len(self.loops_closed),
                 "episodes": len(self.episodes), "absorbed": self.absorbed,
+                "refused": self.refused,
                 "degraded": self.degraded}
 
 
@@ -126,6 +129,16 @@ def consolidate(store: Store, llm: Any | None, batch: Batch,
         key = str(candidate.get("key") or "").strip()
         text = str(candidate.get("text") or "").strip()
         if not key or not text:
+            continue
+        # Never store what the weights already know. A generic claim costs
+        # bytes AND retrieval precision -- it is one more thing that looks
+        # superficially relevant to every future query.
+        verdict = parsimony.worth_storing(store, llm, key, text, cfg,
+                                          use_model=False)
+        if not verdict.keep:
+            out.refused += 1
+            store.log("parsimony", {"key": key, "text": text[:80],
+                                    "reason": verdict.reason})
             continue
         cites = _ids(candidate.get("cites"), out.episodes) or list(out.episodes)
         try:
