@@ -64,18 +64,37 @@ def extract(samples: np.ndarray, sample_rate: int = 16000, *,
     x = np.asarray(samples, dtype=np.float32).reshape(-1)
     if x.size == 0:
         return Prosody(onset_latency=onset_latency)
-    peak = float(np.max(np.abs(x)))
-    if peak > 0.0:
-        x = x / peak
-
     n = max(1, int(sample_rate * frame_ms / 1000.0))
     n_frames = x.size // n
     if n_frames == 0:
         return Prosody(onset_latency=onset_latency)
-    frames = x[: n_frames * n].reshape(n_frames, n)
 
-    rms = np.sqrt(np.mean(frames ** 2, axis=1) + 1e-12)
-    voiced = rms > max(0.02, float(np.median(rms)) * 0.5)
+    # Energy is measured **before** normalisation, and pitch after it.
+    #
+    # Peak-normalising the whole turn first made `rms_mean` a crest factor
+    # carrying no loudness at all: across a 47x amplitude range (0.02 to
+    # 0.95) it returned 0.5196 every time. That is the 0.35-weighted term in
+    # `Baseline.arousal`, the largest single weight, so the arousal estimate
+    # — and through it salience and initial storage strength — could not tell
+    # a shout from a murmur. It contradicted this module's own headline and
+    # brain.md §5.1's "RMS energy -> emphasis, agitation".
+    #
+    # Normalisation still earns its place for the autocorrelation below,
+    # which wants a consistent scale and does not care about absolute level.
+    absolute = x[: n_frames * n].reshape(n_frames, n)
+    rms = np.sqrt(np.mean(absolute ** 2, axis=1) + 1e-12)
+
+    peak = float(np.max(np.abs(x)))
+    if peak > 0.0:
+        x = x / peak
+    frames = x[: n_frames * n].reshape(n_frames, n)
+    # Which frames are speech, how fast, and at what pitch are all questions
+    # about *shape*, and must stay scale-invariant — a quiet recording still
+    # has voiced frames. Only the energy the arousal estimate reads is
+    # absolute. Applying the 0.02 voicing floor to raw amplitude instead made
+    # a whisper come back with no pitch and a pause ratio of 1.0.
+    shape = np.sqrt(np.mean(frames ** 2, axis=1) + 1e-12)
+    voiced = shape > max(0.02, float(np.median(shape)) * 0.5)
     voiced_fraction = float(voiced.mean())
 
     f0s: list[float] = []
@@ -101,7 +120,7 @@ def extract(samples: np.ndarray, sample_rate: int = 16000, *,
     duration = x.size / sample_rate
     # Syllable-nucleus proxy: energy peaks per second. Crude, and correlated
     # enough with speaking rate to be useful as a relative signal.
-    smooth = np.convolve(rms, np.ones(3) / 3.0, mode="same")
+    smooth = np.convolve(shape, np.ones(3) / 3.0, mode="same")
     peaks = int(np.sum((smooth[1:-1] > smooth[:-2]) & (smooth[1:-1] > smooth[2:])
                        & (smooth[1:-1] > float(np.median(smooth)))))
 
