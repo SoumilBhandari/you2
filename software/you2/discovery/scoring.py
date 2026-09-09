@@ -65,7 +65,19 @@ class Score:
 
 
 def score(store: Store, cfg: BrainConfig, now: float, *, text: str,
-          cites: Sequence[int], kind: str) -> Score:
+          cites: Sequence[int], kind: str,
+          nonobvious: float | None = None) -> Score:
+    """Score a candidate discovery.
+
+    `nonobvious` may be supplied by the caller, and usually should be. The
+    axis means "would they have worked this out themselves", and *how you
+    measure that depends on the connection type*. Graph distance is the right
+    measure for a bridge and the wrong one for everything else: a recurrence
+    pattern cites episodes that are closely connected **by construction** --
+    that is what makes it a pattern -- so scoring it on distance rejects every
+    true positive. That bug rejected 100% of contradictions, recurrences and
+    open loops on synthetic history while happily passing bridges.
+    """
     out = Score()
 
     # ---- grounded (binary) -------------------------------------------------
@@ -77,22 +89,25 @@ def score(store: Store, cfg: BrainConfig, now: float, *, text: str,
     out.grounded = 1.0
 
     # ---- non-obvious -------------------------------------------------------
-    # Distance between the things being connected. Two memories already three
-    # hops apart were not going to be recalled together; saying so is the
-    # insight. Two that sit next to each other were obvious already.
-    distances: list[int] = []
-    for i in range(len(live)):
-        for j in range(i + 1, len(live)):
-            d = store.graph.hops(live[i].id, live[j].id, max_hops=6)
-            distances.append(d if d >= 0 else 6)
-    span = min(distances) if distances else 0
-    out.nonobvious = min(1.0, span / 4.0)
+    if nonobvious is not None:
+        out.nonobvious = max(0.0, min(1.0, nonobvious))
+    else:
+        # Default, and the right measure for a bridge: two memories already
+        # three hops apart were not going to be recalled together, so saying
+        # so is the insight. Two that sit next to each other were obvious.
+        distances: list[int] = []
+        for i in range(len(live)):
+            for j in range(i + 1, len(live)):
+                d = store.graph.hops(live[i].id, live[j].id, max_hops=6)
+                distances.append(d if d >= 0 else 6)
+        span = min(distances) if distances else 0
+        out.nonobvious = min(1.0, span / 4.0)
 
-    # A pair that has repeatedly co-activated is not a discovery.
-    coactivation = max(
-        (store.graph.weight(min(a.id, b.id), max(a.id, b.id), Edge.ASSOC)
-         for a in live for b in live if a.id != b.id), default=0.0)
-    out.nonobvious *= (1.0 - min(0.9, coactivation))
+        # A pair that has repeatedly co-activated is not a discovery.
+        coactivation = max(
+            (store.graph.weight(min(a.id, b.id), max(a.id, b.id), Edge.ASSOC)
+             for a in live for b in live if a.id != b.id), default=0.0)
+        out.nonobvious *= (1.0 - min(0.9, coactivation))
 
     # ---- actionable --------------------------------------------------------
     hits = 0.0
@@ -135,7 +150,8 @@ def may_push(store: Store, cfg: BrainConfig, now: float, kind: str) -> bool:
 
 def surface(store: Store, cfg: BrainConfig, now: float, *, kind: str, text: str,
             cites: Sequence[int], scored: Score | None = None,
-            push: bool | None = None) -> Neuron | None:
+            push: bool | None = None,
+            nonobvious: float | None = None) -> Neuron | None:
     """Record a discovery as an insight neuron, and log it for rating.
 
     Everything surfaced is logged with its four axis scores and a slot for the
@@ -144,7 +160,8 @@ def surface(store: Store, cfg: BrainConfig, now: float, *, kind: str, text: str,
     There is no benchmark for "does this feel like it knows me after two
     years", so build the instrument that produces one on the first day.
     """
-    scored = scored or score(store, cfg, now, text=text, cites=cites, kind=kind)
+    scored = scored or score(store, cfg, now, text=text, cites=cites, kind=kind,
+                             nonobvious=nonobvious)
     if not scored.passes(cfg):
         store.log("insight_rejected", {"kind": kind, "text": text[:120],
                                        **scored.as_dict(),
