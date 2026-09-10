@@ -104,17 +104,27 @@ So toughness here is three things, in this order:
 The ruggedization audit says *do not add ballast*: it raises drop energy 49 %
 for no stability benefit. That is right about stability and I have kept its
 conclusion — but its own analysis identifies **sliding and lifting** as the real
-failure mode, and both scale directly with mass. rev D's aluminium base plate
-is therefore justified on threads, heat spreading and rigidity, with mass as a
-bonus that happens to help the failure mode that matters. It is paired with
-high-friction feet, which are free and help more per gram than any ballast.
+failure mode, and both scale directly with mass. That reasoning survived, but the **part did not**: an aluminium plate with a
+rounded outline, a slot field, an SD window, four counterbores and four
+standoff bosses is a milled part, and the build has to run on one 3D printer
+and nothing else. So the base is printed PETG with heat-set inserts, and the
+mass comes instead from **two sand-filled ballast pods** in the dead volume
+either side of the Pi — 63 cm³ each, ~200 g of sand or ~570 g of steel shot,
+no machining, and lower down than the plate ever was.
 
 ---
 
 ## 3. rev D
 
 `cad/you2-revD.scad` — parametric, self-sizing, and it asserts its own
-buildability. `cad/check.py` gates it.
+buildability. Two gates run over it: `cad/check.py` proves every part is a
+single connected solid, and `cad/fit.py` proves no two parts occupy the same
+space. Between them they caught nine defects that renders and asserts both
+missed, including a driver that never touched its own seal and a microphone
+array that overhung the front edge of the top face.
+
+**The complete build document — every part, plate, fastener and step — is
+[`docs/build.html`](build.html).**
 
 ### The one architectural change
 
@@ -139,7 +149,7 @@ H       = ceil(skirt_h + (disp_carrier + bar_allow + 4 + 2*fp_lip_y
 Change a part dimension and the enclosure re-sizes. Four asserts fail loudly
 if a measurement makes it unbuildable.
 
-**148 × 150 × 189 mm** (204 mm tall with the light bar). Bigger than rev C's
+**152 × 150 × 189 mm** (203 mm tall with the light bar). Bigger than rev C's
 134 × 125 × 165 — which was never a size the parts fitted in.
 
 #### Where the height goes
@@ -161,22 +171,22 @@ the whole object.** Everything else is 8 % of the height.
 
 | | rev C | rev D |
 |---|---|---|
-| Parts | 1 printed shell + 1 plate | shell + faceplate + **aluminium** base + TPU shoe + driver clamp + 2 gaskets |
+| Parts | 1 printed shell + 1 plate | 11 printed parts: shell, faceplate, base, 2 clamps, 2 ballast pods + lids, 3 gaskets, foot |
 | Walls | 2.4 mm, no ribs | 3.2 mm, 4.5 mm face, side fins + rear hoops |
 | Rake | 18° | 22° (a seated eye at 600 mm is on a 25° sight line) |
 | Corner fillets | R9, and a no-op in plan | R6 profile / R8 plan, both real |
 | Display | Ø87.6 bore, zero clearance, unretained | bolted to the faceplate on its own hole pattern, recessed 2 mm behind the bezel, on a 1 mm gasket |
 | Speaker | Ø44 cylinder in an open-ended "sealed" tube | rectangular box on a gasket land, clamped, decoupled |
 | Mics | pocket that cuts nothing, ports on a 58 mm circle | 44 mm circle, four posts pulling the array onto a 1.5 mm TPU gasket with a hard stop at 20 % compression |
-| Fasteners | one tapped-M3-into-PETG feature | 6 heat-set inserts, aluminium threads, no tapped plastic |
-| Power | 2 mains plugs | 1, panel-mount inlet + internal clamp + right-angle jumper |
+| Fasteners | one tapped-M3-into-PETG feature | 24 heat-set inserts, no tapped plastic anywhere |
+| Power | 2 mains plugs | 1, straight through a grommet into a clamped saddle |
 | Print | "face down, no support" — 1.63 L of trapped support | **top face down**, no horizontal ceilings |
 
 ### Toughness spec
 
 | Threat | Measure |
 |---|---|
-| Drop / sweep | TPU 95A shoe wrapping the bottom 12 mm, 3 mm wall, Ø14 corner posts, gyroid infill. ~35 g, ~$1. Cuts peak force ~3×; more importantly it is the part that fails. The 4 mm aluminium plate (measured 202 g) is what actually spreads the reaction — TPU has almost no in-plane stiffness and cannot spread its own. |
+| Drop / sweep | TPU 95A shoe wrapping the bottom 8 mm, 3 mm wall, corner bumpers concentric with the plan radii, gyroid infill. ~47 g. Cuts peak force ~3×; more importantly it is the part that fails. |
 | Slide / cable tug | Aluminium base (~190 g) + 60A silicone feet (μ 1.2–1.5 on wood). Panel-mount USB-C in the rear wall; the internal clamp grips the jacket so the Pi's jack never sees a load. |
 | Glass | Recessed 2 mm behind the printed bezel — the bezel is always the first thing to touch anything. 1 mm silicone under the panel flange, so it is never point-loaded by printed plastic. |
 | Spill / dust | **Target IP52.** ePTFE acoustic membranes (Gore GAW331 class) bonded into the counterbores over the four mic ports: < 2 dB at 1 kHz, IP67 in themselves, ~$0.50 each. Mesh behind the speaker grille. Solid diffuser sealing the light-bar slot if fitted. The shoe drains rather than holding a spill. |
@@ -194,7 +204,7 @@ the whole object.** Everything else is 8 % of the height.
 | | |
 |---|---|
 | Core electronics (Pi 2 GB, display, FFC, **Flex 4-mic**, PSU, SD, heatsink, driver) | **$239** |
-| Mechanical (filament, aluminium plate, inserts, fasteners, gaskets, membranes, panel-mount inlet, jumper) | **$94** |
+| Mechanical (filament ×2 spools, inserts, fasteners, gaskets, membranes, grommet) | **$100** |
 | Off-card backup stick | **$6** |
 | **Total, no light bar** | **≈ $339** |
 | with the light bar (sticks, shifter, cap, fuse, diffuser) | ≈ $357 |
