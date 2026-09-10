@@ -12,7 +12,9 @@ measured with a caliper.
 
 All of it is committed and pushed — `3052567` carried the model, the gates, the
 renders and `hardware/`; `2d847d9` rebuilt the README's hardware section around
-rev D. The working tree should be clean; if it is not, something is in flight.
+rev D; `7358248` corrected the fastener count and the membrane part number
+across the hardware docs. The working tree should be clean; if it is not,
+something is in flight.
 
 What it *has* been through is a design pass that treats it as an engineering
 problem rather than a costing exercise, and two mechanical gates that catch the
@@ -50,7 +52,10 @@ done
 
 `cad/you2.scad` is **rev C and superseded**. It is kept because its parameter
 reasoning is the record of how the form was arrived at, not because you should
-build it.
+build it. **`cad/README.md` describes that file too** — an 18° face angle, a
+rev C print orientation, parameter names that no longer exist, and a six-entry
+MODE table where rev D has sixteen. It is the first thing you open on entering
+`cad/`, and it is wrong. The model's own header comment is the current one.
 
 ---
 
@@ -62,11 +67,15 @@ the top surface, as far from that driver as the box allows. All venting on the
 rear face, because a vent on the front or top is a leak path from the speaker
 straight into the microphones.
 
-**Nothing about the size was chosen.** The display carrier sets the face
-length, the driver box sets the skirt, the mic array sets the depth, the
-fastener flange sets the width. Change a part dimension at the top of the file
-and the enclosure re-sizes itself; if a measurement makes it unbuildable, it
-fails to render and tells you which constraint broke.
+**Almost nothing about the size was chosen.** The display carrier sets the face
+length and therefore the height; the driver box sets the skirt. Both genuinely
+re-derive — change `disp_carrier` to 130 and H moves 192 → 206 on its own.
+
+Width and depth are the two still picked by hand (`W = 152`, `D = 150`). The mic
+array and the fastener flange do not derive them, they **assert against** them:
+raise `mic_pcb_d` and the model does not grow, it stops with *"top face too
+shallow for the array — raise D or drop the rake"*. That is the intended
+behaviour, but it is a guard rail, not a derivation.
 
 ### Printed parts
 
@@ -77,8 +86,8 @@ fails to render and tells you which constraint broke.
 | `driver_clamp` | 1 | PETG | 2 | 5 g |
 | `faceplate` | 1 | PETG | 3 | 56 g |
 | `mic_clamp` | 1 | PETG | 3 | 11 g |
-| `ballast_pod` | 2 | PETG | 4 | 49 g |
-| `ballast_lid` | 2 | PETG | 4 | 7 g |
+| `ballast_pod` | 2 | PETG | 4 | 24 g each |
+| `ballast_lid` | 2 | PETG | 4 | 4 g each |
 | `mic_gasket` | 1 | TPU 95A | 5 | 7 g |
 | `panel_gasket` | 1 | TPU 95A | 5 | 1 g |
 | `speaker_gasket` | 1 | TPU 95A | 5 | 1 g |
@@ -132,14 +141,19 @@ the side ribs running down into the base plate's own space.
 Nothing overlaps when a gasket floats — it just floats. Two of these were wrong
 by less than a millimetre: the display posts left the 1.0 mm panel gasket
 0.19 mm to live in, and the driver clamp had exactly zero preload travel. Both
-now have asserts checking for 20 % compression. **If you change a gasket
-thickness, the assert is the thing that keeps you honest.**
+now have an assert, as does the mic gasket. They check a **5–45 % band** rather
+than 20 % exactly — 20 % is what the numbers land on, not what is enforced.
+**If you change a gasket thickness, the assert is the thing that keeps you
+honest;** the mic gasket only got one on 10 August, and writing it immediately
+caught that `mic_squash` is the *clamped height*, not the compression.
 
 ### 4. A feature intersected with `body(shrink = wall + eps)` floats free
 
 `shrink = wall + 0.01` is a solid *smaller* than the cavity, so anything
 clipped with it sits 0.01 mm clear of the wall it was meant to fuse to. The
-file uses `INNER = wall - 0.8` so features overlap the wall by 0.8 mm. This is
+file uses `INNER = wall - 0.8` so features overlap the wall by 0.8 mm — and
+that is now a real expression. It was a literal `2.2` with the derivation only
+in a comment, which would have silently stopped tracking `wall`. This is
 the single most repeatable mistake in the model and it is invisible until
 `check.py` runs.
 
@@ -155,8 +169,10 @@ The shell prints **top face down**. In that orientation the bottom opening
 faces up so the cavity has no ceiling, the raked face and skirt are steep
 self-supporting walls, and the mic ports print crisp against the plate.
 
-Measured, not asserted: 147 cm² of bed contact, 28 cm² facing downward at more
-than 60°, of which 9 cm² is a 1.2 mm ledge that bridges. **No large flat
+Measured in the model's own plate-1 orientation: **141.6 cm² of bed contact and
+31.2 cm² facing downward at more than 60°.** The largest single contribution is
+9.0 cm² of 1.2 mm shadow-gap ledge, which bridges; then 8.8 cm² of driver web
+and seat rails, and 6.3 cm² scattered across the first 20 mm. **No large flat
 unsupported span anywhere** — which is the thing that actually fails.
 
 Two features had to be rebuilt to get there. The driver bosses were Ø8 × 27 mm
@@ -187,11 +203,16 @@ display falls out of the front of the machine.
 circular layout"*. If that is the pitch-circle diameter, the design works as
 drawn. If it means the distance between *adjacent* capsules — which is what
 "spacing" means on the linear-4 sibling — then the pitch circle is
-44 × √2 = **62.2 mm**, and at that value the model refuses to render: the ports
-and their membrane counterbores fall 1.7 mm off the edge of a Ø73 PCB.
+44 × √2 = **62.2 mm**, and at that value the model refuses to render.
 
-That is not a tolerance problem. It is a different microphone layout, and it
-would need the top face redesigned.
+Be precise about why, because an earlier draft of this file was not. The ports
+do **not** fall off the board: at 62.2 the counterbore's outer edge sits 2.3 mm
+inside a Ø73 PCB. What it violates is the model's own 4 mm edge keep-out, by
+1.7 mm — and 2.3 mm of board edge is not enough to bond a Ø6 membrane onto, let
+alone whatever the array carries around its rim.
+
+Still not a tolerance problem, and still a top-face redesign. Just for a
+different reason than "it falls off".
 
 ```bash
 openscad -o /dev/null --export-format=binstl -D 'MODE="shell"' \
@@ -214,9 +235,11 @@ it is untestable until parts exist. Test it on a bench with everything loose,
 before any of this is printed: long response at normal volume, wake word over
 the top from 2 m and from 4 m. If it fails, nothing else here matters.
 
-**Which speaker, exactly.** The part has no number and no target playback level
-is written down anywhere, so the echo budget cannot be computed before
-ordering. The model assumes a 50 × 45 × 22 mm enclosed box, and its height sets
+**Which speaker, exactly.** There is a candidate — Seeed 114993346, named twice
+in `docs/bom.md` — and the model is dimensioned around it. What is missing is a
+decision: the active $248 BOM line says only "small 4 Ω 3 W speaker, $6" with no
+part number, and no target playback level is written down anywhere, so the echo
+budget cannot be computed before ordering. The model assumes a 50 × 45 × 22 mm enclosed box, and its height sets
 a third of the object's height.
 
 **Whether the reSpeaker is 16 kHz-capped over USB.** If it is, the four-mic
@@ -234,10 +257,15 @@ hour of `vcgencmd get_throttled` settles it.
 for it, which is adequate for a 20 g board but is not a mount. If it moves
 around in practice, it needs bosses.
 
-**Two documents still predate rev D.** `docs/bom.md` buys a two-microphone
+**Three documents still predate rev D.** `docs/bom.md` buys a two-microphone
 board for a four-microphone enclosure and omits every mechanical item;
-`docs/design.md` §7 describes rev C's form. Both are superseded by
-`docs/build.html` and `docs/hardware-plan.md` but neither has been rewritten.
+`docs/design.md` §7 describes rev C's form; `cad/README.md` documents the rev C
+model, orientation and parameter names. All three are superseded by
+`docs/build.html` and this file, and none has been rewritten.
+
+`docs/hardware-plan.md` is only *mostly* rev D — its toughness table still
+specifies the aluminium base plate the same document abandons a few lines
+earlier. Read it for the reasoning, not for the parts.
 
 ---
 
@@ -250,8 +278,12 @@ to separate agents whose only job was to refute the findings.
   electrical, sourcing, DFM and ruggedization. Established that rev C could not
   be assembled and forced the rewrite.
 - **Pass 2** — rev D, across printability, assembly, fit, completeness,
-  thermal-acoustic and industrial design. 5 confirmed, 29 sharpened,
-  22 refuted.
+  thermal-acoustic and industrial design. 5 confirmed, 29 sharpened, 22 refuted.
+
+Those verdict counts are **not checkable from this repository** — they lived in
+the run that produced them and nothing here records them. Treat them as
+provenance, not evidence. What *is* checkable is the geometry, and that is what
+the gates are for.
 
 **Twenty-three defects that renders did not show.** The gates are the durable
 part of that: `check.py` and `fit.py` will catch the same classes again.
