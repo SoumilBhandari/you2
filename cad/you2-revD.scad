@@ -222,6 +222,10 @@ assert(spk_z - spk_by/2 - seal_w > base_t,     "driver box fouls the base plate"
 assert(spk_z + spk_by/2 + seal_w < skirt_h,    "driver box breaks through the shoulder");
 assert(mic_circle_d/2 + mic_mem_d/2 + 4 < mic_pcb_d/2, "mic ports fall off the array PCB");
 assert(mic_boss_x + boss_od/2 < W/2 - wall - 2, "mic clamp bosses foul the side wall");
+// mic_squash is the CLAMPED height, so the compression is the difference.
+mic_comp = mic_gasket_t - mic_squash;
+assert(mic_comp > 0.05*mic_gasket_t && mic_comp < 0.45*mic_gasket_t,
+       "mic gasket is uncompressed or crushed — check mic_squash against mic_gasket_t");
 assert(max(W, D) <= max(BED_X, BED_Y) && min(W, D) <= min(BED_X, BED_Y),
        "shell footprint exceeds the bed");
 assert(H <= BED_Z,                             "shell is taller than the build volume");
@@ -254,7 +258,7 @@ module body(shrink = 0) {
 // LARGER than the cavity, so they overlap the wall and fuse to it. Using
 // wall + eps makes them float free and the shell exports in pieces — that was
 // rev C's defect and cad/check.py exists to catch it.
-INNER = 2.2;   // = wall - 0.8
+INNER = wall - 0.8;
 
 module on_face(s) {
     translate([0, -D/2 + s*sin(rake), skirt_h + s*cos(rake)]) rotate([90 - rake, 0, 0]) children();
@@ -371,17 +375,27 @@ module speaker_seal_land() {
             }
     }
 }
+// The clamp anchors 27 mm behind the skirt. A cylinder spanning that gap is a
+// HORIZONTAL cantilever: printed top-face-down its first layer is a 24 mm strip
+// attached to the wall at one end only, needing support towers built from the
+// bare bed inside a closed cavity. A web with a 45-degree ramp on its model-top
+// edge spans the same gap, is rooted to the skirt over its whole height, and
+// overhangs nothing. It also stiffens the panel the driver bolts to.
+drv_reach = wall + seal_land + spk_gask*0.8 + spk_bz;   // clamp face, 27.0
 module driver_bosses() {
     intersection() {
         body(shrink = INNER);
-        on_skirt(spk_z) for (sx = [-1,1])
-            translate([sx*(spk_bx/2 + spk_boss_x), 0, -(wall + seal_land + spk_gask + spk_bz)])
-                cylinder(d = boss_od, h = seal_land + spk_gask*0.8 + spk_bz);   // 20 % gasket squash
+        for (sx = [-1,1]) translate([sx*(spk_bx/2 + spk_boss_x), 0, 0])
+            rotate([90, 0, 90]) linear_extrude(height = 10, center = true)
+                polygon([[-D/2,             spk_z - 7],
+                         [-D/2 + drv_reach, spk_z - 7],
+                         [-D/2 + drv_reach, spk_z + 3],
+                         [-D/2,             spk_z + 3 + drv_reach]]);
     }
 }
 module driver_boss_holes() {
     on_skirt(spk_z) for (sx = [-1,1])
-        translate([sx*(spk_bx/2 + spk_boss_x), 0, -(wall + seal_land + spk_gask + spk_bz) - 0.1])
+        translate([sx*(spk_bx/2 + spk_boss_x), 0, -drv_reach - 0.1])
             cylinder(d = ins_m3_dd, h = ins_m3_ll + 0.2);
 }
 
