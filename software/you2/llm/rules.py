@@ -40,9 +40,21 @@ from ..substrate.embed import stem, tokenize
 
 # Words that start a sentence and are capitalised for that reason alone.
 _SENTENCE_STARTERS = frozenset("""
-i the a an and but so it he she they we you my our their this that these those
+i i'll i've i'm i'd we we'll we've we're they they'll they're he he's she she's
+it it's the a an and but so you my our their this that these those
 there here when where what why how if then now yes no ok okay well just also
 after before while because although since until during despite though
+maybe perhaps actually anyway honestly basically apparently
+""".split())
+
+# Capitalised, and never a person, project or place. Without this, "Friday" and
+# "March" become entities that accumulate episodes and hub the whole graph.
+_NEVER_ENTITY = frozenset("""
+monday tuesday wednesday thursday friday saturday sunday
+january february march april may june july august september october november
+december today tomorrow yesterday tonight morning afternoon evening night
+week weekend month year spring summer autumn fall winter christmas easter
+ok okay yeah yep nope thanks hi hello hey sorry please
 """.split())
 
 _ENTITY_HEAD = re.compile(
@@ -82,7 +94,11 @@ _THING_STATE = re.compile(
     r"\bthe\s+([a-z][\w -]{2,30}?)\s+(?:is|are|needs|need|has|have|keeps)\s+"
     r"(.{3,50}?)(?:[.,;!?]|$)")
 
-_SPLIT = re.compile(r"(?<=[.!?])\s+|\s*\|\s*")
+# Episodes join their turns with " / ", so a pattern that spans the join
+# invents facts nobody said: "the garden wall is moving along / actually I
+# prefer oat milk now" produced the fact `garden_wall/state = "prefer oat milk
+# now"`. Clause-splitting first is not an optimisation, it is correctness.
+_SPLIT = re.compile(r"(?<=[.!?])\s+|\s*/\s*|\s*\|\s*|;\s*")
 
 
 def slug(text: str, limit: int = 3) -> str:
@@ -138,6 +154,11 @@ def find_entities(text: str) -> list[dict]:
                 continue
             if len(name) < 3:
                 continue
+            parts_lower = [p.lower() for p in name.split()]
+            if all(p in _NEVER_ENTITY for p in parts_lower):
+                continue
+            if len(parts_lower) == 1 and "'" in parts_lower[0]:
+                continue        # a contraction that escaped the starter list
             if head:
                 name = f"{name} {head}"
             key = name.lower()
@@ -157,11 +178,26 @@ def find_entities(text: str) -> list[dict]:
 
 
 def find_facts(text: str) -> list[dict]:
-    low = text.lower()
     facts: list[dict] = []
 
     def add(key: str, claim: str, confidence: float = 0.7) -> None:
         facts.append({"key": key, "text": claim, "confidence": confidence})
+
+    for clause in _SPLIT.split(text):
+        _facts_in_clause(clause.strip().lower(), add)
+
+    # De-duplicate by key, keeping the most confident.
+    best: dict[str, dict] = {}
+    for f in facts:
+        prior = best.get(f["key"])
+        if prior is None or f["confidence"] > prior["confidence"]:
+            best[f["key"]] = f
+    return list(best.values())
+
+
+def _facts_in_clause(low: str, add) -> None:
+    if len(low) < 6:
+        return
 
     m = _NAME.search(low)
     if m:
@@ -200,14 +236,6 @@ def find_facts(text: str) -> list[dict]:
         if subject in ("user", "thing", "same", "other", "first", "last"):
             continue
         add(f"{slug(subject, 2)}/state", f"the {subject} {rest}", 0.65)
-
-    # De-duplicate by key, keeping the most confident.
-    best: dict[str, dict] = {}
-    for f in facts:
-        prior = best.get(f["key"])
-        if prior is None or f["confidence"] > prior["confidence"]:
-            best[f["key"]] = f
-    return list(best.values())
 
 
 def extract(texts: Iterable[str], ids: Iterable[int], now: float) -> Extracted:
