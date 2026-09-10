@@ -1,5 +1,30 @@
 # CAD
 
+> ## ⚠ This file describes rev C. Build `you2-revD.scad`.
+>
+> Everything below documents `you2.scad` — an 18° face angle, a "print the raked face flat on the
+> bed" orientation that buries 1.6 litres of support inside a sealed cavity, parameter names that no
+> longer exist (`face_angle`, `disp_glass_od`, `spk_d`), and a six-entry MODE table where rev D has
+> sixteen. It is kept as the record of how the form was arrived at.
+>
+> **rev C cannot be built.** Its floor is sealed by a 0.9 mm membrane, it exports as two
+> disconnected solids, nothing retains the display and nothing fastens the shell closed.
+>
+> For the current model, read its own header comment, and:
+>
+> ```bash
+> python3 cad/check.py cad/you2-revD.scad   # every part is ONE connected solid
+> python3 cad/fit.py   cad/you2-revD.scad   # no two parts occupy the same space
+> ```
+>
+> Render PNGs with `--render`. **Never preview** — the CSG tree exceeds OpenSCAD's preview
+> normaliser and silently produces a blank image.
+>
+> Build document: [`../docs/build.html`](../docs/build.html) ·
+> State: [`../handoff_hardware.md`](../handoff_hardware.md)
+
+---
+
 `you2.scad` — parametric enclosure. Needs [OpenSCAD](https://openscad.org) 2021.01 or newer.
 
 ## Viewing it
