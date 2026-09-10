@@ -4,9 +4,9 @@ A desk-based voice assistant that runs entirely on its own hardware and gets to 
 
 Not a smart speaker. Not a wrapper around someone else's API. A small machine that sits on your desk, listens when you talk to it, answers out loud, and — the actual point — **remembers**. Every conversation makes it a little more yours, and none of it leaves the box.
 
-![You2](diagrams/product.svg)
+![You2](cad/renders/revD/d-hero.png)
 
-`134 × 125 × 165 mm` · one round eye · four mics up top · one speaker forward · no cloud
+`152 × 150 × 192 mm` · one round eye · four mics up top · one speaker forward · no cloud
 
 ---
 
@@ -147,13 +147,18 @@ Flashing a card: **[deploy/](deploy/)**.
 
 ```
 You2/
-├── cad/            parametric OpenSCAD enclosure — F5 to preview, F6 to render
-├── diagrams/       system architecture + dimensioned GA drawing
-├── docs/           design.md (read this first) · architecture · bill of materials
-├── HANDOFF.md      current state, gaps, and the traps — read this first
-├── deploy/         flash a card that boots straight into the eye
-├── hardware/       wiring, assembly, and what to measure before you buy
-└── software/       the brain, the ears, and the eye
+├── cad/                  you2-revD.scad — the enclosure, parametric and self-sizing
+│   ├── check.py          gate: every part is one connected solid
+│   ├── fit.py            gate: no two parts occupy the same space
+│   └── renders/revD/     hero, exploded, section, and the six print plates
+├── docs/build.html       THE BUILD DOCUMENT — every part, plate, fastener, step
+├── hardware/             wiring · assembly · what to measure before you buy
+├── diagrams/             system architecture + dimensioned drawings
+├── docs/                 design.md · brain.md · hardware-plan.md · bom.md
+├── deploy/               flash a card that boots straight into the eye
+├── software/             the brain, the ears, and the eye
+├── HANDOFF.md            the project · handoff_software.md · handoff_hardware.md
+└── ...
 ```
 
 ---
@@ -162,27 +167,58 @@ You2/
 
 A wedge. Angled face so the screen looks at you rather than the ceiling, microphones on the top surface as far from the speaker as the enclosure allows, and one forward-firing driver so speech arrives at your face instead of bouncing off the desk.
 
-The front is one big round display — the "eye" — with a light bar across the skirt beneath it. The bar is not decoration. A voice device has to tell you what state it's in, and light is the only channel that does it without interrupting you: idle, listening, thinking, speaking.
+The front is one big round display — the "eye" — sitting 2.2 mm behind a chamfered bezel, so the rim is always the first thing to touch anything.
+
+**Nothing about the size was chosen.** The display carrier sets the face length, the driver box sets the skirt, the mic array sets the depth, and the fastener flange sets the width. Change a part dimension at the top of the model and the enclosure re-sizes itself; if a measurement makes it unbuildable, 14 asserts fail with the reason rather than rendering a shell you cannot assemble.
 
 | | |
 |---|---|
-| **Shell** | 134 × 125 × 165 mm, 2.4 mm walls, 18° raked face over a 46 mm skirt, PETG |
+| **Shell** | 152 × 150 × 192 mm, 3.0 mm walls, 22° raked face over a 65 mm skirt, PETG |
 | **Eye** | Waveshare 3.4″ round DSI, 800 × 800, ⌀87.6 glass on a 115 × 115 carrier |
-| **Light** | 2× NeoPixel Stick 8 → a 102 mm bar across the skirt |
-| **Ears** | Seeed reSpeaker over USB — hardware AEC in XMOS silicon. Lite (2-mic, $25) or Flex XVF3800 (4-mic on FPC, $55) |
-| **Voice** | ⌀40 enclosed driver in a sealed chamber in the skirt |
-| **Brain** | Raspberry Pi 5 **2 GB** on M3 standoffs — LLM runs on an API |
-| **Power** | Official 27 W USB-C PD, always on, no battery. Passive cooling — no fan near the mics |
+| **Ears** | Seeed reSpeaker Flex XVF3800 Circular-4 over USB — hardware AEC in XMOS silicon |
+| **Voice** | Enclosed 4 Ω driver on a gasketed seat in the skirt, clamped with 20 % squash |
+| **Brain** | Raspberry Pi 5 **2 GB** on brass standoffs — LLM runs on an API |
+| **Power** | Official 27 W USB-C PD, one plug, always on, no battery. Passive cooling — no fan near the mics |
+| **Mass** | 674 g of filament across 11 printed parts, plus ~200 g of optional sand ballast |
 
-DSI rather than DPI is not an aesthetic choice. The Pi 5 has two spare 4-lane MIPI transceivers, so **DSI costs zero GPIO** and leaves the whole 40-pin header free. The only off-the-shelf round DPI panel consumes GPIO 0–27 with nothing spare — not even a pin for the LED data line.
+![Section](cad/renders/revD/d-section.png)
+
+### It is built for one ordinary printer
+
+220 × 220 × 250 bed, 0.4 mm nozzle, one material at a time. **No machined parts, no laser cutting, and no thread cut into plastic anywhere** — all 24 are brass heat-set inserts, which need a soldering iron and nothing else. In the default build there is nothing to solder.
+
+Six plates, every one fitting the bed, none needing support. The trick is the shell's orientation: printed **top face down**, the bottom opening faces up so the cavity has no ceiling, the raked face and skirt become steep self-supporting walls, and the four microphone ports print crisp against the plate. Measured rather than asserted — 147 cm² of bed contact and 28 cm² facing downward at more than 60°, of which 9 cm² is a 1.2 mm ledge that bridges. No large flat unsupported span anywhere.
+
+![Plate 1 — the shell, top face on the bed](cad/renders/revD/d-plate1.png)
+
+### The display never enters the shell
+
+It bolts to a separate faceplate, from outside, and the faceplate goes on last. That one move is why rev D can be assembled at all — and it means a wrong display dimension costs a 56 g reprint instead of a 400 g one. Print the faceplate first and offer the real panel up to it.
+
+![Exploded view](cad/renders/revD/d-exploded.png)
+
+DSI rather than DPI is not an aesthetic choice. The Pi 5 has two spare 4-lane MIPI transceivers, so **DSI costs zero GPIO** and leaves the whole 40-pin header free. The only off-the-shelf round DPI panel consumes GPIO 0–27 with nothing spare.
 
 Two things that will each cost you an afternoon: the display box ships **15-pin cables and a Pi 5 needs 22-pin** (wrong cable = black screen, no error), and the panel must be **fed 5 V separately** because the DSI ribbon can't supply enough current.
 
-A ring around the eye was the original idea and it doesn't survive contact with parts: the largest stocked NeoPixel ring is 65.5 mm outer, so against an 87.6 mm display it would sit *behind* the glass. Hence a bar.
+### Two gates, because a render lies
 
-Dimensioned drawing: [diagrams/enclosure.svg](diagrams/enclosure.svg) · Model: [cad/you2.scad](cad/you2.scad) · Renders: [cad/renders/](cad/renders/)
+`Status: NoError` means the mesh is manifold. It does not mean the part is one object, and it does not mean anything fits — rev C rendered clean and was a sealed box in two disconnected pieces. And a render draws parts in different colours and lets them pass straight through one another.
 
-![Exploded view](cad/renders/exploded.png)
+```bash
+python3 cad/check.py cad/you2-revD.scad   # every part is ONE connected solid
+python3 cad/fit.py   cad/you2-revD.scad   # no two parts share space
+```
+
+Between them and 14 in-model asserts they caught **23 defects renders did not show** — a microphone array overhanging the top face by 2 mm, a driver that never touched its own seal, eight insert holes bored at the insert's own diameter, and two Ø8 × 27 mm horizontal cantilevers that would have needed support towers built from the bare bed inside a sealed cavity.
+
+Model: [cad/you2-revD.scad](cad/you2-revD.scad) · Renders: [cad/renders/revD/](cad/renders/revD/) · **Build document: [docs/build.html](docs/build.html)**
+
+### The light bar, and why it is off
+
+The original design put a 102 mm light bar across the skirt to signal state — idle, listening, thinking, speaking. It is the only soldering in the project, the only level shifter, the only second supply, and a 459 mm² unsealed aperture in the front face just above the driver. It also costs 14 mm of height and 8 mm of depth.
+
+An 800 × 800 emissive disc showing a full-field colour is more visible across a room than a 4.5 mm diffused slot. `LED_BAR = false` is the default; set it true and the model re-sizes itself if you disagree.
 
 ### The screen
 
@@ -190,23 +226,25 @@ A round 800 × 800 panel is not a phone screen and shouldn't pretend to be one. 
 
 **Idle** — the time, dimmed. **Listening** — a radial waveform on live mic level, with the transcript forming in the middle. **Thinking** — a single slow arc. **Speaking** — the same waveform in amber, driven by output rather than input.
 
-The light bar duplicates state deliberately. The screen carries content; the bar carries *is it awake*, and that has to survive being read from the far side of the room with your back turned.
+State has to survive being read from the far side of the room with your back turned, which is what the light bar was for. With the bar off by default, the screen carries both — content in the middle, and a full-field colour at the edge that reads as *is it awake* from across a room. An 800 × 800 emissive disc is better at that job than a 4.5 mm slot ever was.
 
 ---
 
 ## Where this is
 
-Design phase. **Full build is $248** — see [docs/bom.md](docs/bom.md).
+Design phase, and honestly so. The software runs; **nothing physical has been built** — nothing printed, no part ordered, no dimension measured with a caliper.
+
+**Parts come to ≈ $351**, roughly $410 delivered. The old $248 costing in [docs/bom.md](docs/bom.md) is superseded: it buys a two-microphone board for a four-microphone enclosure, and omits every fastener, gasket and membrane. The corrected list is in [docs/build.html](docs/build.html).
 
 The LLM runs on an API (Groq's free tier covers ~480× this workload), which deleted the local-inference requirement and
 with it the expensive half of the hardware. A Pi 5 **2 GB** at $65 is the same quad Cortex-A76 silicon as the $175 8 GB
 board; the RAM was only ever there to hold a model that now lives elsewhere.
 
-The CAD is parametric, rev C. It **renders clean and exports as a manifold solid** — shell and base plate both come back `Status: NoError`, so the geometry is printable. STLs are in [cad/stl/](cad/stl/), renders in [cad/renders/](cad/renders/).
+The enclosure is gated rather than merely rendered — every part exports as a single connected solid, no two parts occupy the same space, and 14 asserts check the things neither gate can see. **That still is not a claim that it fits.** Every dimension came from a datasheet, and vendor listings for these parts are routinely wrong.
 
-What that does *not* mean is that it fits. Every part dimension came from a datasheet rather than calipers, and vendor listings for these parts are routinely wrong. Don't print until the display, LED sticks and mic array are physically in front of you.
+**One number can invalidate the design.** Seeed describes the mic array as *"44 mm spacing arranged in a circular layout"*. If that is the pitch-circle diameter, this works. If it means the distance between adjacent capsules — which is what "spacing" means on the linear-4 sibling — the pitch circle is 62.2 mm, and at that value the model refuses to render because the ports fall off the edge of the board. Settle it with calipers before ordering: [hardware/measure-first.md](hardware/measure-first.md).
 
-Nothing is soldered yet.
+In the default build there is **nothing to solder**. A soldering iron is still needed, for 24 heat-set inserts.
 
 ---
 
@@ -220,4 +258,6 @@ Things that are easy to lose sight of once you're deep in it:
 4. **No feed, no notifications, no engagement loop.** It speaks when spoken to. That restraint is a feature.
 5. **Don't let it take actions yet.** Rabbit died on exactly this. Conversation and memory first; actions are a much later problem.
 6. **Wake-word activated, not always-recording.** Other people are in the room and haven't agreed to anything.
-7. **The audio stays on USB.** The reSpeaker has an I2S mode. Taking it would re-impose the GPIO conflict that USB freed you from, to chase milliseconds that aren't the bottleneck — ASR is.
+7. **A render is not a check.** `Status: NoError` says the mesh is manifold, nothing more. Run `cad/check.py` and `cad/fit.py` before every print, and add an assert whenever you add a feature that depends on a dimension.
+8. **Measure before you print, not before you assemble.** Every part dimension here came from a datasheet. The faceplate is 56 g and confirms four of the seven numbers that matter.
+9. **The audio stays on USB.** The reSpeaker has an I2S mode. Taking it would re-impose the GPIO conflict that USB freed you from, to chase milliseconds that aren't the bottleneck — ASR is.
