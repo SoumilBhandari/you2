@@ -26,7 +26,7 @@ to install the display at all.
 
 ## Fasteners
 
-24 brass heat-set inserts, 28 screws, 4 standoffs. Every insert hole is bored
+24 brass heat-set inserts, 24 screws, 4 standoffs. Every insert hole is bored
 **smaller** than the insert's own diameter (Ø4.0 for a 4.6 mm M3, Ø3.6 for a
 4.0 mm M3, Ø3.2 for a 3.5 mm M2.5) — bore it at the insert diameter and it
 spins out the first time you torque a screw. **No thread is cut into plastic
@@ -40,8 +40,8 @@ over weeks.
 | Driver clamp → skirt | M3 4.6 × 5.8 | M3 × 10 socket | 2 |
 | Mic clamp → ceiling | M3 4.0 × 4.0 | **M3 × 6** socket | 2 |
 | Ballast pods → base | M3 4.0 × 4.0 | M3 × 8 socket | 4 |
-| Display carrier → faceplate | M2.5 3.2 × 4.0 | M2.5 × 6 | 4 |
-| Pi standoffs → base | M2.5 3.2 × 4.0 | 6 mm M–F standoff | 4 |
+| Display carrier → faceplate | M2.5 3.5 × 5.0 | M2.5 × 6 | 4 |
+| Pi standoffs → base | M2.5 3.5 × 5.0 | 6 mm M–F standoff | 4 |
 | Pi → standoffs | — | M2.5 × 6 | 4 |
 
 ## Order
@@ -60,7 +60,8 @@ over weeks.
 
    The two mic inserts sit ~184 mm down a blind well. Use a stubby iron or a
    long tip; a full-size iron will not reach past the shoulder.
-2. **Acoustic membranes** into the four counterbores on the **outside** of the
+2. **Acoustic membranes** — GORE GAW3343.06.0, ID 3.0 / OD 6.0 — into the four
+   counterbores on the **outside** of the
    top face. Mesh behind the speaker grille from the inside.
 3. **Ballast pods** (optional) — fill with dry sand, cap, glue the seam.
 4. **Base** — standoffs, then the Pi, long axis front-to-back, **USB-A and
