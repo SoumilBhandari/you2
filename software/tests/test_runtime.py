@@ -320,3 +320,116 @@ def test_naming_the_thing_beats_being_connected_to_it(brain):
     out = brain.say("what did I say about Lisbon", now=brain.clock.now())
     assert "lisbon" in out.text.lower(), out.text
     assert "boiler" not in out.text.lower(), out.text
+
+
+def test_a_turn_survives_a_hard_kill(tmp_path):
+    """`sqlite3` opens an implicit deferred transaction on the first write,
+    and `store.flush()` was the only commit in the system — reached by
+    `Brain.close()`, `store.close()` and the night, none of which a turn
+    touches. Under the shipped unit (`you2 serve`, Restart=always) every
+    restart, reboot or OOM kill on a 2 GB Pi threw away everything since the
+    last consolidation.
+
+    Measured before the fix: 60 turns gave 61 neurons and 181 edges in
+    process, and **0 and 0** on disk after `os._exit(9)`. The 05:30 backup
+    timer then faithfully backed up a store missing the day.
+
+    A subprocess, because nothing short of a real kill proves it: `close()`,
+    `__del__` and `atexit` would each hide the bug.
+    """
+    import subprocess
+    import sys
+    import textwrap
+
+    db = tmp_path / "kill.db"
+    script = textwrap.dedent(f"""
+        import os
+        from you2 import BrainConfig, SimClock
+        from you2.runtime.pipeline import Brain
+        from you2.llm import FakeLLM
+        from you2.substrate import HashEmbedder, Kind
+        cfg = BrainConfig(db_path={str(db)!r})
+        b = Brain(cfg, clock=SimClock(), llm=FakeLLM(),
+                  embedder=HashEmbedder(dim=cfg.embed_dim))
+        for i in range(20):
+            b.clock.advance(minutes=7)
+            b.say(f"thing {{i}} about the garden wall", now=b.clock.now())
+        print(b.store.count(Kind.EPISODE), flush=True)
+        os._exit(9)
+    """)
+    # No check=True: os._exit(9) is the point of the test.
+    out = subprocess.run([sys.executable, "-c", script], capture_output=True,
+                         text=True)
+    assert out.returncode == 9, (out.returncode, out.stderr[-800:])
+    in_process = int(out.stdout.strip().splitlines()[-1])
+    assert in_process > 0
+
+    from you2.substrate import Store
+
+    cfg = BrainConfig(db_path=str(db))
+    store = Store(cfg, SimClock(), HashEmbedder(dim=cfg.embed_dim))
+    # The still-open episode is legitimately lost — only close() seals it —
+    # so this is >=, not ==. Do not tighten it without re-reading that.
+    assert store.count(Kind.EPISODE) >= in_process - 1, (
+        store.count(Kind.EPISODE), in_process)
+    assert store.graph.edge_count > 0
+    store.close()
+
+
+def test_forgotten_means_forgotten_after_a_kill(tmp_path):
+    """The device says "Forgotten." out loud, and `entomb` is documented as
+    the only unrecoverable state — but it did not commit either, so after a
+    kill the row was back at tier='hot' with its content verbatim.
+
+    And the cascade has to reach the entity: an entity is carried by memories
+    that are *about* it, not by ones that merely co-fired with it in a
+    workspace. Counting ASSOC edges as carriers meant that simply *asking*
+    about a memory before deleting it wired an unrelated episode to its
+    entity and kept the name alive.
+    """
+    import re
+    import subprocess
+    import sys
+    import textwrap
+
+    db = tmp_path / "forget.db"
+    script = textwrap.dedent(f"""
+        import os
+        from you2 import BrainConfig, SimClock
+        from you2.runtime.pipeline import Brain
+        from you2.llm import FakeLLM
+        from you2.substrate import HashEmbedder
+        cfg = BrainConfig(db_path={str(db)!r})
+        b = Brain(cfg, clock=SimClock(), llm=FakeLLM(),
+                  embedder=HashEmbedder(dim=cfg.embed_dim))
+        b.say("my HIV test came back positive last Tuesday", now=b.clock.now())
+        b.clock.advance(minutes=40)
+        b.say("the garden wall needs rebuilding", now=b.clock.now())
+        b.close(b.clock.now())
+        b.clock.advance(hours=9)
+        b.night(now=b.clock.now(), seed=1)
+        b.clock.advance(hours=2)
+        b.say("what did I say about the HIV test", now=b.clock.now())
+        r = b.say("forget that", now=b.clock.now())
+        assert r.repair is not None and r.repair.kind == "deleted", r.repair
+        os._exit(9)
+    """)
+    out = subprocess.run([sys.executable, "-c", script], capture_output=True,
+                         text=True)
+    assert out.returncode == 9, (out.returncode, out.stderr[-800:])
+
+    from you2.substrate import Store
+
+    cfg = BrainConfig(db_path=str(db))
+    store = Store(cfg, SimClock(), HashEmbedder(dim=cfg.embed_dim))
+    leak = re.compile(r"\bhiv\b|\bpositive\b", re.IGNORECASE)
+    tables = [r[0] for r in store.conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table'")]
+    for table in tables:
+        for row in store.conn.execute(f"SELECT * FROM {table}"):
+            assert not leak.search(str(tuple(row))), (table, tuple(row))
+
+    # And nothing else went with it.
+    assert any("garden wall" in (n.content or "")
+               for n in store.by_kind(Kind.EPISODE, limit=9))
+    store.close()
