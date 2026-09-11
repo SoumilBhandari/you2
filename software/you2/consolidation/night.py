@@ -40,11 +40,10 @@ from typing import Any, Callable
 
 import numpy as np
 
-from ..activation.workspace import ago
 from ..clock import DAY, iso
 from ..config import BrainConfig
 from ..discovery import contradiction, openloops, recurrence, scoring
-from ..substrate.neuron import Kind, Tier
+from ..substrate.neuron import Kind
 from ..substrate.store import Store
 from . import abstraction, dream, forgetting, homeostasis, replay, storage
 from .supersede import Tally, open_questions
