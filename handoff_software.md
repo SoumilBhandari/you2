@@ -67,7 +67,12 @@ had the internally consistent version of this table.
 
 Two years of daily use is **8.9 MB on disk**. Hot-path retrieval is **0.52 ms
 at 100k neurons** and flat across a 10× range. A turn is p50 2.3 ms, p95
-3.7 ms, and **is committed before it returns** — see below.
+3.7 ms, and **is committed before it returns** — see below. Note what that
+does and does not buy: everything *committed* survives a kill, but only sealed
+episodes are ever written, so a hard kill still loses the open segment (up to
+`MAX_TURNS = 12` turns / `MAX_SPAN = 900 s`). The 60-turn table in the README
+reads better than reality because its `SimClock` seals an episode every turn;
+on the real clock, 25 turns is 2 episodes.
 
 Ablation deltas at one year (`you2 eval --ablate`):
 
