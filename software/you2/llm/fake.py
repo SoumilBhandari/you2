@@ -25,6 +25,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Iterator, Sequence
 
+from ..substrate.embed import tokenize
 from . import rules
 from .client import Message, Usage
 
@@ -155,10 +156,39 @@ class FakeLLM:
                 block = m["content"]
         utterance = messages[-1]["content"]
         if block:
-            first = next((line.strip(" -") for line in block.splitlines()[2:]
-                          if line.strip().startswith("-")), "")
-            return f"About that: {first}." if first else f"Noted: {utterance}"
+            lines = [line.strip(" -") for line in block.splitlines()[2:]
+                     if line.strip().startswith("-")]
+            best = _most_relevant(lines, utterance)
+            return f"About that: {best}." if best else f"Noted: {utterance}"
         return f"Noted: {utterance}"
+
+
+def _most_relevant(lines: Sequence[str], question: str) -> str:
+    """The block line sharing the most content with the question.
+
+    This used to take `lines[0]`, which meant every question in `chat --fake`
+    answered with the same sentence: the block is ordered by activation, and
+    its first line does not move with what was asked. Four different questions
+    against a four-fact store all returned "About that: Soumil." Retrieval was
+    correct the whole time -- `/why` showed the oat-milk episode ranked top for
+    "what milk do I drink" -- so the only broken thing was the rendering, and
+    the rendering is the entire first impression.
+
+    Stemmed content-token overlap, reusing the store's own tokenizer so the
+    stand-in matches text the same way everything else does. Ties go to the
+    higher-activation line, since the loop only replaces on a strict >.
+    """
+    if not lines:
+        return ""
+    asked = set(tokenize(question))
+    if not asked:
+        return lines[0]
+    best, score = "", 0
+    for line in lines:
+        overlap = len(asked & set(tokenize(line)))
+        if overlap > score:
+            best, score = line, overlap
+    return best or lines[0]
 
 
 def _dump(obj: object) -> str:
