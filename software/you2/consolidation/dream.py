@@ -26,7 +26,7 @@ clear scoring it should be cut rather than defended.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
@@ -35,7 +35,7 @@ from ..clock import DAY
 from ..config import BrainConfig
 from ..llm import prompts
 from ..llm.client import LLMError
-from ..substrate.neuron import Kind, Neuron
+from ..substrate.neuron import Kind
 from ..substrate.store import Store
 from ..substrate.synapse import Edge
 
