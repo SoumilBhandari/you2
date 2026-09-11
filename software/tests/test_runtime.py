@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from you2 import DAY, BrainConfig, SimClock
+from you2 import BrainConfig, SimClock
 from you2.llm import FakeLLM, LLMUnavailable, sentences
 from you2.perception import Prosody
 from you2.recall import reconsolidate
