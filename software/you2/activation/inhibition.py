@@ -55,31 +55,3 @@ def suppress(scores: dict[int, float], winner: int,
             scores[nid] *= max(0.0, 1.0 - (strength + (1.0 - strength) * ramp))
             hit.append((nid, s))
     return hit
-
-
-def graded_suppress(scores: dict[int, float], winner: int,
-                    similarity: Callable[[int, Sequence[int]], np.ndarray],
-                    *, radius: float = 0.80, strength: float = 0.70,
-                    ) -> list[tuple[int, float]]:
-    """As `suppress`, but the damping ramps in over the radius instead of
-    switching at it.
-
-    A hard threshold makes selection unstable near the boundary: a similarity
-    of 0.799 survives untouched while 0.801 loses 70%, so a trivial rewording
-    of the same memory flips which one appears. Available as an alternative
-    policy; the default stays hard because it is easier to reason about when
-    a block looks wrong.
-    """
-    others = [nid for nid in scores if nid != winner]
-    if not others or strength <= 0.0:
-        return []
-    sims = similarity(winner, others)
-    hit: list[tuple[int, float]] = []
-    span = max(1e-6, 1.0 - radius)
-    for nid, sim in zip(others, sims):
-        s = float(sim)
-        if s >= radius:
-            ramp = min(1.0, (s - radius) / span)
-            scores[nid] *= (1.0 - strength * ramp)
-            hit.append((nid, s))
-    return hit
