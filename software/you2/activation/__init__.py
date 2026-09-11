@@ -8,7 +8,7 @@ from .baselevel import (
     availability, decay_rate, half_life_days, on_retrieval, retrieval_strength,
 )
 from .cues import CueSet, build as build_cues, find_mentions, parse_window
-from .inhibition import graded_suppress, suppress
+from .inhibition import suppress
 from .spread import Cascade, Cue, spread
 from .workspace import (
     Item, Workspace, availability_fn, broadcast, compete, estimate_tokens, render,
@@ -17,7 +17,7 @@ from .workspace import (
 __all__ = [
     "Cascade", "Cue", "CueSet", "Item", "Workspace",
     "availability", "availability_fn", "broadcast", "build_cues", "compete",
-    "decay_rate", "estimate_tokens", "find_mentions", "graded_suppress",
+    "decay_rate", "estimate_tokens", "find_mentions",
     "half_life_days", "on_retrieval", "parse_window", "recall", "render",
     "retrieval_strength", "spread", "suppress",
 ]
