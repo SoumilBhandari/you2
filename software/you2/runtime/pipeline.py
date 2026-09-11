@@ -1,0 +1,297 @@
+"""The hot path, assembled.
+
+    hear -> recall -> route -> answer -> [reply] -> broadcast -> encode
+
+Everything to the right of `[reply]` happens after the person has heard the
+answer. The hot path acquires no new blocking calls, ever.
+
+Every stage boundary is timestamped. When you are over budget the log tells
+you which stage to attack, instead of sending you board-shopping.
+"""
+
+from __future__ import annotations
+
+import time
+from dataclasses import dataclass, field
+from typing import Any, Iterator
+
+from ..activation import build_cues, compete, spread
+from ..activation.workspace import Workspace, availability_fn, broadcast
+from ..clock import Clock, RealClock
+from ..config import DEFAULT, BrainConfig
+from ..consolidation import night
+from ..encoding import Segmenter, encode
+from ..inference import attach as attach_inferences
+from ..llm import prompts
+from ..llm.client import LLMUnavailable
+from ..perception import Attention, Prosody, Salience, evaluate
+from ..perception.prosody import Baseline
+from ..recall import reconsolidate
+from ..substrate import Kind, Store
+from ..substrate.embed import Embedder
+from .router import OFFLINE_FALLBACK, Router, Routed
+
+#: Turns of raw dialogue kept in the prompt. Small on purpose: the memory
+#: block is the context, and a long verbatim history both costs tokens and
+#: makes the cacheable prefix shorter.
+HISTORY_TURNS = 4
+
+
+@dataclass(slots=True)
+class Timing:
+    stages: dict[str, float] = field(default_factory=dict)
+    _t0: float = 0.0
+    _last: float = 0.0
+
+    def start(self) -> None:
+        self._t0 = self._last = time.perf_counter()
+
+    def mark(self, name: str) -> None:
+        now = time.perf_counter()
+        self.stages[name] = round((now - self._last) * 1000, 2)
+        self._last = now
+
+    @property
+    def total_ms(self) -> float:
+        return round((self._last - self._t0) * 1000, 2)
+
+    def as_dict(self) -> dict[str, float]:
+        return {**self.stages, "total": self.total_ms}
+
+
+@dataclass(slots=True)
+class Reply:
+    text: str = ""
+    route: str = "model"           # router | memory | model | offline | ignored
+    workspace: Workspace | None = None
+    salience: Salience | None = None
+    repair: reconsolidate.Repair | None = None
+    encoded: Any = None
+    timing: Timing = field(default_factory=Timing)
+    cites: list[int] = field(default_factory=list)
+
+    def __repr__(self) -> str:
+        return f"Reply({self.route}, {self.timing.total_ms:.0f} ms, {self.text[:48]!r})"
+
+
+class Brain:
+    """One object, the whole system."""
+
+    def __init__(self, cfg: BrainConfig | None = None, *, clock: Clock | None = None,
+                 llm: Any | None = None, embedder: Embedder | None = None,
+                 path: str | None = None) -> None:
+        self.cfg = cfg or DEFAULT
+        self.clock = clock or RealClock()
+        self.store = Store(self.cfg, self.clock, embedder, path)
+        self.llm = llm
+        self.attention = Attention(self.cfg, self.clock)
+        self.segmenter = Segmenter(self.store.embed)
+        self.router = Router(self.clock)
+        self.baseline = Baseline(self.store, "user")
+        self.profile: str = ""
+        self._context: list[tuple[int, float]] = []
+        self._history: list[dict[str, str]] = []
+        self._last_workspace: Workspace | None = None
+        self._previous_episode: int | None = None
+
+    # -------------------------------------------------------------- session
+
+    def wake(self, now: float | None = None):
+        orienting = self.attention.wake(now)
+        if self.attention.session_id:
+            self.store.open_session(self.attention.session_id)
+        return orienting
+
+    def close(self, now: float | None = None) -> None:
+        """End the session: flush the open episode and write it."""
+        now = now if now is not None else self.clock.now()
+        episode = self.segmenter.flush()
+        if episode is not None:
+            out = encode(self.store, episode, self.cfg,
+                         previous=self._previous_episode)
+            if out.episode is not None:
+                self._previous_episode = out.episode.id
+        session = self.attention.close(now)
+        if session:
+            self.store.close_session(session)
+        self._context = []
+        self._history = []
+        self.store.flush()
+
+    # ------------------------------------------------------------- the turn
+
+    def say(self, text: str, *, now: float | None = None,
+            prosody: Prosody | None = None, source: str = "speech",
+            wake: bool = True) -> Reply:
+        now = now if now is not None else self.clock.now()
+        timing = Timing()
+        timing.start()
+
+        if wake and not self.attention.accepts(now):
+            self.wake(now)
+        turn = self.attention.hear(text, now, prosody=prosody, source=source)
+        if turn is None:
+            return Reply(route="ignored", timing=timing)
+        timing.mark("attend")
+
+        # ---- retrieve ------------------------------------------------------
+        cues = build_cues(self.store, text, self.cfg, context=self._context, now=now)
+        timing.mark("cues")
+        cascade = spread(self.store.graph, cues.cues, self.cfg,
+                         availability=availability_fn(self.store, self.cfg, now))
+        timing.mark("spread")
+        ws = compete(self.store, cascade, self.cfg, cues=cues, now=now)
+        timing.mark("workspace")
+        # Graph-only inference: microseconds, so it can ride along with every
+        # turn. Model-backed inference never touches the critical path.
+        attach_inferences(self.store, ws, self.cfg, now)
+        timing.mark("infer")
+
+        reply = Reply(workspace=ws, timing=timing)
+
+        # ---- repair, before anything else ----------------------------------
+        # "No, that's out of date" must work in the moment. Deferring it to the
+        # night job means arguing about the same thing twice.
+        repair = reconsolidate.apply(self.store, self.llm, self._last_workspace,
+                                     text, self.cfg, now)
+        reply.repair = repair
+        if repair.kind == "deleted":
+            reply.text, reply.route = "Forgotten.", "router"
+            return self._finish(reply, turn, ws, now, prosody, source, skip_encode=True)
+        if repair.kind == "corrected":
+            reply.text = "Got it — updated."
+            reply.route = "router"
+            return self._finish(reply, turn, ws, now, prosody, source)
+        timing.mark("repair")
+
+        # ---- router and memory-answerable ----------------------------------
+        routed: Routed = self.router.route(self.store, text, ws, self.cfg, now)
+        timing.mark("route")
+        if routed.handled:
+            reply.text = routed.text
+            reply.route = "router" if not routed.intent.startswith("memory") else "memory"
+            reply.cites = routed.cites
+            return self._finish(reply, turn, ws, now, prosody, source)
+
+        # ---- the model -----------------------------------------------------
+        reply.text, reply.route = self._generate(ws, text)
+        timing.mark("generate")
+        return self._finish(reply, turn, ws, now, prosody, source)
+
+    def stream(self, text: str, *, now: float | None = None) -> Iterator[str]:
+        """Token deltas, for the TTS path. Never wait for generation to finish."""
+        now = now if now is not None else self.clock.now()
+        ws = self._retrieve(text, now)
+        self._last_workspace = ws
+        if self.llm is None:
+            yield OFFLINE_FALLBACK
+            return
+        block = self.profile + ("\n" + ws.block() if ws.block() else "")
+        yield from self.llm.stream(prompts.answer(block, self._history[-HISTORY_TURNS:],
+                                                  text))
+
+    def _retrieve(self, text: str, now: float) -> Workspace:
+        cues = build_cues(self.store, text, self.cfg, context=self._context, now=now)
+        cascade = spread(self.store.graph, cues.cues, self.cfg,
+                         availability=availability_fn(self.store, self.cfg, now))
+        ws = compete(self.store, cascade, self.cfg, cues=cues, now=now)
+        return attach_inferences(self.store, ws, self.cfg, now)
+
+    def _generate(self, ws: Workspace, text: str) -> tuple[str, str]:
+        if self.llm is None:
+            return OFFLINE_FALLBACK, "offline"
+        # The nightly profile first, then this turn's retrieval. The profile is
+        # stable, so it stays inside the cacheable prefix.
+        block = self.profile
+        if ws.block():
+            block = (block + "\n" + ws.block()).strip()
+        try:
+            out = self.llm.complete(
+                prompts.answer(block, self._history[-HISTORY_TURNS:], text),
+                temperature=0.4, max_tokens=220)
+            return out.strip(), "model"
+        except LLMUnavailable:
+            self.store.log("offline", {"utterance": text[:120]})
+            return OFFLINE_FALLBACK, "offline"
+
+    # ---- everything below happens after the person has heard the answer ----
+
+    def _finish(self, reply: Reply, turn, ws: Workspace, now: float,
+                prosody: Prosody | None, source: str,
+                *, skip_encode: bool = False) -> Reply:
+        self.attention.reply_start(now)
+        self._last_workspace = ws
+        self._context = ws.context()
+        self._history = (self._history + [{"role": "user", "content": turn.text},
+                                          {"role": "assistant", "content": reply.text}]
+                         )[-HISTORY_TURNS * 2:]
+
+        broadcast(self.store, ws, self.cfg, now=now)
+        reply.timing.mark("broadcast")
+
+        if not skip_encode:
+            arousal = None
+            if prosody is not None:
+                self.baseline.update(prosody, now)
+                arousal = self.baseline.arousal(prosody)
+            salience = evaluate(self.store, turn.text, self.cfg, workspace=ws,
+                                arousal=arousal,
+                                engagement=self.attention.engagement(),
+                                source=source, now=now)
+            reply.salience = salience
+            closed = self.segmenter.feed(turn, salience)
+            if closed is not None:
+                out = encode(self.store, closed, self.cfg,
+                             previous=self._previous_episode, source=source)
+                reply.encoded = out
+                if out.episode is not None:
+                    self._previous_episode = out.episode.id
+        reply.timing.mark("encode")
+
+        self.attention.reply_end(now)
+        self.store.log("turn", {"route": reply.route,
+                                "timing": reply.timing.as_dict(),
+                                "workspace": ws.ids(), "tokens": ws.tokens,
+                                "salience": reply.salience.as_dict()
+                                if reply.salience else None})
+        return reply
+
+    # ---------------------------------------------------------------- night
+
+    def night(self, *, now: float | None = None, interrupt=None,
+              seed: int | None = None) -> night.NightReport:
+        now = now if now is not None else self.clock.now()
+        self.close(now)
+        report = night.run(self.store, self.llm, self.cfg, now=now,
+                           interrupt=interrupt, seed=seed)
+        self.profile = report.profile
+        return report
+
+    def load_profile(self, now: float | None = None) -> str:
+        self.profile = night.build_profile(self.store, self.cfg,
+                                           now or self.clock.now())
+        return self.profile
+
+    # ----------------------------------------------------------------- misc
+
+    def why(self, text: str, *, now: float | None = None) -> str:
+        now = now if now is not None else self.clock.now()
+        return self._retrieve(text, now).explain()
+
+    def stats(self) -> dict[str, Any]:
+        out = self.store.stats()
+        out["profile_tokens"] = len(self.profile) // 4
+        out["precision"] = self.store.precision_by_type()
+        return out
+
+    def close_store(self) -> None:
+        self.store.close()
+
+    def __enter__(self) -> Brain:
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self.close_store()
+
+    def __repr__(self) -> str:
+        return f"Brain({self.store!r})"
