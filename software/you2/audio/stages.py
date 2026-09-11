@@ -35,9 +35,8 @@ from __future__ import annotations
 
 import math
 import re
-import time
-from dataclasses import dataclass, field
-from typing import Iterator, Protocol, Sequence, runtime_checkable
+from dataclasses import dataclass
+from typing import Iterator, Protocol, runtime_checkable
 
 import numpy as np
 
