@@ -78,7 +78,26 @@ discarded everything since the last consolidation. Measured:
 | in process, after 60 turns | 61 | 59 | 181 |
 | on disk, after `os._exit(9)` | **0** | **0** | **0** |
 
-The turn now commits as the last thing it does, after the reply and after the
+**Read the episode column with care, because it flatters the fix.** That row
+is a `SimClock` advancing seven minutes a turn, which trips `GAP_SECONDS` and
+seals an episode on *every* turn. A real conversation does not, and only a
+sealed episode is ever written. On the real clock the same kill gives:
+
+| turns before `kill -9` | in process | on disk |
+|---|---|---|
+| 5 | 2 neurons | 2 neurons, 1 episode |
+| 13 | 2 | 2, 1 episode |
+| 25 | 3 | 3, 2 episodes |
+
+On-disk equals in-process every time — nothing that reached the store is lost,
+which is the claim. But the open segment holds up to `MAX_TURNS = 12` turns or
+`MAX_SPAN = 900 s`, and a hard kill still discards it. The honest statement is
+*everything committed survives a kill*, not *every turn survives a kill*.
+`tests/test_runtime.py` says as much in passing — "the still-open episode is
+legitimately lost" — but every `Brain` in that file is built on a `SimClock`,
+so nothing measures the real-clock exposure.
+
+The turn commits as the last thing it does, after the reply and after the
 encode, for about 0.1 ms against a 2.3 ms turn. The order of that fix mattered:
 `persist_graph` deletes every edge and re-inserts them inside one transaction
 on the night thread, so a naive per-turn commit landing in that window would
