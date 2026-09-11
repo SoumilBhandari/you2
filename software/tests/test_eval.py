@@ -13,7 +13,7 @@ from __future__ import annotations
 import pytest
 
 from you2 import BrainConfig
-from you2.eval import ABLATIONS, Result, ablate, compare, generate, run
+from you2.eval import ABLATIONS, ablate, compare, generate, run
 
 
 # ------------------------------------------------------------------ generator
