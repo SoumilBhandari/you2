@@ -110,7 +110,8 @@ def test_each_mechanism_earns_its_place():
     """
     results = ablate(days=150, seed=0,
                      which=("no-fan-effect", "no-inhibition", "top-k-only",
-                            "no-base-level", "uncapped-block"))
+                            "no-base-level", "uncapped-tokens",
+                            "uncapped-items"))
     base = results["baseline"].final
 
     # The fan effect: without hub dampening the cascade floods.
@@ -130,8 +131,15 @@ def test_each_mechanism_earns_its_place():
     # unreachable.
     assert results["no-base-level"].final.stale_leakage > base.stale_leakage
 
-    # The block cap costs nothing and saves a great deal.
-    assert results["uncapped-block"].final.block_tokens > base.block_tokens * 2
+    # The workspace capacity is the *item* cap. The token budget never binds:
+    # raising it 400 -> 4000 moves nothing at all, which is why these are two
+    # ablations and not one. Asserted in both directions, because the inert
+    # half is the finding -- a single "uncapped-block" ablation raised both at
+    # once and credited the token budget for what the item cap was doing.
+    assert (results["uncapped-tokens"].final.block_tokens
+            == pytest.approx(base.block_tokens))
+    assert (results["uncapped-items"].final.block_tokens
+            > base.block_tokens * 1.5)          # measured 258 against 134
 
     text = compare(results)
     assert "deltas vs baseline" in text
