@@ -144,3 +144,21 @@ CREATE TABLE IF NOT EXISTS prosody_baseline (
     updated_at REAL NOT NULL,
     PRIMARY KEY (speaker, feature)
 );
+
+-- ------------------------------------------------------------ derivations
+
+-- Knowledge compilation: a derivation drawn enough times stops being
+-- re-derived and becomes a stored fact. Most derivations are drawn once and
+-- never again, and those never cost a byte -- which is what keeps
+-- materialised inference from exploding.
+CREATE TABLE IF NOT EXISTS derivations (
+    signature   TEXT PRIMARY KEY,
+    kind        TEXT NOT NULL,
+    claim       TEXT NOT NULL,
+    premises    TEXT NOT NULL,
+    count       INTEGER NOT NULL DEFAULT 0,
+    first_at    REAL NOT NULL,
+    last_at     REAL NOT NULL,
+    compiled_id INTEGER
+);
+CREATE INDEX IF NOT EXISTS ix_derivations_count ON derivations(count);
