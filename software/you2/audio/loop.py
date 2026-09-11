@@ -26,14 +26,14 @@ from __future__ import annotations
 import threading
 import time
 from dataclasses import dataclass, field
-from typing import Any, Callable, Iterator
+from typing import Callable, Iterator
 
 import numpy as np
 
 from ..perception.prosody import Prosody, extract
 from ..runtime.events import BUS, Bus, State
 from .stages import (
-    FRAME, FRAME_MS, SAMPLE_RATE, WAKE_PHRASE, ASR, TTS, EnergyVAD, KeywordWake,
+    FRAME, FRAME_MS, SAMPLE_RATE, ASR, TTS, EnergyVAD, KeywordWake,
     ScriptedASR, SilenceTurn, ToneTTS, TurnDetector, VAD, WakeWord,
 )
 
