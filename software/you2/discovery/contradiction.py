@@ -67,10 +67,3 @@ def pending(store: Store, cfg: BrainConfig, now: float,
     return out
 
 
-def resolve(store: Store, conflict: Conflict, keep_newer: bool,
-            now: float) -> None:
-    """Apply the user's answer."""
-    from ..consolidation.supersede import settle
-    keep = conflict.newer if keep_newer else conflict.older
-    drop = conflict.older if keep_newer else conflict.newer
-    settle(store, keep.id, drop.id, now)
