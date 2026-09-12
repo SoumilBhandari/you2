@@ -20,13 +20,12 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Callable, Iterable
 
-from ..clock import DAY, SimClock, iso
+from ..clock import DAY, SimClock
 from ..config import BrainConfig
-from ..consolidation import night
 from ..llm import FakeLLM
 from ..runtime.pipeline import Brain
-from ..substrate import HashEmbedder, Kind, Neuron
-from .synthetic import Truth, Utterance, entity_seeds, generate
+from ..substrate import HashEmbedder, Kind
+from .synthetic import Truth, entity_seeds, generate
 
 
 @dataclass
