@@ -28,7 +28,7 @@ worth the round trip.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Callable, Protocol, Sequence
+from typing import Any, Protocol, Sequence
 
 from ..llm import rules, validate
 from ..substrate.embed import stem, tokenize
