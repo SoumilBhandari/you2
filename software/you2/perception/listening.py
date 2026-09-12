@@ -63,7 +63,6 @@ class Orienting:
     gap_seconds: float = 0.0
     """Time since the last session ended. A wake word at 3 a.m. after eleven
     hours of silence is a different context from the fourth in a minute."""
-    resumed: bool = False
 
 
 @dataclass(slots=True)
@@ -83,11 +82,10 @@ class Attention:
     def wake(self, now: float | None = None) -> Orienting:
         """Wake word detected. The orienting response."""
         now = now if now is not None else self.clock.now()
-        resumed = self.state is not State.DORMANT
         gap = now - self.last_session_end if self.last_session_end else 0.0
         self.orienting = Orienting(at=now, weekday=weekday(now),
                                    part_of_day=part_of_day(now),
-                                   gap_seconds=gap, resumed=resumed)
+                                   gap_seconds=gap)
         if self.state is State.DORMANT:
             self.session_id = f"s{int(now)}"
             self.turns = []
