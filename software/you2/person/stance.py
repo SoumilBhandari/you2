@@ -18,7 +18,7 @@ noticed themselves.
 from __future__ import annotations
 
 import statistics
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from ..clock import DAY
@@ -47,7 +47,6 @@ class Stance:
     """Valence change per month. Negative means souring."""
     first_at: float = 0.0
     last_at: float = 0.0
-    spread: float = 0.0
 
     @property
     def reliable(self) -> bool:
@@ -139,7 +138,6 @@ def build(store: Store, cfg: BrainConfig, now: float,
         valences = [v for _t, v, _a in events]
         stance.valence = statistics.fmean(valences)
         stance.arousal = statistics.fmean(a for _t, _v, a in events)
-        stance.spread = statistics.pstdev(valences) if len(valences) > 1 else 0.0
         stance.trend = _slope([(t, v) for t, v, _a in events])
         out[entity.id] = stance
     return out
