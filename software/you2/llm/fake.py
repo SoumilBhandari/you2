@@ -133,6 +133,17 @@ class FakeLLM:
         lines = [t for _i, _a, t in _EPISODE_LINE.findall(user)]
         if len(lines) < 2:
             return {"useful": False, "text": "", "why_not": "not enough evidence"}
+        if kind == "bridge":
+            # Judging whether two structurally similar subgraphs are a real
+            # analogy is exactly the thing rules cannot do. An earlier version
+            # returned useful=True unconditionally and manufactured 78
+            # meaningless bridges over a simulated year, which then polluted
+            # every retrieval-quality measurement taken against them.
+            #
+            # So the fake declines. The harness then reports bridging as
+            # untested rather than as working, which is the true statement.
+            return {"useful": False, "text": "",
+                    "why_not": "a rule-based judge cannot evaluate an analogy"}
         return {"useful": True,
                 "text": f"{kind}: {lines[0][:70]} — and — {lines[1][:70]}",
                 "why_not": ""}
