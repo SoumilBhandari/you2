@@ -182,8 +182,13 @@ class BrainConfig:
     a hallucination with a citation field."""
 
     bridge_min_hops: int = 3
-    bridge_candidates_per_night: int = 60
-    bridge_min_alignment: float = 0.45
+    bridge_candidates_per_night: int = 24
+    bridge_every_days: int = 7
+    """Remote association is not sought every night. Consolidation has to run
+    nightly; novel analogy does not, and searching for one costs a graph
+    traversal per candidate pair. Weekly keeps the cost off the nightly
+    budget without changing what is findable."""
+    bridge_min_alignment: float = 0.62
 
     # ---- inference -------------------------------------------------------
     inference_min_confidence: float = 0.35
