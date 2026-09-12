@@ -16,10 +16,10 @@ import sys
 import threading
 from pathlib import Path
 
-from ..clock import RealClock, SimClock, human, iso
+from ..clock import RealClock, SimClock
 from ..config import BrainConfig
 from ..llm import LLM, FakeLLM
-from ..substrate import Kind, Tier, get_embedder
+from ..substrate import Kind, get_embedder
 from .pipeline import Brain
 
 BANNER = """you2 — say something, or:
@@ -67,9 +67,8 @@ def cmd_chat(args: argparse.Namespace) -> int:
             if line in ("/quit", "/exit"):
                 break
             if line.startswith("/"):
-                if _slash(brain, line):
-                    continue
-                break
+                _slash(brain, line)
+                continue
             reply = brain.say(line)
             print(f"  {reply.text}")
             if args.verbose:
@@ -82,7 +81,7 @@ def cmd_chat(args: argparse.Namespace) -> int:
     return 0
 
 
-def _slash(brain: Brain, line: str) -> bool:
+def _slash(brain: Brain, line: str) -> None:
     cmd, _, rest = line.partition(" ")
     rest = rest.strip()
     if cmd == "/why":
@@ -95,7 +94,6 @@ def _slash(brain: Brain, line: str) -> bool:
     elif cmd == "/profile":
         print(brain.load_profile() or "(empty — run /night first)")
     elif cmd == "/open":
-        now = brain.clock.now()
         loops = [n for n in brain.store.by_kind(Kind.LOOP, limit=50)
                  if n.invalid_at is None]
         for n in loops:
@@ -115,7 +113,6 @@ def _slash(brain: Brain, line: str) -> bool:
             print(f"  removed {len(removed)} neurons")
     else:
         print(f"  unknown: {cmd}")
-    return True
 
 
 def cmd_night(args: argparse.Namespace) -> int:
