@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 import pytest
 
 from you2 import BrainConfig, SimClock
@@ -433,3 +435,64 @@ def test_forgotten_means_forgotten_after_a_kill(tmp_path):
     assert any("garden wall" in (n.content or "")
                for n in store.by_kind(Kind.EPISODE, limit=9))
     store.close()
+
+
+# ------------------------------------------------------- configuration is real
+
+#: Fields that are deliberately declared and not yet read. Each one is a
+#: promise the code does not keep, so each needs a reason and a home in
+#: docs/next.md — not a quiet pass.
+UNWIRED_CONFIG = {
+    # audio/loop.py barges in unconditionally, so setting this false does
+    # nothing while the docs state interruptibility as a fact.
+    "barge_in",
+}
+
+
+def test_every_config_field_is_read_somewhere():
+    """A knob that nothing reads is a lie in the shape of an API.
+
+    This sweep found five: journal_path (a file-based journal replaced by a
+    SQLite table), retrieval_strength_init (retrieval strength is computed,
+    not stored, so there was nothing to initialise), interrupt_check_seconds
+    (a polling interval replaced by a callback), llm_night_model (documented
+    as "consolidation can run a smaller, cheaper model" and never passed to
+    one), and barge_in. Three were deleted, one was wired up, and the last is
+    listed above with its reason.
+
+    docs/next.md asked for this test. Writing it is cheaper than the next
+    five.
+    """
+    import ast
+    import pathlib
+
+    pkg = pathlib.Path(__file__).resolve().parent.parent / "you2"
+    cfg_path = pkg / "config.py"
+
+    fields = {
+        node.target.id
+        for node in ast.walk(ast.parse(cfg_path.read_text()))
+        if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name)
+        and not node.target.id.startswith("_")
+    }
+    assert len(fields) > 50, "the config parser found almost nothing — it broke"
+
+    elsewhere = "\n".join(
+        p.read_text(errors="replace")
+        for p in pkg.rglob("*.py") if p != cfg_path
+    )
+    read = {f for f in fields
+            if re.search(rf"(?<![\w]){re.escape(f)}(?![\w])", elsewhere)}
+
+    unread = fields - read - UNWIRED_CONFIG
+    assert not unread, (
+        f"config fields nothing reads: {sorted(unread)} — wire each one up, or "
+        f"delete it, or add it to UNWIRED_CONFIG with the reason")
+
+    stale = UNWIRED_CONFIG - fields
+    assert not stale, (
+        f"UNWIRED_CONFIG names fields that no longer exist: {sorted(stale)}")
+
+    wired = UNWIRED_CONFIG & read
+    assert not wired, (
+        f"{sorted(wired)} is wired up now — take it out of UNWIRED_CONFIG")

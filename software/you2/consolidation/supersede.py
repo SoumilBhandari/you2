@@ -92,7 +92,7 @@ def resolve(store: Store, llm: Model | None, key: str, text: str,
         return Resolution("new", fact=_create(store, key, text, cites,
                                               confidence, now))
 
-    rel, why, question = _judge(llm, existing, text, now)
+    rel, why, question = _judge(llm, existing, text, now, cfg)
 
     if rel == "restatement":
         return _restate(store, existing, cites, now, why)
@@ -219,10 +219,11 @@ def _outdate_sources(store: Store, old: Neuron, replacement_id: int,
 
 
 def _judge(llm: Model | None, existing: Neuron, text: str,
-           now: float) -> tuple[str, str, str | None]:
+           now: float, cfg: BrainConfig) -> tuple[str, str, str | None]:
     if llm is not None:
         try:
-            out = llm.structured(prompts.judge_supersession(existing, text, now))
+            out = llm.structured(prompts.judge_supersession(existing, text, now),
+                                 model=cfg.llm_night_model)
             rel = str(out.get("relation", "")).strip().lower()
             if rel in ("restatement", "refinement", "reversal", "conflict", "distinct"):
                 return rel, str(out.get("why", "")), out.get("question")
