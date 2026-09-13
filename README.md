@@ -36,6 +36,64 @@ See [diagrams/architecture.svg](diagrams/architecture.svg) for the whole picture
 
 ---
 
+## The brain
+
+The cold path is built. It is in [software/](software/), it runs on a laptop with no hardware and no network, and the
+design is in **[docs/brain.md](docs/brain.md)**.
+
+![The brain](diagrams/brain.svg)
+
+It is a brain rather than a vector store with a cron job, and that is a specification rather than a metaphor:
+
+**Retrieval is bounded spreading activation.** Embeddings pick a handful of starting points; everything after that is
+graph traversal with a decay term and a firing threshold. Retrieval cost is set by the shape of the cascade, not by
+the size of the store — a test asserts that a 30× larger store visits the same number of neurons for the same cue.
+The system *structurally cannot* read everything.
+
+**The token budget is a global workspace.** Selection is a competition with lateral inhibition, not a truncation.
+Winning has consequences: winners are strengthened and wired to each other, which is where the association graph
+actually comes from. Nobody writes those edges by hand.
+
+**Salience is prediction error.** The workspace is what memory predicted would be relevant, so surprise is the
+distance from the retrieval that already ran. One dot product, and no asking a model to rate importance — models
+rate everything as important out of context.
+
+**Nightly multiplicative downscaling** is what makes retrieval sharpen with age instead of degrading. It is about
+forty lines and it is the highest-leverage thing in the project.
+
+**The weights are the cortex; the graph is the person.** World knowledge lives in the model and is never stored, so
+the store stays small while the answers stay sharp. Inference is lazy — except a derivation drawn three times, which
+compiles into a stored fact carrying its premises. It is the only thing here that grows with *use* rather than with
+elapsed time, and truth maintenance retires it when a premise dies.
+
+### What it measures
+
+A year of synthetic history with planted ground truth, run through the real pipeline at an accelerated clock — the
+design doc's "learn in an afternoon what would otherwise take a year", made concrete. 1,178 utterances, 353 nights,
+about 46 seconds.
+
+| day | probe precision | stale leakage | neurons | edges |
+|---|---|---|---|---|
+| 30 | 0.50 | 0.00 | 118 | 762 |
+| 365 | **1.00** | **0.00** | 1,075 | 2,150 |
+
+Precision **rises** with elapsed time and superseded values never reach the block. If that curve fell, consolidation
+would not be working — and that is exactly where every memory system that has shipped fails.
+
+The ablations matter as much. Removing the fan effect takes neurons-visited from 14 to **407**; removing inhibition
+halves block diversity; plain top-k scores the *highest* topical focus and the *lowest* diversity, which is naive
+RAG's failure mode measured rather than asserted. One mechanism — the salience gate — changes nothing measurable,
+and [docs/brain.md §15.2](docs/brain.md) says so rather than defending it.
+
+```bash
+cd software && python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
+.venv/bin/you2 chat --fake     # talk to it: no network, no model download
+.venv/bin/you2 why "..."       # print the whole retrieval
+.venv/bin/you2 eval --ablate   # check every mechanism earns its place
+```
+
+---
+
 ## Repo layout
 
 ```
