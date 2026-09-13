@@ -942,9 +942,59 @@ take a year," made concrete.
 time, consolidation is not working**, and that is a single chart that tells you so. It is the primary regression
 test of the entire project.
 
-**Ablations.** Turn off downscaling, turn off supersession, turn off inhibition, replace spreading activation with
+**Ablations.** Turn off downscaling, turn off inhibition, turn off the fan effect, replace spreading activation with
 plain top-k. Each should visibly degrade something. If disabling a mechanism changes nothing, the mechanism isn't
 earning its complexity and should be deleted — that check is worth running before every release.
+
+### 15.1 What one simulated year actually says
+
+1,178 utterances, 353 nights, ~46 s wall clock per run.
+
+| variant | precision | focus | diversity | stale | tokens | visited | edges |
+|---|---|---|---|---|---|---|---|
+| **baseline** | 1.00 | **0.88** | **0.82** | 0.00 | 130 | 14 | 2,181 |
+| no fan effect | 1.00 | 0.30 | 0.72 | 0.00 | 186 | **407** | 2,083 |
+| no inhibition | 1.00 | 0.90 | **0.35** | 0.00 | 163 | 16 | 4,976 |
+| top-k only | 1.00 | 0.93 | **0.23** | 0.00 | 105 | 6 | 3,066 |
+| no base-level decay | 1.00 | 0.93 | 0.59 | **0.50** | 168 | 86 | 2,684 |
+| no downscaling | 1.00 | 0.87 | 0.86 | 0.00 | 116 | 19 | **4,658** |
+| uncapped block | 1.00 | 0.87 | 0.82 | 0.00 | **423** | 34 | 3,070 |
+| no salience gate | 1.00 | 0.88 | 0.78 | 0.00 | 130 | 14 | 2,310 |
+
+*focus* = fraction of retrieved items actually about the thing asked, counting graph adjacency and not just literal
+token match. *diversity* = mean pairwise dissimilarity among selected items.
+
+Read down the diagonal and each mechanism names its own contribution:
+
+- **The fan effect is the largest single effect in the system.** Without it the cascade floods: 14 neurons visited
+  becomes **407**, and focus collapses from 0.88 to 0.30. Hub dampening is what stops "work" and "coffee" owning every
+  retrieval, and it is four lines.
+- **Inhibition buys diversity, and only diversity.** 0.82 → 0.35, with focus unchanged. That is the trade being made
+  on purpose: without it the block is on-topic *and* repetitive, which reads as the device having one thing to say.
+- **Spreading activation is where diversity comes from.** Plain top-k scores the *highest* focus (0.93) and the
+  *lowest* diversity (0.23) — it returns eight near-copies of the query. That is precisely the failure mode naive RAG
+  has, measured.
+- **Base-level decay is what keeps superseded material unreachable.** It is the only ablation that moves stale
+  leakage, 0.00 → **0.50**.
+- **Downscaling is a structural cost, not a retrieval one, at this horizon.** Edges more than double (2,181 →
+  4,658) while focus barely moves. At one year the graph is still small enough that the noise does not yet hurt;
+  the cost is deferred, not absent, which is exactly what "it degrades after a month and you blame the hardware"
+  looks like from inside the first year.
+- **The block cap costs nothing and saves everything.** Uncapping it triples the prompt (130 → 423 tokens) for
+  *zero* measurable quality gain.
+
+### 15.2 The one mechanism measurement does not justify
+
+**The salience gate.** Disabling it changes focus by −0.00, diversity by −0.04, tokens by 0, and stores 12% more
+neurons. On this corpus its only demonstrated benefit is storage.
+
+Stated plainly because the doctrine above demands it: *a mechanism whose removal changes nothing is not earning its
+complexity.* Two honest caveats before deleting it — the synthetic chatter may be unrealistically easy to filter,
+and the gate also sets replay priority, which this corpus does not stress. But it goes on the list, and the burden
+of proof is now on the gate.
+
+That is what an ablation suite is for. It is much easier to write a paragraph defending every component than to run
+the experiment that says one of them is decoration.
 
 ---
 
