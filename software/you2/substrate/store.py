@@ -192,6 +192,26 @@ class Store:
             self.vectors.set_scope(neuron.id, neuron.tier is Tier.HOT)
         self._cache_soma(neuron)
 
+    def touch(self, neuron_id: int, *, storage_strength: float,
+              access_count: int, last_access: float) -> None:
+        """Record a retrieval, writing only the access columns.
+
+        Deliberately NOT save(): save() writes the whole row from an in-memory
+        copy, and the workspace holds neurons loaded before the turn began. A
+        repair that invalidated a fact mid-turn was then silently reverted by
+        the broadcast at the end of the same turn, because broadcast wrote back
+        a pre-repair snapshot. Narrow updates make that class of bug
+        impossible rather than merely unlikely.
+        """
+        self.conn.execute(
+            "UPDATE neurons SET storage_strength=?, access_count=?, last_access=? "
+            "WHERE id=?", (storage_strength, access_count, last_access, neuron_id))
+        prior = self.soma.get(neuron_id)
+        if prior is not None:
+            self.soma[neuron_id] = prior._replace(
+                storage_strength=storage_strength, access_count=access_count,
+                last_access=last_access)
+
     def save_many(self, neurons: Iterable[Neuron]) -> int:
         n = 0
         for neuron in neurons:
