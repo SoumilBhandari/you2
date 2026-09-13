@@ -49,10 +49,6 @@ class Resolution:
     question: str | None = None
     why: str = ""
 
-    @property
-    def created(self) -> bool:
-        return self.relation in ("new", "refinement", "reversal", "conflict", "distinct")
-
 
 @dataclass(slots=True)
 class Tally:
