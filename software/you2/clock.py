@@ -14,7 +14,7 @@ the question that defines the product -- does retrieval quality hold at month
 from __future__ import annotations
 
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Protocol, runtime_checkable
 
 DAY = 86400.0
@@ -68,24 +68,6 @@ class SimClock:
 
     def set(self, t: float) -> float:
         self._t = float(t)
-        return self._t
-
-    def set_utc(self, *args: int) -> float:
-        """set_utc(2026, 3, 14, 9, 30) -- readable test setup."""
-        self._t = datetime(*args, tzinfo=timezone.utc).timestamp()  # type: ignore[arg-type]
-        return self._t
-
-    def advance_to_hour(self, hour: int) -> float:
-        """Jump forward to the next occurrence of a given UTC hour.
-
-        The night scheduler is defined in local hours, so tests need to land
-        on 03:00 without arithmetic.
-        """
-        dt = datetime.fromtimestamp(self._t, tz=timezone.utc)
-        target = dt.replace(hour=hour, minute=0, second=0, microsecond=0)
-        if target <= dt:
-            target += timedelta(days=1)
-        self._t = target.timestamp()
         return self._t
 
     def __repr__(self) -> str:
