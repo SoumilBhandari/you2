@@ -122,10 +122,6 @@ class Score:
         return self.loops_found / max(1, self.loops_expected)
 
     @property
-    def closure_recall(self) -> float:
-        return self.closures_found / max(1, self.closures_expected)
-
-    @property
     def clean(self) -> bool:
         """No trap fired and no two dimensions share a key. The bar for
         shipping: a system may miss things, but what it stores must be
