@@ -153,17 +153,6 @@ class Attention:
 
     # ------------------------------------------------------------------ misc
 
-    def ambient(self, now: float | None = None) -> dict[str, object]:
-        now = now if now is not None else self.clock.now()
-        o = self.orienting
-        return {
-            "weekday": weekday(now),
-            "part_of_day": part_of_day(now),
-            "gap_seconds": round(o.gap_seconds, 1) if o else 0.0,
-            "turn_index": len(self.turns),
-            "session": self.session_id,
-        }
-
     def engagement(self) -> float:
         """How engaged this session is: turn count and how quickly the user
         came back. Feeds salience -- a fast follow-up means the topic mattered
