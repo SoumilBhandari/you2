@@ -18,7 +18,7 @@ from ..clock import Clock, RealClock
 from ..config import DEFAULT, BrainConfig
 from .embed import Embedder, HashEmbedder
 from .graph import Graph
-from .neuron import ALWAYS_HOT, Kind, Neuron, Tier
+from .neuron import Kind, Neuron, Tier
 from .synapse import Edge, hebbian
 from .vectors import VectorIndex
 
