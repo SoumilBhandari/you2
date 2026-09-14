@@ -246,7 +246,7 @@ def run(store: Store, llm: Any | None = None, cfg: BrainConfig | None = None, *,
     report.persona = person.persona(now)
     report.profile = build_profile(store, cfg, now)
     report.growth = forgetting.growth_curve(store, cfg)
-    report.coverage = replay.coverage(store, cfg, now)
+    report.coverage = replay.coverage(store)
     report.ended_at = store.clock.now()
 
     store.log("night", report.as_dict())
