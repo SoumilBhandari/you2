@@ -113,7 +113,7 @@ class FakeLLM:
         return out.as_dict()
 
     def _judge(self, user: str) -> dict:
-        if "false variant" in user.lower() or "FALSE variant" in user:
+        if "false variant" in user.lower():
             m = re.search(r'Claim:\s+"([^"]*)"', user)
             claim = m.group(1) if m else ""
             return {"false_variant": "not " + claim}
