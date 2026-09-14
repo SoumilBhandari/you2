@@ -492,7 +492,12 @@ after 200–300 s of continuous full load. **Removing local inference is what ma
 
 ## 8. Bill of materials
 
-Full detail with links in [`bom.md`](bom.md). Summary:
+> Superseded. The parts list is [`build.html`](build.html) and comes to ≈ $351. The costings in
+> [`bom.md`](bom.md) were deleted for buying a two-microphone board for a four-microphone enclosure; the table
+> below is kept because the *comparison* — what local inference costs in latency — is the argument section 8 exists
+> to make.
+
+Summary:
 
 | Build | Total | Model | Round trip |
 |---|---|---|---|
