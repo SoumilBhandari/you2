@@ -180,7 +180,7 @@ def mark_replayed(store: Store, episodes: list[Neuron], now: float) -> None:
         store.save(n)
 
 
-def coverage(store: Store, cfg: BrainConfig, now: float) -> dict[str, float]:
+def coverage(store: Store) -> dict[str, float]:
     """How much of the store has been consolidated at all.
 
     A large unreplayed backlog means the nightly budget is too small for the
