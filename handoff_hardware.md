@@ -110,7 +110,7 @@ python3 cad/fit.py   cad/you2-revD.scad     # no two parts share space
 openscad -o /dev/null --export-format=binstl -D 'MODE="shell"' cad/you2-revD.scad
 ```
 
-Both gates pass on both variants (`-D LED_BAR=true` as well), and 14 asserts
+All three gates pass on both variants (`-D LED_BAR=true` as well), and 16 asserts
 inside the model pass.
 
 Render a PNG with `--render`. **Never preview** — the CSG tree exceeds
@@ -171,11 +171,12 @@ self-supporting walls, and the mic ports print crisp against the plate.
 
 Measured in the model's own plate-1 orientation: **141.6 cm² of bed contact and
 31.2 cm² facing downward at more than 60°.** The largest single contribution is
-9.0 cm² of 1.2 mm shadow-gap ledge, which bridges; then 8.8 cm² of driver web
-and seat rails, and 6.3 cm² scattered across the first 20 mm. **No large flat
+7.2 cm² of 1.2 mm shadow-gap ledge, which bridges; the next largest is 2.9 cm²,
+only seven patches exceed 1 cm² at all, and 6.6 cm² of the total lands in the
+first 20 mm of the print. **No large flat
 unsupported span anywhere** — which is the thing that actually fails.
 
-Two features had to be rebuilt to get there. The driver bosses were Ø8 × 27 mm
+Two features had to be rebuilt to get there. The driver bosses were Ø10 × 24 mm
 *horizontal cantilevers* whose first printed layer was a 24 mm strip anchored
 at one end, needing support towers from the bare bed inside a sealed cavity;
 they are now webs with a 45° ramp. The cable saddle opened the wrong way and
@@ -203,7 +204,8 @@ display falls out of the front of the machine.
 circular layout"*. If that is the pitch-circle diameter, the design works as
 drawn. If it means the distance between *adjacent* capsules — which is what
 "spacing" means on the linear-4 sibling — then the pitch circle is
-44 × √2 = **62.2 mm**, and at that value the model refuses to render.
+44 × √2 = **62.2 mm**, and at that value the model refuses to render — for want of
+adhesive bond land around each vent, not because the ports leave the board.
 
 Be precise about why, because an earlier draft of this file was not. The ports
 do **not** fall off the board: at 62.2 the counterbore's outer edge sits 2.3 mm
