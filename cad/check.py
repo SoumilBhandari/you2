@@ -11,6 +11,12 @@ slightly larger.
 
 Nothing catches that by looking at a render. This does.
 
+It starts by proving it can fail. Every part reporting "1 solid" is also what a
+broken component finder prints, and a gate that has only ever passed is not
+evidence — so before it looks at the model it runs the union-find over a mesh it
+knows is two pieces and one it knows is one, and refuses to grade the model if
+either answer is wrong.
+
     python3 cad/check.py cad/you2-revD.scad
     python3 cad/check.py cad/you2-revD.scad --parts shell faceplate base
 """
@@ -73,6 +79,28 @@ def components(path):
     return out, n
 
 
+SELF_TEST = [("two separated cubes", "cube(10); translate([50,0,0]) cube(10);", 2),
+             ("one cube",            "cube(10);",                              1)]
+
+
+def self_test():
+    """Prove the component finder can tell one solid from two before trusting it."""
+    for name, src, want in SELF_TEST:
+        f = tempfile.NamedTemporaryFile("w", suffix=".scad", delete=False)
+        f.write(src + "\n")
+        f.close()
+        out = os.path.join(tempfile.mkdtemp(), "t.stl")
+        subprocess.run(["openscad", "-o", out, "--export-format=binstl", f.name],
+                       capture_output=True)
+        os.unlink(f.name)
+        got = len(components(out)[0]) if os.path.exists(out) else 0
+        if got != want:
+            print(f"  HARNESS BROKEN  {name}: found {got} solid(s), expected {want}")
+            print("  refusing to grade the model with an instrument that is wrong")
+            return False
+    return True
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("scad")
@@ -81,6 +109,9 @@ def main():
                     help="extra OpenSCAD -D, e.g. -D LED_BAR=true")
     a = ap.parse_args()
     extra = [x for d in a.defines for x in ("-D", d)]
+
+    if not self_test():
+        return 2
 
     bad = 0
     for part in a.parts:
@@ -100,7 +131,7 @@ def main():
         if err:
             print(f"        {err}")
     print()
-    print("all parts are single solids" if not bad
+    print("self-test passed; all parts are single solids" if not bad
           else f"{bad} part(s) failed — a floating feature will not print")
     return 1 if bad else 0
 
