@@ -20,7 +20,7 @@ import numpy as np
 
 from ..activation.workspace import Workspace
 from ..config import BrainConfig
-from ..consolidation.supersede import Resolution, resolve
+from ..consolidation.supersede import resolve
 from ..llm import validate
 from ..substrate.neuron import Kind, Neuron
 from ..substrate.store import Store
@@ -48,8 +48,6 @@ _HARD_DELETE = re.compile(
 class Repair:
     kind: str                      # corrected | deleted | none
     target: Neuron | None = None
-    resolution: Resolution | None = None
-    removed: list[int] | None = None
 
     def __repr__(self) -> str:
         return f"Repair({self.kind}, target={self.target.id if self.target else None})"
@@ -158,7 +156,7 @@ def apply(store: Store, llm: Any | None, ws: Workspace | None, text: str,
             removed = store.entomb(victim.id)
             store.log("repair", {"kind": "deleted", "target": victim.id,
                                  "removed": removed})
-            return Repair("deleted", victim, removed=removed)
+            return Repair("deleted", victim)
         return Repair("none")
 
     if not looks_like_correction(text):
@@ -257,7 +255,7 @@ def apply(store: Store, llm: Any | None, ws: Workspace | None, text: str,
     store.log("repair", {"kind": "corrected", "target": victim.id,
                          "relation": resolution.relation,
                          "new": resolution.fact.id if resolution.fact else None})
-    return Repair("corrected", victim, resolution)
+    return Repair("corrected", victim)
 
 
 def _restate(text: str) -> str | None:
