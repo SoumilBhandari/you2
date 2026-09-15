@@ -69,9 +69,9 @@ Pi GPIO18 ──► 74AHCT125  ──► 330 Ω ──► WS2812 DIN
 
 ### The second supply: delete it
 
-`docs/bom.md` item 9 buys a separate 5 V/2 A supply for the LED rail, on the
-rule "never off the Pi's 5 V pin". That rule was written against a 24-LED ring
-at full white (~1.3 A). Measure the actual load from the shipped palette in
+Every deleted costing in `docs/bom.md` bought a separate 5 V/2 A supply for the
+LED rail, on the rule "never off the Pi's 5 V pin". That rule was written
+against a 24-LED ring at full white (~1.3 A). Measure the actual load from the shipped palette in
 `software/you2/runtime/leds.py`: `MAX = 0.30`, sixteen 5050s, worst case is
 **~0.19 A**. Even a software failure that commands full white is ~0.9 A, and
 the Pi's 5 V header pins can source that when a genuine 27 W (5 V/5 A) supply
