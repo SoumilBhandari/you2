@@ -179,7 +179,7 @@ The front is one big round display — the "eye" — sitting 2.2 mm behind a cha
 | **Voice** | Enclosed 4 Ω driver on a gasketed seat in the skirt, clamped with 20 % squash |
 | **Brain** | Raspberry Pi 5 **2 GB** on brass standoffs — LLM runs on an API |
 | **Power** | Official 27 W USB-C PD, one plug, always on, no battery. Passive cooling — no fan near the mics |
-| **Mass** | 674 g of filament across 11 printed parts, plus ~200 g of optional sand ballast |
+| **Mass** | 730 g of filament across 11 printed parts, plus ~200 g of optional sand ballast |
 
 ![Section](cad/renders/revD/d-section.png)
 
