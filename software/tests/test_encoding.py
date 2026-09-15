@@ -223,3 +223,59 @@ def test_next_edges_chain_episodes(store):
     say(store, a, seg, "I also need to sort out the garage door", at=400)
     second = encode(store, seg.flush(), previous=first.id).episode
     assert store.graph.weight(first.id, second.id, Edge.NEXT) > 0.0
+
+
+# ------------------------------------- bugs the demo month found, kept fixed
+
+def test_a_prepositional_phrase_does_not_steal_the_topic():
+    """'meetings in the morning' and 'meetings in the afternoon these days'
+    have to key the same, or the profile ends up asserting both."""
+    a = rules.find_facts("I prefer meetings in the morning, I am useless after three")
+    b = rules.find_facts("actually I prefer meetings in the afternoon these days")
+    assert a[0]["key"] == b[0]["key"]
+    assert rules.topic("oat milk in my coffee") == rules.topic("cow milk")
+
+
+def test_third_person_reads_aloud_correctly():
+    """These get spoken. 'the user don't like meetings' makes the device sound
+    broken for a reason unrelated to what it knows."""
+    say = lambda t: rules.find_facts(t)[0]["text"]
+    assert say("I really cannot stand cilantro") == "the user cannot stand cilantro"
+    assert say("I don't like meetings") == "the user does not like meetings"
+    assert say("I prefer oat milk") == "the user prefers oat milk"
+
+
+def test_a_closure_is_kept_even_though_it_is_unsurprising(store):
+    """A closure is unsurprising by construction — it is about a commitment
+    we already recorded. Left to the weighted score it falls below the floor,
+    gets discarded, and the loop it resolves stays open forever."""
+    s = evaluate(store, "sent David Anderson the revised numbers, that is done")
+    assert s.keep
+    assert evaluate(store, "I'll book the boiler service on Friday").keep
+
+
+def test_replay_does_not_reopen_a_resolved_commitment(store):
+    """An episode is replayed many times over its life, and each replay
+    re-extracts the commitment in it. Deduping only against open loops means
+    the device starts chasing you about something you finished a month ago."""
+    a = Attention(store.cfg, store.clock)
+    seg = Segmenter(store.embed)
+    say(store, a, seg, "I'll send David Anderson the revised numbers by Friday")
+    out = encode(store, seg.flush())
+    loop = out.loops[0]
+
+    store.clock.advance(days=2)
+    say(store, a, seg, "sent David Anderson the revised numbers, that is done",
+        at=store.clock.now())
+    encode(store, seg.flush())
+    assert store.get(loop.id).invalid_at is not None
+
+    # Now replay the original episode, as every night does.
+    from you2.consolidation import abstraction, replay
+    from you2.llm import FakeLLM
+    episode = store.get(out.episode.id)
+    store.clock.advance(days=1)
+    abstraction.consolidate(store, FakeLLM(now=store.clock.now()),
+                            replay.Batch([episode], set()), store.cfg,
+                            store.clock.now())
+    assert store.count(Kind.LOOP) == 1, "the resolved commitment was re-opened"
