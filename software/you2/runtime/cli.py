@@ -13,6 +13,7 @@ import argparse
 import json
 import os
 import sys
+import threading
 from pathlib import Path
 
 from ..clock import RealClock, SimClock, human, iso
@@ -148,6 +149,59 @@ def cmd_stats(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_serve(args: argparse.Namespace) -> int:
+    """Bring up the face: the eye, the light bar, and the night timer."""
+    from .events import BUS, State
+    from .leds import Bar
+    from .server import serve
+
+    brain = build(args)
+    bar = Bar()
+    bar.start(BUS)
+    httpd = serve(brain, host=args.host, port=args.port, background=True)
+
+    where = f"http://{args.host}:{args.port}"
+    print(f"you2 — {brain.store.count()} neurons, "
+          f"{brain.store.graph.edge_count} synapses")
+    print(f"  eye:   {where}")
+    print(f"  light: {'/dev/leds0' if bar.live else 'no device (fine off a Pi)'}")
+    if args.host != "127.0.0.1":
+        print("  ! bound beyond loopback — this server carries the memory store")
+    BUS.state_changed(State.IDLE)
+
+    stop = threading.Event()
+    if args.night:
+        threading.Thread(target=_night_loop, args=(brain, stop), daemon=True,
+                         name="you2-night").start()
+    try:
+        stop.wait()
+    except KeyboardInterrupt:
+        print()
+    finally:
+        stop.set()
+        httpd.shutdown()
+        bar.stop()
+        brain.close()
+        brain.close_store()
+    return 0
+
+
+def _night_loop(brain: Brain, stop: threading.Event) -> None:
+    """Consolidate when the window opens, once a night.
+
+    Polled rather than scheduled: a cron entry cannot see whether someone is
+    mid-conversation, and the night must yield to a wake word.
+    """
+    from ..consolidation.night import due
+
+    while not stop.wait(120.0):
+        try:
+            if due(brain.store, brain.cfg, brain.clock.now()):
+                brain.night(interrupt=lambda: brain.attention.accepts())
+        except Exception as exc:                       # noqa: BLE001
+            brain.store.log("night_failed", {"error": str(exc)[:300]})
+
+
 def cmd_eval(args: argparse.Namespace) -> int:
     from ..eval import ablate, compare, run
     if args.ablate:
@@ -183,8 +237,7 @@ def cmd_import(args: argparse.Namespace) -> int:
     return 0
 
 
-def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser("you2", description="the brain")
+def _global_flags(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
     parser.add_argument("--db", default="data/brain.db")
     parser.add_argument("--config", default=None)
     parser.add_argument("--model-dir", default=os.environ.get("YOU2_MODEL_DIR"))
@@ -193,23 +246,42 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--sim", action="store_true",
                         help="simulated clock, for experiments")
     parser.add_argument("-v", "--verbose", action="store_true")
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    # The global flags are attached to every subcommand as well as to the
+    # top level, so both `you2 --fake chat` and `you2 chat --fake` work.
+    # argparse puts subcommand args after the verb by default, and `you2 chat
+    # --fake` is what anyone actually types.
+    common = _global_flags(argparse.ArgumentParser(add_help=False))
+    parser = _global_flags(argparse.ArgumentParser("you2", description="the brain"))
     sub = parser.add_subparsers(dest="cmd")
 
-    sub.add_parser("chat").set_defaults(fn=cmd_chat)
-    sub.add_parser("night").set_defaults(fn=cmd_night)
-    sub.add_parser("stats").set_defaults(fn=cmd_stats)
+    sub.add_parser("chat", parents=[common]).set_defaults(fn=cmd_chat)
+    sub.add_parser("night", parents=[common]).set_defaults(fn=cmd_night)
+    sub.add_parser("stats", parents=[common]).set_defaults(fn=cmd_stats)
 
-    why = sub.add_parser("why")
+    sv = sub.add_parser("serve", parents=[common],
+                        help="the eye, the light bar, and the night timer")
+    sv.add_argument("--host", default="127.0.0.1",
+                    help="loopback by default: this server carries the memory store")
+    sv.add_argument("--port", type=int, default=8765)
+    sv.add_argument("--no-night", dest="night", action="store_false",
+                    help="do not consolidate automatically")
+    sv.set_defaults(fn=cmd_serve, night=True)
+
+    why = sub.add_parser("why", parents=[common])
     why.add_argument("text", nargs="+")
     why.set_defaults(fn=cmd_why)
 
-    ev = sub.add_parser("eval")
+    ev = sub.add_parser("eval", parents=[common])
     ev.add_argument("--days", type=int, default=365)
     ev.add_argument("--seed", type=int, default=0)
     ev.add_argument("--ablate", action="store_true")
     ev.set_defaults(fn=cmd_eval)
 
-    imp = sub.add_parser("import")
+    imp = sub.add_parser("import", parents=[common])
     imp.add_argument("path")
     imp.set_defaults(fn=cmd_import)
 
