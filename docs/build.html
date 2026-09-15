@@ -129,12 +129,16 @@ footer{border-top:1px solid var(--rule);padding-top:22px;color:var(--ink-3);font
   forward-firing driver; four microphones sit on the top surface as far from that driver as the box
   allows. Everything vents out the back, because a vent on the front or top is a leak path from the
   speaker straight into the microphones.</p>
+  <p><b>One number in the model is purely about how it looks</b> — <code>fp_r</code>, the corner radius shared by
+  the faceplate and its rebate. At 6 mm the face was a hard-cornered rectangle carrying a circle inside the shell's
+  own rectangle; at 16 it reads as one soft shape around the eye, and the four exposed screws sit on the curve. 17
+  leaves under three perimeters of material outboard of a screw counterbore, and the model refuses it.</p>
   <p>Almost nothing about the size was chosen. The display carrier sets the face length, the driver box sets
   the skirt, the mic array sets the depth, and the fastener flange sets the width — the model derives
   the rest and refuses to render if a measurement makes it unbuildable.</p>
   <div class="note"><strong>Three gates run over this model, and they all pass.</strong>
   <code>cad/check.py</code> proves every part is a single connected solid; <code>cad/fit.py</code>
-  proves no two parts occupy the same space; and sixteen asserts inside the model itself check the
+  proves no two parts occupy the same space; and seventeen asserts inside the model itself check the
   things neither can see — that the display posts compress their gasket by 20 % rather than floating
   above it, that the driver clamp's webs clear the driver box, that the microphone array lands on the top face
   instead of overhanging its front edge, and that every plate still fits the bed. Between them they
