@@ -151,9 +151,70 @@ def mesh_facts(H):
             "patch_cm2": (max(patch.values()) if patch else 0.0) / 100}
 
 
+# --------------------------------------------------------------------------
+#  TABLE ARITHMETIC — the numbers the model cannot produce
+#
+#  Filament mass needs a slicer and prices need a vendor, so neither can be
+#  derived from the geometry. They are still not typed here: they are SUMMED
+#  from the repo's own tables, and then the headline figures are checked
+#  against the rows they are supposed to total. That is the failure that
+#  actually happened — the 674 g headline counts one ballast pod and one lid
+#  where the table below it specifies two of each.
+# --------------------------------------------------------------------------
+def strip(x):
+    return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", x)).strip()
+
+
+def rows(html_seg):
+    return [[strip(c) for c in re.findall(r"<t[dh][^>]*>(.*?)</t[dh]>", r, re.S)]
+            for r in re.findall(r"<tr>(.*?)</tr>", html_seg, re.S)]
+
+
+def table_facts():
+    b = open(os.path.join(ROOT, "docs", "build.html"), errors="replace").read()
+
+    seg = b[b.index("03 / Printed parts"):b.index("04 /", b.index("03 / Printed parts"))]
+    mass = {"PETG": 0.0, "TPU": 0.0}
+    for c in rows(seg):
+        if len(c) < 6 or not re.fullmatch(r"\d+", c[1]) or c[2] not in mass:
+            continue
+        m = re.match(r"([\d.]+) ?g", c[5])
+        if m:
+            mass[c[2]] += int(c[1]) * float(m.group(1))
+
+    i = b.index("What it costs", b.index("11 /") if "11 /" in b else 0)
+    usd = 0.0
+    for c in rows(b[i:i + 3000]):
+        if len(c) == 3 and re.fullmatch(r"[\d.]+", c[2]) and "total" not in c[0].lower():
+            usd += float(c[2])
+
+    # Fasteners come from the per-joint table in assembly.md, which is the only
+    # place they are enumerated rather than summarised.
+    a = open(os.path.join(ROOT, "hardware", "assembly.md"), errors="replace").read()
+    # Anchor on the header: the print-plate table above it is also four columns
+    # ending in a digit, and summing that one silently gave 36 of everything.
+    head = a.index("| Joint | Insert | Screw | Qty |")
+    ins = scr = std = 0
+    for line in a[head:].split("\n\n")[0].split("\n"):
+        c = [x.strip() for x in line.strip("|").split("|")]
+        if len(c) != 4 or not re.fullmatch(r"\d+", c[3]):
+            continue
+        q = int(c[3])
+        if c[1] != "—":
+            ins += q
+        if "standoff" in c[2].lower():
+            std += q
+        elif c[2] != "—":
+            scr += q
+    return {"petg_g": mass["PETG"], "tpu_g": mass["TPU"],
+            "filament_g": sum(mass.values()), "parts_usd": usd,
+            "inserts": ins, "screws": scr, "standoffs": std}
+
+
 def facts(quick=False):
     f = dict(echo_facts())
     f.update(source_facts())
+    f.update(table_facts())
     f.update({"bed_cm2": None, "down_cm2": None, "patch_cm2": None}
              if quick else mesh_facts(f["H"]))
     return f
@@ -213,6 +274,30 @@ def CHECKS(f):
          eq("cant_l", 0.05)),
         ("rake angle",
          r"(\d+)° raked face", eq("rake")),
+        # These need a totalling context. "430 g of filament" is the shell,
+        # "4 screws from below" is an access count, and "M2.5 standoffs" put a
+        # 5 in front of the word — all three tripped a looser pattern.
+        ("filament total",
+         r"(?<![\d.])(\d+) ?g\**" + SEP + r"(?:of filament across|total\b)",
+         eq("filament_g", 0.5)),
+        ("filament, stat box",
+         r"Filament<b>[^0-9]{0,40}?(\d+) ?g", eq("filament_g", 0.5)),
+        ("PETG subtotal", r"(?<![\d.])(\d+) ?g PETG", eq("petg_g", 0.5)),
+        ("TPU subtotal", r"(?<![\d.])(\d+) ?g TPU", eq("tpu_g", 0.5)),
+        ("insert count",
+         r"(?<![\d.])(\d+) (?:brass )?(?:heat-set )?inserts\b", eq("inserts")),
+        # Only where it is stated as a whole-device total, i.e. beside the
+        # insert count, never as "four screws from the front".
+        ("screw count",
+         r"\d+ (?:brass )?(?:heat-set )?inserts[^.]{0,12}?(?<![\d.])(\d+) screws\b",
+         eq("screws")),
+        ("standoff count",
+         r"\d+ screws[^.]{0,6}?(?<![\d.])(\d+) standoffs\b", eq("standoffs")),
+        ("parts total",
+         r"(?:come to|no light bar\D{0,12}) ?≈? ?\*{0,2}\$(\d+)(?![\d.])",
+         eq("parts_usd", 0.5)),
+        ("parts total, restated",
+         r"≈ ?\$(\d+) in parts", eq("parts_usd", 0.5)),
     ]
 
 
