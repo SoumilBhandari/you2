@@ -16,7 +16,8 @@ import pytest
 from you2 import BrainConfig, SimClock
 from you2.audio import (
     BARGE_MS, FRAME, FRAME_MS, PREROLL_MS, EnergyVAD, KeywordWake, Listener,
-    ScriptedASR, SilenceTurn, ToneTTS, converse, make, sentences, text_frames,
+    ScriptedASR, SilenceTurn, SmartTurn, ToneTTS, converse, make, sentences,
+    text_frames,
 )
 from you2.llm import FakeLLM
 from you2.runtime import Brain, Bus
@@ -93,6 +94,46 @@ def test_dwell_expires():
 
 
 # -------------------------------------------------------------------- VAD
+
+class RecordingTurn(SilenceTurn):
+    """A SilenceTurn that remembers what it was handed."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.fed: list[np.ndarray] = []
+
+    def feed_audio(self, frame: np.ndarray) -> None:
+        self.fed.append(frame)
+
+
+def test_the_turn_detector_is_fed_the_audio_it_decides_on():
+    """feed_audio was not part of the TurnDetector protocol, so the loop never
+    called it. SmartTurn's window was therefore always empty and it scored
+    np.zeros on every decision — a constant probability, dressed as a
+    measurement, for the component the build ranks as the highest-leverage
+    thing in the latency budget. Every test still passed.
+    """
+    turn = RecordingTurn()
+    ear, turns = run(["hey friday what time is the meeting"], turn=turn)
+    assert turns, "the utterance should have completed"
+    assert turn.fed, "the turn detector decided without ever seeing audio"
+    assert all(f.shape == (FRAME,) for f in turn.fed)
+
+
+def test_the_turn_window_does_not_grow_without_bound():
+    """update() only ever reads the last WINDOW_FRAMES. Retaining more than
+    that is 30 s of audio held to be ignored."""
+    from you2.audio.stages import WINDOW_FRAMES
+
+    turn = SilenceTurn()
+    turn.feed_audio(np.zeros(FRAME, dtype=np.float32))   # must not raise
+
+    fake = object.__new__(SmartTurn)
+    fake._audio = []
+    for _ in range(WINDOW_FRAMES * 3):
+        SmartTurn.feed_audio(fake, np.zeros(FRAME, dtype=np.float32))
+    assert len(fake._audio) <= WINDOW_FRAMES * 2
+
 
 def test_energy_vad_adapts_to_the_noise_floor():
     """A room with a fridge in it must not read as continuous speech."""
