@@ -107,15 +107,45 @@ Do this after any parameter change, before any print.
 ```bash
 python3 cad/check.py cad/you2-revD.scad     # every part is ONE connected solid
 python3 cad/fit.py   cad/you2-revD.scad     # no two parts share space
-openscad -o /dev/null --export-format=binstl -D 'MODE="shell"' cad/you2-revD.scad
+python3 cad/check.py cad/you2-revD.scad --variants   # ...under every switch
+python3 cad/docs.py                         # the prose agrees with the model
+python3 cad/render.py                       # regenerate all fifteen images
 ```
 
-All three gates pass on both variants (`-D LED_BAR=true` as well), and 17 asserts
-inside the model pass.
+All three pass, under all five switch combinations, and 17 asserts inside the
+model pass.
 
-Render a PNG with `--render`. **Never preview** — the CSG tree exceeds
-OpenSCAD's preview normaliser and silently produces a blank image, which cost
-me an hour before I noticed.
+**`--variants` is not optional and this file used to claim its result without
+running it.** The model has three switches; only the default was ever gated.
+`LED_BAR = true` exported the shell with a 1.7 × 1.2 × 2.0 mm chip floating at
+each side — the rev C failure, in a variant three documents called clean. The
+cause was width: the bar lengthens the faceplate, which needs depth for the
+array *and* width for the side lip, and `D` grew with `LED_BAR` while `W` did
+not. Both do now, and `W` is 158 in that variant.
+
+**Each gate proves it can fail before it grades anything.** `check.py` runs its
+union-find over a mesh it knows is two pieces; `fit.py` measures an overlap
+whose volume is known by arithmetic (two 10 mm cubes offset 5 mm intersect in
+exactly 125 mm³); both refuse to run if the control is wrong, and both were
+confirmed by sabotage rather than by reading the code. Eleven parts reporting
+"1 solid" and fourteen pairs reporting 0.000 is also what a completely broken
+instrument prints.
+
+**`cad/docs.py` is the newest and the one that earns its keep fastest.** The
+other two read no English, and every defect found in this project since rev D
+landed has been a sentence. It derives seventeen facts — overall size, rake,
+skirt, assert count, MODE count, part count, plate count, four measured off the
+exported mesh in the plate-1 orientation, and filament, fasteners and money
+summed from the repo's own tables — then errors on any document that disagrees.
+Nothing expected is typed into it. It found 20 wrong claims on its first run and
+10 more when it learned to add up tables, including a 674 g filament headline
+that counted one ballast pod where the table beneath it specifies two.
+
+**Never preview.** `cad/render.py` always passes `--render`, because the CSG
+tree exceeds OpenSCAD's preview normaliser, which aborts and writes a **blank
+PNG with no error and exit 0**. The script size-checks every output for that
+reason. It also fixes camera distance explicitly rather than using `--viewall`,
+which rescales between revisions and makes two renders impossible to compare.
 
 ---
 
@@ -258,6 +288,14 @@ hour of `vcgencmd get_throttled` settles it.
 **The reSpeaker core board has no proper home.** The base has cable-tie slots
 for it, which is adequate for a 20 g board but is not a mount. If it moves
 around in practice, it needs bosses.
+
+**One number is purely aesthetic, and it is at its ceiling.** `fp_r` — the
+corner radius shared by the faceplate and its rebate — was a hard-coded 6, which
+made the face a rectangle carrying a circle inside the shell's own rectangle. It
+is 16 now. It cannot go higher: the corner screws sit in the corner quadrant and
+their Ø6.2 counterbores must stay inside the arc, so 17 leaves 1.15 mm and 18
+leaves 0.89 — under three perimeters on a corner under screw preload. If you
+want a rounder object the lever is `W`, not `fp_r`.
 
 **Two of the three stale documents are fixed.** `cad/README.md` was rewritten
 around rev D. `docs/bom.md` had all five of its costings deleted — every one of
