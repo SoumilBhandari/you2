@@ -175,6 +175,7 @@ class Listener:
                 continue
 
             collected.append(frame)
+            self.turn.feed_audio(frame)
             partial = self.asr.feed(frame)
             silence_ms = 0.0 if speaking else silence_ms + FRAME_MS
             self.bus.publish("level", level=round(min(1.0, self._level * 8), 3))
