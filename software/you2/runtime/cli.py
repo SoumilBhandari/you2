@@ -151,11 +151,15 @@ def cmd_stats(args: argparse.Namespace) -> int:
 
 def cmd_serve(args: argparse.Namespace) -> int:
     """Bring up the face: the eye, the light bar, and the night timer."""
+    return _serve(build(args), args)
+
+
+def _serve(brain: Brain, args: argparse.Namespace,
+           *, open_browser: bool = False) -> int:
     from .events import BUS, State
     from .leds import Bar
     from .server import serve
 
-    brain = build(args)
     bar = Bar()
     bar.start(BUS)
     httpd = serve(brain, host=args.host, port=args.port, background=True)
@@ -168,6 +172,9 @@ def cmd_serve(args: argparse.Namespace) -> int:
     if args.host != "127.0.0.1":
         print("  ! bound beyond loopback — this server carries the memory store")
     BUS.state_changed(State.IDLE)
+    if open_browser:
+        import webbrowser
+        webbrowser.open(where)
 
     stop = threading.Event()
     if args.night:
@@ -200,6 +207,69 @@ def _night_loop(brain: Brain, stop: threading.Event) -> None:
                 brain.night(interrupt=lambda: brain.attention.accepts())
         except Exception as exc:                       # noqa: BLE001
             brain.store.log("night_failed", {"error": str(exc)[:300]})
+
+
+#: A month of plausible life, so the eye has something to light up on the
+#: first run. Chosen to exercise every mechanism the visualisation shows:
+#: entities that recur, a preference that changes, a commitment that closes,
+#: and one that does not.
+DEMO = [
+    "I had lunch with David Anderson about the Kestrel contract",
+    "I'll send him the revised numbers by Friday",
+    "the Kestrel migration keeps slipping, we are still waiting on their test team",
+    "my sister Priya is moving to Lisbon in the spring",
+    "I really cannot stand cilantro, it ruins everything",
+    "I prefer meetings in the morning, I am useless after three",
+    "the garden wall needs rebuilding before winter",
+    "Marta Nilsen is drawing up plans for the garden wall",
+    "the garden wall keeps slipping too, still waiting on Marta's drawings",
+    "sent David Anderson the revised numbers, that is done",
+    "remember that the boiler service is due in October",
+    "the Tuesday planning meeting left me completely drained again",
+    "I need to book the boiler service",
+    "actually I prefer meetings in the afternoon these days",
+    "the Tuesday planning meeting wiped me out again, awful",
+]
+
+
+def seed_demo(brain: Brain) -> object:
+    """Live through the demo month. Returns the last night's report."""
+    from ..clock import DAY
+
+    clock = brain.clock
+    report = None
+    for i, text in enumerate(DEMO):
+        clock.advance(seconds=2.0 * DAY if i % 3 == 0 else 1800.0)
+        brain.say(text, now=clock.now())
+        if i % 4 == 3:
+            brain.close(clock.now())
+            clock.advance(hours=9)
+            report = brain.night(now=clock.now(), seed=1)
+    brain.close(clock.now())
+    clock.advance(hours=9)
+    return brain.night(now=clock.now(), seed=1)
+
+
+def cmd_demo(args: argparse.Namespace) -> int:
+    """Seed a month of life, consolidate it, and open the eye.
+
+    Exists because a memory device with an empty memory demonstrates nothing,
+    and the first thirty seconds is where anyone decides whether this is
+    interesting at all.
+    """
+    args.fake = True
+    args.sim = True
+    brain = build(args)
+    print(f"seeding {len(DEMO)} exchanges over a month…\n")
+    report = seed_demo(brain)
+    print(report.journal())
+    print()
+    brain.close_store()
+
+    # The eye shows a real clock, so the server runs on the real one.
+    args.sim = False
+    args.night = False
+    return _serve(build(args), args, open_browser=True)
 
 
 def cmd_eval(args: argparse.Namespace) -> int:
@@ -270,6 +340,12 @@ def main(argv: list[str] | None = None) -> int:
     sv.add_argument("--no-night", dest="night", action="store_false",
                     help="do not consolidate automatically")
     sv.set_defaults(fn=cmd_serve, night=True)
+
+    dm = sub.add_parser("demo", parents=[common],
+                        help="seed a month of life and open the eye")
+    dm.add_argument("--host", default="127.0.0.1")
+    dm.add_argument("--port", type=int, default=8765)
+    dm.set_defaults(fn=cmd_demo, night=False)
 
     why = sub.add_parser("why", parents=[common])
     why.add_argument("text", nargs="+")
