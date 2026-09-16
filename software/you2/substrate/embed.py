@@ -34,7 +34,25 @@ does did doing have has had having i you he she it we they me him her them my
 your his its our their as so not no nor too very can will just don should now
 what which who whom when where why how all any both each few more most other
 some such only own same s t d ll m o re ve y
+i'll i've i'm i'd we'll we've we're they'll they've they're you'll you've
+he's she's it's that's there's here's don't doesn't didn't won't can't isn't
+wasn't aren't weren't couldn't wouldn't shouldn't
 """.split())
+
+#: Irregular past tenses that suffix-stripping cannot reach. Small and
+#: deliberate: these are the verbs that show up when someone reports having
+#: done the thing they committed to, and without them "I'll send him the
+#: numbers" and "sent him the numbers" share no verb at all -- which is
+#: exactly the match that has to work for an open loop to close.
+_IRREGULAR: dict[str, str] = {
+    "sent": "send", "bought": "buy", "paid": "pay", "made": "make",
+    "took": "take", "got": "get", "went": "go", "did": "do", "done": "do",
+    "wrote": "write", "written": "write", "told": "tell", "found": "find",
+    "spoke": "speak", "spoken": "speak", "left": "leave", "met": "meet",
+    "read": "read", "said": "say", "gave": "give", "given": "give",
+    "began": "begin", "ran": "run", "sold": "sell", "built": "build",
+    "sorted": "sort", "booked": "book", "fixed": "fix", "called": "call",
+}
 
 _SUFFIXES = ("ations", "ation", "ingly", "edly", "ings", "ing", "ies", "ied",
              "ies", "es", "ed", "ly", "s")
@@ -52,6 +70,9 @@ class Embedder(Protocol):
 def stem(word: str) -> str:
     """Crude suffix stripping. Good enough to make 'meeting'/'meetings' and
     'prefer'/'preferred' land near each other; not a linguistic claim."""
+    fixed = _IRREGULAR.get(word)
+    if fixed is not None:
+        return fixed
     if len(word) <= 4:
         return word
     for suf in _SUFFIXES:
