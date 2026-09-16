@@ -20,7 +20,6 @@ from typing import Any
 class BrainConfig:
     # ---- paths -----------------------------------------------------------
     db_path: str = "data/brain.db"
-    journal_path: str = "data/journal"
 
     # ---- substrate -------------------------------------------------------
     embed_dim: int = 384
@@ -44,7 +43,11 @@ class BrainConfig:
     than re-reading something fresh (desirable difficulty)."""
 
     storage_strength_init: float = 1.0
-    retrieval_strength_init: float = 1.0
+    # NOTE: there is deliberately no retrieval_strength_init. Storage strength
+    # is a stored field that accumulates; retrieval strength is COMPUTED from
+    # time since last access by activation.baselevel.retrieval_strength(). That
+    # asymmetry is the Bjork model, not an oversight, and a knob to initialise
+    # the computed half had nothing to initialise.
 
     # ---- activation: spreading -------------------------------------------
     spread_decay: float = 0.45
@@ -264,8 +267,6 @@ class BrainConfig:
     # ---- runtime ---------------------------------------------------------
     night_start_hour: int = 2
     night_end_hour: int = 6
-    interrupt_check_seconds: float = 0.05
-    """The night job must yield to a wake word within 50 ms."""
 
     def merged(self, **overrides: Any) -> BrainConfig:
         known = {f.name for f in fields(self)}
