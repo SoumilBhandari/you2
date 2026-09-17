@@ -80,6 +80,7 @@ class NightReport:
     growth: dict[str, float] = field(default_factory=dict)
     coverage: dict[str, float] = field(default_factory=dict)
     storage: dict[str, Any] = field(default_factory=dict)
+    persona: str = ""
     audit_failures: list[int] = field(default_factory=list)
 
     @property
@@ -129,6 +130,7 @@ class NightReport:
             f"{self.bridges} bridges considered",
             f"  reasoning  {self.inferences} drawn, {len(self.compiled)} compiled, "
             f"{self.stale_derivatives} derivatives went stale",
+            f"  person     {len(self.persona.splitlines())} lines of who they are",
             f"  storage    {self.storage.get('total_mb', 0):.1f} MB, "
             f"{self.storage.get('bytes_per_day', 0) / 1e3:.1f} kB/day, "
             f"~{self.storage.get('projected_10y_mb', 0):.0f} MB at 10y"
@@ -219,6 +221,12 @@ def run(store: Store, llm: Any | None = None, cfg: BrainConfig | None = None, *,
         report.storage["pressure"] = pressure.as_dict()
 
     report.questions = [q["question"] for q in open_questions(store)]
+    # Who they are, rebuilt nightly. Stable all day, which keeps it inside
+    # the cacheable prefix and is also just true.
+    from ..person import build as build_person, save as save_person
+    person = build_person(store, cfg, now)
+    save_person(store, person)
+    report.persona = person.persona(now)
     report.profile = build_profile(store, cfg, now)
     report.growth = forgetting.growth_curve(store, cfg)
     report.coverage = replay.coverage(store, cfg, now)
