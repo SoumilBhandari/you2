@@ -127,6 +127,23 @@ class BrainConfig:
     """Retrieval strength never goes below this -- forgetting is loss of
     access, not loss of data."""
 
+    # ---- audio -----------------------------------------------------------
+    wake_phrase: str = "hey friday"
+    """Two syllables of carrier plus a phonetically distinctive name. The
+    'hey' prefix gives the detector a run-up, which cuts false accepts on a
+    name that also appears in 'see you Friday'. Changeable at any time: it is
+    a custom openWakeWord model and nothing downstream knows its name."""
+
+    wake_model: str = ""
+    asr_model: str = "moonshine/tiny"
+    tts_model: str = ""
+    turn_model: str = ""
+
+    barge_in: bool = True
+    """Capture never stops, and speech during playback cancels the reply. If
+    this is off, the device cannot be interrupted — which is the single
+    clearest way to make it feel broken."""
+
     # ---- perception ------------------------------------------------------
     dwell_seconds: float = 8.0
     """Sustained attention after a reply. A follow-up inside this window
