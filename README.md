@@ -1,6 +1,6 @@
 # YOU2
 
-A desk-based voice assistant that runs entirely on its own hardware and gets to know you. You wake it by saying **"Friday"**.
+A desk-based voice assistant that runs entirely on its own hardware and gets to know you. You wake it by saying **"Hey Friday"**.
 
 Not a smart speaker. Not a wrapper around someone else's API. A small machine that sits on your desk, listens when you talk to it, answers out loud, and — the actual point — **remembers**. Every conversation makes it a little more yours, and none of it leaves the box.
 
@@ -126,8 +126,9 @@ You2/
 ├── cad/            parametric OpenSCAD enclosure — F5 to preview, F6 to render
 ├── diagrams/       system architecture + dimensioned GA drawing
 ├── docs/           design.md (read this first) · architecture · bill of materials
+├── deploy/         flash a card that boots straight into the eye
 ├── hardware/       wiring, pinouts, assembly
-└── software/       the pipeline and the memory system
+└── software/       the brain, the ears, and the eye
 ```
 
 ---
