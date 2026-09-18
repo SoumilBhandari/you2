@@ -7,12 +7,14 @@ reasoning: **[docs/brain.md](../docs/brain.md)** — read that first.
 cd software
 python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
 
-.venv/bin/you2 chat --fake          # talk to it, no network, no model download
+.venv/bin/you2 demo                # seed a month of life and open the eye
+.venv/bin/you2 listen              # the whole device: ears, brain, voice
+.venv/bin/you2 chat --fake         # talk to it, no network, no model download
 .venv/bin/you2 why "how's Anderson" # print the whole retrieval
 .venv/bin/you2 night                # run consolidation now
 .venv/bin/you2 eval --days 365      # simulate a year, measure the curve
 .venv/bin/you2 eval --ablate        # check every mechanism earns its place
-.venv/bin/pytest                    # 113 tests, ~4 s, offline
+.venv/bin/pytest                    # 194 tests, offline, deterministic
 ```
 
 Nothing here needs hardware, a network, or a model download. `numpy` is the
@@ -55,6 +57,65 @@ that grows with *use* rather than with elapsed time.
 
 ---
 
+## The person
+
+Memory answers *what did they say*. This answers *who are they*, and it is the
+difference between a good search index and something that is actually theirs.
+
+Six components, every one derived from what is already in the store and none of
+them a setting anyone picked:
+
+| | |
+|---|---|
+| **identity** | the durable self |
+| **rhythms** | the shape of a week — when they are sharp, when they are flat |
+| **stances** | how they feel about each thing, and *which way it is moving* |
+| **style** | how they talk, and therefore how to talk back |
+| **concerns** | what is live and weighing on them |
+| **arc** | what has changed about them lately |
+
+On a seeded month it produces things only something that has watched you for
+weeks can say: *souring on Kestrel contract* (11 mentions over 5 weeks, negative
+trend), *at their best in the morning*, *boiler service — overdue*, *they speak
+in short sentences — match that*.
+
+The failure mode designed against throughout is confidently telling someone
+something wrong about themselves. That is far worse than saying nothing — it is
+the moment they stop believing any of it. So every claim carries its sample
+size, thin evidence produces an empty section rather than a hedged one, and
+`explain()` prints what each line was derived from. Most of the tests assert
+*silence*.
+
+---
+
+## Ears
+
+The wake word is **"Hey Friday"**. Five stages, each a Protocol with a real
+adapter and a working fallback, so the whole loop runs and is tested with no
+models and no hardware:
+
+| stage | device | fallback |
+|---|---|---|
+| wake | openWakeWord, custom model | transcript-driven |
+| VAD | Silero v6 | adaptive-energy, minimum statistics |
+| endpointing | pipecat smart-turn v3 | syntax-aware silence |
+| ASR | Moonshine streaming | scripted, with real partials |
+| TTS | Piper | speech-shaped noise, correctly timed |
+
+```bash
+you2 listen --mic          # the whole device
+you2 listen                # same loop, typed input, correctly-shaped audio
+```
+
+Barge-in is the item [design.md](../docs/design.md) ranks as most likely to
+sink the project and says cannot be tested without hardware. That is true of the
+*acoustic* half — whether AEC holds with a speaker 60 mm from a microphone. It
+is not true of the orchestration half, which is whether capture keeps running
+while it talks and cancels when it hears you. That half is most of the code and
+it is tested.
+
+---
+
 ## Layout
 
 ```
@@ -69,10 +130,13 @@ you2/
                    homeostasis, forgetting, dream, storage accounting
   discovery/       contradiction, recurrence, open loops, bridging, scoring
   inference/       engine, compilation, truth maintenance, parsimony
+  person/          identity, rhythms, stance, style — who they are
+  audio/           wake word, VAD, endpointing, ASR, TTS, the hot loop
   recall/          retrieve, memory-answerable answers, reconsolidation
   llm/             OpenAI-compatible client, rule extractor, deterministic fake
-  runtime/         hot path, intent router, CLI
+  runtime/         hot path, intent router, event bus, eye, light bar, CLI
   eval/            synthetic history with ground truth, harness, ablations
+ui/                the eye: 800x800, masked to a circle, canvas 2D
 ```
 
 Two escape hatches keep the whole thing runnable with no network and no
