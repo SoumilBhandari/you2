@@ -34,6 +34,8 @@ That last step is the one nobody does, and it's why every "AI with memory" degra
 
 See [diagrams/architecture.svg](diagrams/architecture.svg) for the whole picture, and **[docs/design.md](docs/design.md) for the complete design document** — self-contained, everything in one place.
 
+Picking this up cold? **[HANDOFF.md](HANDOFF.md)** — what exists, what doesn't, and what will bite you.
+
 ---
 
 ## The brain
@@ -126,6 +128,7 @@ You2/
 ├── cad/            parametric OpenSCAD enclosure — F5 to preview, F6 to render
 ├── diagrams/       system architecture + dimensioned GA drawing
 ├── docs/           design.md (read this first) · architecture · bill of materials
+├── HANDOFF.md      current state, gaps, and the traps — read this first
 ├── deploy/         flash a card that boots straight into the eye
 ├── hardware/       wiring, pinouts, assembly
 └── software/       the brain, the ears, and the eye
