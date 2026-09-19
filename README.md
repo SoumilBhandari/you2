@@ -87,6 +87,28 @@ halves block diversity; plain top-k scores the *highest* topical focus and the *
 RAG's failure mode measured rather than asserted. One mechanism — the salience gate — changes nothing measurable,
 and [docs/brain.md §15.2](docs/brain.md) says so rather than defending it.
 
+### And whether what went in was right
+
+That curve says consolidation holds. It cannot say the facts were correct, because it feeds the rule extractor a
+corpus those same rules generated. So there is a second instrument: 24 sessions of speech as people actually produce
+it, labelled by hand — and labelled as much with **22 traps** as with facts. Questions, hypotheticals, world
+knowledge, other people's opinions, things that were true for an afternoon. Extractors are eager, and a memory that
+fills with *the user is running late* is worse than an empty one, because unlike a missing fact nobody ever notices.
+
+The number nobody measures is **key stability**: the same thing, said twice weeks apart in different words — one key,
+or two? Two means the new preference sits *beside* the old one instead of replacing it, and no amount of
+consolidation downstream can fix that. So nothing an extractor produces is trusted, the rules included, and a
+deliberately sloppy model — values welded into keys, invented facts, first-person claims — measures what the
+checking is worth rather than leaving it asserted:
+
+| | precision | key stability | traps fired |
+|---|---|---|---|
+| a sloppy model, raw | 0.66 | **0.00** | 4 |
+| the same model, checked | **1.00** | **0.67** | **0** |
+
+It has already earned it. Building the instrument turned up a fact stored as *"the car insurance on the third of
+March"* — a subject, a date, and no claim — and a retrieval block that printed the same sentence **twice**.
+
 ### And who they are
 
 Memory answers *what did they say*. A second brain has to answer *who are they*,
