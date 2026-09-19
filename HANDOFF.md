@@ -71,7 +71,7 @@ python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
 this runs on a 2 GB Pi beside an audio stack, and every import costs RSS.
 
 ```bash
-.venv/bin/pytest                      # 194 tests. ~3.5 min (the eval tests dominate)
+.venv/bin/pytest                      # 233 tests. ~4 min (the eval tests dominate)
 .venv/bin/pytest --ignore=tests/test_eval.py   # ~25 s, what you want while iterating
 
 .venv/bin/you2 demo                   # seed a month of life, open the eye
@@ -80,8 +80,13 @@ this runs on a 2 GB Pi beside an audio stack, and every import costs RSS.
 .venv/bin/you2 why "how is Anderson"  # print the WHOLE retrieval — use this constantly
 .venv/bin/you2 night --fake
 .venv/bin/you2 stats
-.venv/bin/you2 eval --days 365        # simulate a year (~45 s)
+.venv/bin/you2 eval --days 365        # simulate a year (~50 s)
 .venv/bin/you2 eval --ablate          # ~6 min, all variants
+
+.venv/bin/you2 extract                # is what goes INTO the store correct
+.venv/bin/you2 extract --report       # every miss and trap, named
+.venv/bin/you2 extract --live         # …through the real model, needs a key
+.venv/bin/you2 extract "I'm at Lumen now"   # what would this one line store?
 ```
 
 Global flags work before *or* after the subcommand. `--fake` swaps in the
@@ -91,13 +96,13 @@ deterministic model; without an API key it runs offline and says so.
 
 ## Current state
 
-**Everything in `docs/brain.md` phases 1–9 is built and tested.** 194 tests,
+**Everything in `docs/brain.md` phases 1–9 is built and tested.** 233 tests,
 offline, deterministic, no network or model downloads.
 
 | file | tests | covers |
 |---|---|---|
 | `test_substrate.py` | 16 | store, graph, vectors, embedder, 10k-neuron scale gate |
-| `test_activation.py` | 21 | spreading, base-level, inhibition, workspace, cues |
+| `test_activation.py` | 22 | spreading, base-level, inhibition, workspace, cues |
 | `test_perception.py` | 22 | prosody, attention, discourse, salience |
 | `test_encoding.py` | 21 | segmentation, binding, loops, rule extraction |
 | `test_consolidation.py` | 21 | supersession, homeostasis, forgetting, the night |
@@ -106,20 +111,33 @@ offline, deterministic, no network or model downloads.
 | `test_audio.py` | 20 | wake word, VAD, endpointing, barge-in, the loop |
 | `test_runtime.py` | 17 | the whole turn, routing, reconsolidation |
 | `test_experience.py` | 15 | event bus, cascade scene, server, LEDs |
+| `test_extraction.py` | 38 | **the extraction corpus**, the validator, key discipline |
 | `test_eval.py` | 10 | harness + **ablation claims** (slow) |
 
 ### Measured
 
-One simulated year, 1,178 utterances, 353 nights, ~46 s per run:
+One simulated year, 1,178 utterances, 353 nights, ~50 s per run:
 
 | day | precision | focus | diversity | stale | neurons | edges |
 |---|---|---|---|---|---|---|
-| 30 | 0.50 | — | — | 0.00 | 118 | 762 |
-| 365 | **1.00** | 0.88 | 0.82 | **0.00** | 1,075 | 2,150 |
+| 30 | 0.50 | 0.73 | 0.88 | 0.00 | 119 | 692 |
+| 365 | **1.00** | 0.89 | 0.91 | **0.00** | 1,085 | 2,084 |
 
 Precision *rises* with elapsed time and superseded values never reach the
 block. **That curve is the primary regression test of the whole project.** If
 it ever falls, consolidation has broken.
+
+And extraction, against 24 hand-labelled sessions (`you2 extract`):
+
+| | precision | recall | key stability | traps | grounded |
+|---|---|---|---|---|---|
+| rules | 1.00 | 1.00 | 0.67 | 0/22 | 0.89 |
+| a sloppy model, raw | 0.66 | 1.00 | **0.00** | 4/22 | 0.64 |
+| the same model, checked | 1.00 | 1.00 | **0.67** | 0/22 | 0.89 |
+
+The stability column is what the validator is for. Unchecked, every dimension
+gets a fresh key, so supersession never fires and the store keeps every
+version of every preference forever.
 
 Ablation deltas at one year (`you2 eval --ablate`):
 
@@ -191,15 +209,42 @@ Deliberate. It works offline, adds no latency variance, and cannot fail a
 turn. Entity extraction is rules; facts are extracted at night where there is
 context and time. Do not move model calls earlier.
 
+### 8. Nothing an extractor produces is trusted, the rules included
+
+Everything goes through `llm/validate.py` before it reaches the store. If you
+add a path that writes facts, entities or loops without it, you have added a
+hole. The order of checks is cheapest-first and deliberate; the one people
+get backwards is **grounding with a quote**, which makes the check *stricter*
+— the claim is graded against the quote, not the whole batch. A verbatim span
+proves the model read something real, not that the claim follows from it.
+
+### 9. A key that encodes the value can never be superseded
+
+`user/pref_oat_milk` is not a near miss for `user/pref_milk` — it is a second
+row that will sit beside the first forever. Both the prompt and
+`canonical_key()` exist for this. When you touch either, run `you2 extract`
+and watch **stability** and **collisions** together: stability alone is
+trivially gamed by snapping everything onto one key, which destroys the store
+in the opposite direction.
+
 ---
 
 ## Honest gaps
 
-**Extraction quality is untested.** The eval runs through a deterministic rule
-extractor. That validates consolidation, supersession, downscaling, decay,
-replay and discovery *mechanics* — it says nothing about how well an 8B model
-reads a real conversation. That needs real transcripts and a real key. It is
-the largest unknown in the system.
+**Extraction is measured, but not against a real model.** `you2 extract`
+scores 24 hand-labelled sessions, and `eval/sloppy.py` stands in for a model
+that is wrong the way real models are wrong. That is a genuine instrument and
+it caught real defects. What it still cannot tell you is how a *particular* 8B
+model behaves on *your* speech: `you2 extract --live` is one command and needs
+a key, and until someone runs it that column is empty.
+
+Two things to hold in mind when reading the 1.00s. The corpus is mine and I
+fixed what it found — the rule held to was that a fix must be a whole
+construction, never a patch for one sentence, but the number is still
+generous. And one labelled failure is deliberately left standing: "I only ever
+buy semi-skimmed" said after "we're out of milk" is about milk, and no rule
+recovers a head noun that was never spoken. It is what keeps rules stability
+at 0.67, and it is exactly the gap a real model should close.
 
 **Bridging (analogy) reports as untested, not working.** The fake declines to
 judge analogies because a rule-based judge genuinely cannot. Whether structure
@@ -230,20 +275,25 @@ exactly the dynamic range the estimate depends on.
 
 Roughly in order of value:
 
-1. **Real transcripts through the real model.** Set `YOU2_API_KEY`, run
-   `you2 chat` for a week, then read `you2 night`'s journal. This is the only
-   way to learn what extraction actually does.
-2. **Re-run the eval with `OnnxEmbedder`** and see how much of the current
+1. **`you2 extract --live`.** One command, one key, and the empty column in
+   the table above is filled. Do this before anything else — it costs
+   minutes and it tells you whether the model beats the rules at all, which
+   changes what is worth working on next.
+2. **Then real transcripts.** Run `you2 chat` for a week and read `you2
+   night`'s journal. The corpus is 24 sessions I wrote; a week of your own
+   speech will contain constructions it does not, and every one of those is a
+   session to add.
+3. **Re-run the eval with `OnnxEmbedder`** and see how much of the current
    precision was the lexical embedder.
-3. **Resolve the salience gate** — either find the corpus where it matters or
+4. **Resolve the salience gate** — either find the corpus where it matters or
    delete it.
-4. **Rating loop UI.** The instrument exists (`store.rate`, `discovery.verdict`,
+5. **Rating loop UI.** The instrument exists (`store.rate`, `discovery.verdict`,
    `store.precision_by_type`) but nothing surfaces insights for a thumbs
    up/down yet. After three months of real use that table is the only real
    evidence about which connection types are worth keeping.
-5. **Order the reSpeaker.** Longest lead, highest risk, and barge-in cannot be
+6. **Order the reSpeaker.** Longest lead, highest risk, and barge-in cannot be
    tested any other way.
-6. **Person model against real history** — rhythms and stance need months of
+7. **Person model against real history** — rhythms and stance need months of
    genuine data before their thresholds mean anything.
 
 ---
