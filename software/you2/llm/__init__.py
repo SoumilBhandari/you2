@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from . import prompts, rules
+from . import prompts, rules, validate
 from .client import LLM, LLMError, LLMUnavailable, Message, Usage, extract_json, sentences
 from .fake import FakeLLM
+from .validate import Clean, clean
 
 __all__ = [
-    "LLM", "FakeLLM", "LLMError", "LLMUnavailable", "Message", "Usage",
-    "extract_json", "prompts", "rules", "sentences",
+    "LLM", "Clean", "FakeLLM", "LLMError", "LLMUnavailable", "Message", "Usage",
+    "clean", "extract_json", "prompts", "rules", "sentences", "validate",
 ]
