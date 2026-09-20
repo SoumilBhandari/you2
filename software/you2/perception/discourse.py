@@ -172,23 +172,93 @@ def commitments(text: str, now: float) -> list[Commitment]:
     contract; it hasn't come up since" does something no phone does.
     """
     out: list[Commitment] = []
-    for clause in re.split(r"[.;!?]|\bbut\b|\band then\b", text):
-        clause = clause.strip()
+    parts = _clauses(text)
+    for i, clause in enumerate(parts):
         if len(clause) < 8:
             continue
         low = clause.lower()
         m = _COMMIT.search(low)
         if not m:
             continue
+        # The deadline is read from this clause *and everything after it*: a
+        # correction arrives as its own clause ("— no wait, Wednesday") and
+        # belongs to the commitment it follows. The stored text stays the
+        # clause alone, so an open loop reads back as the one thing they said
+        # they would do rather than the whole paragraph it was buried in.
+        tail = " ".join(parts[i:])
         confidence = 0.75 if m.group(1) in ("i'll", "i will", "remind me to",
                                             "i need to", "i must") else 0.55
         expected = None
-        d = _DEADLINE.search(low)
+        # "I'll call Anderson on Tuesday — no wait, Wednesday." A repair
+        # marker makes everything before it obsolete, so the deadline is read
+        # from the last segment rather than the first. Taking the first one
+        # is not a near miss: it books the reminder on the day they explicitly
+        # corrected, which reads as not listening.
+        d = _last_deadline(tail.lower())
+        text = clause
         if d:
-            expected = now + _deadline_days(d.group(2)) * DAY
+            expected = now + _deadline_days(d) * DAY
             confidence = min(0.95, confidence + 0.15)
-        out.append(Commitment(clause, expected, confidence))
+            # And the correction goes into the text, not just the date.
+            # Storing "you said you'd call Anderson on Tuesday" with a
+            # Wednesday reminder attached is worse than either error alone:
+            # the loop reads back the day they explicitly took back.
+            own = _BARE_DAY.search(low)
+            if own and own.group(1) != d:
+                said = clause[own.start():own.end()]
+                text = re.sub(rf"\b{own.group(1)}\b",
+                              d.title() if said[:1].isupper() else d,
+                              clause, count=1, flags=re.IGNORECASE)
+        # The correction has been applied, so the words that carried it are
+        # noise: "I'll do the drawings Thursday, actually make that Thursday"
+        # is what happens if they stay.
+        cut = _AFTER_REPAIR.search(text)
+        if cut is not None and cut.start() > 8:
+            text = text[:cut.start()].rstrip(" ,;:—–-")
+        out.append(Commitment(text, expected, confidence))
     return out
+
+
+#: Clause boundaries, for isolating the one thing they committed to. Defined
+#: here rather than shared with the extractor's splitter because perception
+#: sits below the model boundary and must not import across it.
+_CLAUSE = re.compile(
+    r"[.;!?]+\s*|\s+[—–]\s+|\s*/\s*|\bbut\b|\band then\b"
+    r"|,\s+(?:and\s+|so\s+|then\s+)?(?=i\b|i'|we\b|we')", re.IGNORECASE)
+
+
+def _clauses(text: str) -> list[str]:
+    return [c.strip() for c in _CLAUSE.split(text) if c and c.strip()]
+
+
+_AFTER_REPAIR = re.compile(
+    r"\b(?:no wait|wait no|actually|sorry|i meant|scratch that|make that|"
+    r"rather|no,)\b", re.IGNORECASE)
+
+_BARE_DAY = re.compile(
+    r"\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday|tomorrow|"
+    r"tonight|next week|next month)\b")
+
+
+def _last_deadline(low: str) -> str | None:
+    """The deadline as finally stated, after any self-correction.
+
+    The corrected day is the **first** one after the repair marker, not the
+    last: "no wait, Wednesday, he's away Tuesday" ends with a reason, and
+    reading the last day in the sentence books the very day being ruled out.
+
+    With no repair marker this falls through to the ordinary pattern, which
+    requires by/before/on — a bare weekday elsewhere in a sentence is usually
+    when something happened, not when something is due.
+    """
+    segments = _AFTER_REPAIR.split(low)
+    if len(segments) > 1:
+        for segment in segments[1:]:
+            found = _BARE_DAY.search(segment)
+            if found:
+                return found.group(1)
+    m = _DEADLINE.search(low)
+    return m.group(2) if m else None
 
 
 def _deadline_days(phrase: str) -> float:
