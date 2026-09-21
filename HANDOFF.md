@@ -139,17 +139,22 @@ The stability column is what the validator is for. Unchecked, every dimension
 gets a fresh key, so supersession never fires and the store keeps every
 version of every preference forever.
 
-Ablation deltas at one year (`you2 eval --ablate`):
+Ablation deltas at one year (`you2 eval --ablate`, ~8 min, ~60 s a variant):
 
 | removing | costs |
 |---|---|
-| fan effect | focus 0.88 → 0.30, **visited 14 → 407** |
-| inhibition | diversity 0.82 → 0.35 |
-| spreading (top-k only) | diversity 0.82 → 0.23 |
+| fan effect | focus 0.89 → 0.23, **visited 14 → 433** |
+| inhibition | diversity 0.91 → 0.38 |
+| spreading (top-k only) | diversity 0.91 → 0.37, and the *highest* focus of any variant |
 | base-level decay | **stale leakage 0.00 → 0.50** |
-| downscaling | edges 2,181 → 4,658 |
-| the block cap | tokens 130 → 423, zero quality gain |
-| **the salience gate** | **nothing measurable** |
+| downscaling | edges 2,084 → 4,217 |
+| the block cap | tokens 118 → 401, focus 0.89 → 0.84 — pure cost |
+| **the salience gate** | **nothing but storage** (neurons 1,085 → 1,209) |
+
+Probe precision is 1.00 in every variant, which is why it is not the column
+to read. `top-k-only` scoring the best focus and nearly the worst diversity is
+naive RAG's failure mode measured rather than asserted: it returns the most
+on-topic set and the least informative one.
 
 ---
 
