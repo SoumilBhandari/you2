@@ -37,7 +37,8 @@ def canonical(a: int, b: int, code: int, backward: bool) -> tuple[int, int, int]
 
 class Graph:
     __slots__ = ("_idx", "_nodes", "_indptr", "_indices", "_weights",
-                 "_etypes", "_back", "_ov", "_shadow", "_edges", "_n_csr")
+                 "_etypes", "_back", "_ov", "_shadow", "_edges", "_n_csr",
+                 "hops_truncated")
 
     def __init__(self) -> None:
         self._idx: dict[int, int] = {}
@@ -54,6 +55,11 @@ class Graph:
         # canonical key -> current weight, for every overlay edge
         self._edges: dict[tuple[int, int, int], float] = {}
         self._n_csr = 0
+        #: Times `hops` gave up on its visit budget. Surfaced in `stats()`
+        #: rather than swallowed: a cap that drops work says what it dropped,
+        #: and a rising count here means the graph is densifying faster than
+        #: downscaling is pruning it.
+        self.hops_truncated = 0
 
     # --------------------------------------------------------------- build
 
@@ -242,14 +248,38 @@ class Graph:
     def degree_of(self, node: int) -> int:
         return self.fan(node)
 
-    def hops(self, a: int, b: int, max_hops: int = 6) -> int:
+    def hops(self, a: int, b: int, max_hops: int = 6,
+             budget: int = 4000) -> int:
         """Shortest path length, capped. Returns -1 if unreachable within
-        max_hops. Used to score how non-obvious a discovered connection is."""
+        max_hops. Used to score how non-obvious a discovered connection is.
+
+        Bounded in *nodes visited* as well as in depth, which `neighbourhood`
+        below has always been and this had no reason not to be. Six hops is a
+        depth limit, not a work limit, and every other traversal in this
+        system carries a visit budget — that is the first commitment in
+        brain.md §1 — so this one was the exception by oversight rather than
+        by argument.
+
+        To be accurate about what it buys today: at one simulated year the
+        store holds ~1,100 neurons, so the frontier cannot reach 4,000 and
+        this never binds. It is a guard for the size the store is meant to
+        reach, not a fix for anything measured. The REM cost that *was*
+        measured came from calling this twice per pair, which `dream.alignment`
+        no longer does.
+
+        Exhausting the budget returns -1, the same as unreachable, and that is
+        the honest answer for the one thing this is used for: a pair the
+        search could not connect within four thousand nodes is not obviously
+        connected.
+        """
         if a == b:
             return 0
         seen = {a}
         frontier = deque([(a, 0)])
         while frontier:
+            if len(seen) >= budget:
+                self.hops_truncated += 1
+                return -1
             node, d = frontier.popleft()
             if d >= max_hops:
                 continue
