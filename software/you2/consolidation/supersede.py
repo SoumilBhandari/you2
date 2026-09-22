@@ -99,16 +99,7 @@ def resolve(store: Store, llm: Model | None, key: str, text: str,
     rel, why, question = _judge(llm, existing, text, now)
 
     if rel == "restatement":
-        # Repetition is evidence. Confidence rises, the record does not.
-        existing.confidence = min(1.0, existing.confidence + 0.08 * (1 - existing.confidence))
-        existing.access_count += 1
-        existing.last_access = now
-        existing.meta.setdefault("cites", [])
-        existing.meta["cites"] = sorted(set(existing.citations()) | set(cites))
-        existing.meta["restated"] = existing.meta.get("restated", 0) + 1
-        store.save(existing)
-        _cite(store, existing, cites, now)
-        return Resolution("restatement", fact=existing, why=why)
+        return _restate(store, existing, cites, now, why)
 
     if rel in ("refinement", "reversal"):
         fact = _create(store, key, text, cites, confidence, now)
@@ -144,11 +135,62 @@ def resolve(store: Store, llm: Model | None, key: str, text: str,
         return Resolution("conflict", fact=fact, replaced=existing,
                           question=q, why=why)
 
-    # distinct: same key was the wrong call. Give the newcomer its own.
+    # distinct: same key was the wrong call. Give the newcomer its own --
+    # unless a previous newcomer already claimed it, which is the case that
+    # turns a bad judgement into a runaway.
+    #
+    # `resolve` only ever consults the exact holder of `key`, so a claim that
+    # is already stored under `key_2` is invisible here and forks `key_3`.
+    # Say the same sentence on forty nights against a key whose holder is
+    # unrelated, and the store ends up with forty identical facts under forty
+    # keys. That is not hypothetical: a correction that hijacked
+    # `coffee_machine/state` produced exactly that, and the store went from
+    # 14 live facts to 90 with no test failing. The hijack is fixed; this
+    # makes the shape of the failure impossible rather than unlikely.
+    twin = _sibling_holding(store, key, text)
+    if twin is not None:
+        return _restate(store, twin, cites, now, f"already held as {twin.key}")
+
     alt = _disambiguate(store, key)
+    store.log("key_forked", {"from": key, "to": alt, "text": text[:80],
+                             "why": why})
     return Resolution("distinct",
                       fact=_create(store, alt, text, cites, confidence, now),
                       why=why)
+
+
+def _restate(store: Store, fact: Neuron, cites: list[int], now: float,
+             why: str) -> Resolution:
+    """Repetition is evidence. Confidence rises, the record does not."""
+    fact.confidence = min(1.0, fact.confidence + 0.08 * (1 - fact.confidence))
+    fact.access_count += 1
+    fact.last_access = now
+    fact.meta.setdefault("cites", [])
+    fact.meta["cites"] = sorted(set(fact.citations()) | set(cites))
+    fact.meta["restated"] = fact.meta.get("restated", 0) + 1
+    store.save(fact)
+    _cite(store, fact, cites, now)
+    return Resolution("restatement", fact=fact, why=why)
+
+
+def _sibling_holding(store: Store, key: str, text: str) -> Neuron | None:
+    """A live fork of `key` already carrying this claim, if there is one."""
+    for candidate in _forks(key):
+        held = store.by_key(candidate)
+        if held is None or not held.is_live:
+            continue
+        if rule_relation(held.text(), text) == "restatement":
+            return held
+    return None
+
+
+MAX_FORKS = 40
+
+
+def _forks(key: str):
+    for i in range(2, MAX_FORKS):
+        yield f"{key}_{i}"
+    yield f"{key}_x"
 
 
 def _outdate_sources(store: Store, old: Neuron, replacement_id: int,
@@ -225,10 +267,14 @@ def _cite(store: Store, fact: Neuron, cites: list[int], now: float) -> None:
 
 
 def _disambiguate(store: Store, key: str) -> str:
-    for i in range(2, 40):
-        candidate = f"{key}_{i}"
+    for candidate in _forks(key):
         if store.by_key(candidate, live_only=False) is None:
             return candidate
+    # Everything up to `_x` is taken. Landing here means the judge has called
+    # `distinct` forty times on one key, which is a broken key rather than
+    # forty genuine dimensions — so it is logged rather than absorbed. Never
+    # silently truncate.
+    store.log("key_exhausted", {"key": key, "forks": MAX_FORKS})
     return f"{key}_x"
 
 
