@@ -69,20 +69,73 @@ CORRECTABLE = (Kind.FACT, Kind.LOOP, Kind.INSIGHT)
 DELETABLE = (Kind.FACT, Kind.LOOP, Kind.INSIGHT, Kind.EPISODE)
 
 
+def _dimension_of(said: str) -> str | None:
+    """The subject a content-bearing correction is about, if it names one.
+
+    Read through the ordinary extractor, so "I drink semi-skimmed now" and
+    "I prefer oat milk" reach the same subject the write path would give
+    them. First person on purpose: the patterns are written for how people
+    speak, not for how claims are stored.
+    """
+    from ..llm.rules import find_facts
+    for candidate in find_facts(said):
+        key = str(candidate.get("key") or "")
+        if "/" in key:
+            return key.partition("/")[0]
+    return None
+
+
 def target(store: Store, ws: Workspace | None, text: str, *,
-           kinds: tuple[Kind, ...] = CORRECTABLE) -> Neuron | None:
+           kinds: tuple[Kind, ...] = CORRECTABLE,
+           said: str | None = None) -> Neuron | None:
     """Which memory is being corrected, or deleted?
 
-    The workspace that was just broadcast, because that is what the device
-    said and therefore what the person is reacting to.
+    **The key the correction names, when it names one.** "Actually I prefer
+    oat milk now" is a complete claim about milk, so the memory it corrects
+    is whatever holds the milk key. Exact, and available whenever the
+    correction carries content.
+
+    **Otherwise the workspace**, because that is what the device just said
+    and therefore what the person is reacting to, ranked by activation and
+    similarity together. Activation has to carry real weight here: a
+    correction often shares no vocabulary at all with what it corrects, and
+    "no, I drink semi-skimmed now" against a stored "the user prefers dairy
+    milk" is a perfectly ordinary repair with almost no words in common.
+
+    **And a guard on the subject, not on the wording.** Activation alone used
+    to be enough to win, which is how "the coffee machine is making that
+    noise again / actually I prefer oat milk now" put the milk preference
+    under `coffee_machine/state`: the coffee machine had just been mentioned,
+    so it was the most active thing in the room and the correction hijacked
+    it. The real fact was invalidated, the wrong claim took its key, and
+    every later mention of the coffee machine then failed to match the holder
+    and forked a fresh key — forty of them by day 365.
+
+    A lexical floor would have caught that case and broken the semi-skimmed
+    one, because both look the same from a distance. What separates them is
+    the *dimension*: milk and coffee machines are different subjects, milk
+    and milk are not. So when the correction names a subject, the memory it
+    overwrites must share it. When nothing qualifies the answer is None, and
+    the claim is then stored normally under its own key — the safe outcome
+    rather than a lost one.
     """
+    subject = _dimension_of(said) if said else None
+    if subject:
+        from ..llm.rules import find_facts
+        for candidate in find_facts(said or ""):
+            held = store.by_key(str(candidate["key"]))
+            if held is not None and held.kind in kinds and held.is_live:
+                return held
+
     if ws is None or not ws.items:
         return None
-    q = store.embed(text)
+    q = store.embed(said or text)
     best: tuple[float, Neuron] | None = None
     for item in ws.items:
         n = item.neuron
         if n.kind not in kinds:
+            continue
+        if subject and n.key and "/" in n.key and n.key.partition("/")[0] != subject:
             continue
         v = store.vectors.get(n.id)
         sim = 0.0
@@ -90,8 +143,6 @@ def target(store: Store, ws: Workspace | None, text: str, *,
             norm = float(np.linalg.norm(v))
             if norm:
                 sim = float(np.dot(v / norm, q))
-        # Activation matters as much as similarity: a correction often shares
-        # no vocabulary with what it corrects ("no, not any more").
         rank = 0.6 * item.activation + 0.4 * max(0.0, sim)
         if best is None or rank > best[0]:
             best = (rank, n)
@@ -113,7 +164,18 @@ def apply(store: Store, llm: Any | None, ws: Workspace | None, text: str,
     if not looks_like_correction(text):
         return Repair("none")
 
-    victim = target(store, ws, text)
+    # The replacement is worked out *before* the victim, because what they
+    # just said is the best evidence for which memory they are correcting.
+    # `said` keeps the first person: the extractor's patterns are written for
+    # speech, and it is only read to find the dimension — see `target`.
+    said = _restate(text)
+    replacement = None
+    if said is not None:
+        replacement = validate.to_third_person(said)
+        if validate.undurable(replacement):
+            replacement, said = None, None
+
+    victim = target(store, ws, text, said=said)
     if victim is None:
         return Repair("none")
 
@@ -133,16 +195,12 @@ def apply(store: Store, llm: Any | None, ws: Workspace | None, text: str,
         store.log("repair", {"kind": "closed_loop", "target": victim.id})
         return Repair("corrected", victim)
 
-    # Through the same checks as everything else that writes a fact. This
-    # path used to bypass them entirely, which is how "no, that is not right"
-    # became a stored claim reading "that is not right" and "no, I drink
-    # semi-skimmed now" became one reading "I drink semi-skimmed now" — in
-    # the first person, under the milk key, ready to be said back to them.
-    replacement = _restate(text)
-    if replacement is not None:
-        replacement = validate.to_third_person(replacement)
-        if validate.undurable(replacement):
-            replacement = None
+    # `replacement` has already been through the same checks as everything
+    # else that writes a fact. This path used to bypass them entirely, which
+    # is how "no, that is not right" became a stored claim reading "that is
+    # not right" and "no, I drink semi-skimmed now" became one reading "I
+    # drink semi-skimmed now" — in the first person, under the milk key,
+    # ready to be said back to them.
     if replacement is None:
         # A retraction with nothing to put in its place. "No, forget that" is
         # a complete instruction and it means exactly what `invalid_at`
