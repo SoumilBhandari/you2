@@ -101,6 +101,47 @@ def test_a_pronoun_object_is_resolved_to_what_it_refers_to():
     assert not any(f["key"].endswith("_x") for f in facts)
 
 
+def test_an_elided_head_noun_is_restored():
+    """"We're out of milk — I only ever buy semi-skimmed." A reader supplies
+    *milk* without noticing. An extractor that does not keys the claim on
+    `skimm`, so when they switch to oat milk six weeks later the two land on
+    different dimensions, nothing supersedes anything, and the profile
+    asserts both preferences forever."""
+    facts = rules.find_facts(
+        "we've run out of milk again, I only ever buy semi-skimmed")
+    assert any("semi-skimmed milk" in f["text"] for f in facts), facts
+    assert any(f["key"] == "user/pref_milk" for f in facts), facts
+
+
+def test_the_antecedent_can_be_a_turn_back():
+    """Batching exists so a claim spanning turns is visible. A reference one
+    turn back is exactly that case."""
+    facts = rules.find_facts("I only ever buy semi-skimmed",
+                             context=["we've run out of milk again"])
+    assert any(f["key"] == "user/pref_milk" for f in facts), facts
+
+
+@pytest.mark.parametrize("phrase,elliptical", [
+    ("semi-skimmed", True), ("free-range", True), ("decaf", True),
+    ("oat milk", False), ("cilantro", False), ("the boiler", False),
+    ("meetings in the morning", False), ("brick", False),
+])
+def test_only_a_bare_modifier_counts_as_elliptical(phrase, elliptical):
+    """The narrowness is the safety. A false positive welds a wrong noun onto
+    a right claim, which is worse than the miss it was fixing."""
+    assert rules.is_elliptical(phrase) is elliptical
+
+
+def test_a_restored_head_is_never_a_duplicate_of_what_is_there():
+    assert rules.restore_head("skimmed", ["I bought the skimmed"]) == "skimmed"
+
+
+def test_key_stability_is_the_number_this_all_exists_for(scored):
+    """The same dimension, stated twice weeks apart in different words, has
+    to reach one key. Two keys means supersession never fires."""
+    assert scored.stability == 1.0, scored.report()
+
+
 def test_a_state_claim_keeps_its_verb():
     """Without the verb, "the car insurance on the third of March" is a
     subject, a date, and no claim."""
@@ -355,6 +396,50 @@ def test_a_correction_is_stored_as_a_claim_about_the_person(one_fact, said,
     writer goes through, so "I drink semi-skimmed now" went in verbatim —
     first person, under the milk key, ready to be read back aloud."""
     assert _correct(one_fact, said) == [expected]
+
+
+def test_a_correction_cannot_hijack_an_unrelated_memory(tmp_path):
+    """Found by the year-long eval, not by any unit test.
+
+    "The coffee machine is making that noise again / actually I prefer oat
+    milk now." The coffee machine had just been mentioned, so it was the most
+    active thing in the workspace, and the correction was assigned to it: the
+    milk preference took the key `coffee_machine/state`, the real fact was
+    invalidated, and every later mention of the coffee machine then failed to
+    match the holder and forked a fresh key. Forty of them by day 365, and
+    live facts went from 14 to 90 — none of it visible in a passing suite.
+    """
+    from you2 import BrainConfig, SimClock
+    from you2.activation.workspace import Item, Workspace
+    from you2.llm import FakeLLM
+    from you2.recall import reconsolidate
+    from you2.substrate import HashEmbedder, Kind, Neuron, Store
+
+    cfg = BrainConfig(db_path=str(tmp_path / "b.db"))
+    store = Store(cfg, SimClock(), HashEmbedder(dim=cfg.embed_dim))
+    machine = store.add(Neuron(kind=Kind.FACT, key="coffee_machine/state",
+                               content="the coffee machine is making that "
+                                       "noise again"))
+    ws = Workspace()
+    ws.items.append(Item(machine, 1.0, 1.0, 10, machine.text()))
+
+    reconsolidate.apply(store, FakeLLM(), ws, "actually I prefer oat milk now",
+                        cfg, store.clock.now())
+
+    survivor = store.by_key("coffee_machine/state")
+    assert survivor is not None and survivor.id == machine.id
+    assert survivor.is_live, "an unrelated correction invalidated it"
+    assert "milk" not in survivor.text()
+    store.close()
+
+
+def test_a_correction_still_lands_when_it_shares_no_words(one_fact):
+    """The guard is on the subject, not the wording. A lexical floor would
+    have caught the coffee machine and broken this: "semi-skimmed" and "dairy
+    milk" are the same dimension with almost no words in common, which is
+    what an ordinary correction looks like."""
+    assert _correct(one_fact, "no, I drink semi-skimmed now") == [
+        "the user drinks semi-skimmed now"]
 
 
 @pytest.mark.parametrize("said", ["no, that is not right", "no, not any more"])
