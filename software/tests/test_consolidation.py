@@ -441,3 +441,46 @@ def test_bridges_are_never_pushed(store, llm):
         n = store.get(nid)
         if n.meta.get("type") == "bridge":
             assert not n.meta.get("pushed"), "a wrong analogy makes the whole system feel stupid"
+
+
+def test_a_repeated_claim_cannot_fork_a_key_forever(store):
+    """`resolve` only consults the exact holder of a key, so a claim already
+    stored under `key_2` is invisible to it and forks `key_3`. Say the same
+    sentence on forty nights against a key whose holder is unrelated and the
+    store ends up with forty identical facts under forty keys.
+
+    Not hypothetical: a correction that hijacked `coffee_machine/state` did
+    exactly this, and live facts went from 14 to 90 over a simulated year
+    with no test failing. The hijack is fixed in recall/reconsolidate.py;
+    this makes the shape of the failure impossible rather than unlikely.
+    """
+    store.add(Neuron(kind=Kind.FACT, key="coffee_machine/state",
+                     content="the user prefers oat milk now"))
+    said = "the coffee machine is making that noise again"
+    for _ in range(12):
+        supersede.resolve(store, None, "coffee_machine/state", said, [], 0.7,
+                          store.clock.now(), store.cfg)
+
+    live = [n for n in store.by_kind(Kind.FACT, limit=99, live_only=True)]
+    assert len(live) == 2, [(n.key, n.text()) for n in live]
+    assert sum(1 for n in live if said in n.text()) == 1
+    # And the one fork that was legitimate is journalled rather than silent.
+    assert store.journal("key_forked", limit=10)
+
+
+def test_a_genuinely_different_claim_still_gets_its_own_key(store):
+    """The sibling check must not collapse two real dimensions into one.
+
+    These three share no vocabulary, so the judge calls every pairing
+    `distinct` and each is entitled to its own key. Claims with any overlap
+    at all go through the refinement branch instead and never reach the fork
+    path — which is why they would not test it.
+    """
+    store.add(Neuron(kind=Kind.FACT, key="thing/state",
+                     content="the boiler needs a service"))
+    for said in ("the garden wall is finished",
+                 "the car insurance renews in March"):
+        supersede.resolve(store, None, "thing/state", said, [], 0.7,
+                          store.clock.now(), store.cfg)
+    keys = {n.key for n in store.by_kind(Kind.FACT, limit=99, live_only=True)}
+    assert len(keys) == 3, keys
