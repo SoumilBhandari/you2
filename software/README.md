@@ -189,9 +189,9 @@ people's opinions, and things that were true for an afternoon.
 
 | | precision | recall | key stability | traps | grounding |
 |---|---|---|---|---|---|
-| rules | 1.00 | 1.00 | 0.67 | 0 | 0.89 |
+| rules | 1.00 | 1.00 | 1.00 | 0 | 0.89 |
 | a sloppy model, raw | 0.66 | 1.00 | **0.00** | 4 | 0.64 |
-| the same model, checked | 1.00 | 1.00 | **0.67** | 0 | 0.89 |
+| the same model, checked | 1.00 | 1.00 | **1.00** | 0 | 0.89 |
 
 **Key stability** is the number that matters and the one nobody measures: the
 same dimension, stated twice weeks apart in different words — one key, or two?
@@ -208,9 +208,15 @@ what the checking buys is a measurement rather than an assertion.
 
 The rules scoring 1.00 should be read with suspicion: the corpus is mine and I
 fixed what it found. The rule held to is that a fix must be a whole
-construction or it does not go in. One labelled failure is left standing —
-"I only ever buy semi-skimmed", said after "we're out of milk", is about milk,
-and no rule recovers a head noun that was never spoken.
+construction or it does not go in.
+
+The last one to fall is the one worth knowing about. "We've run out of milk —
+I only ever buy semi-skimmed" leaves the head noun unsaid, and an extractor
+that does not restore it keys the claim on `skimm`. Six weeks later "I've
+switched to oat milk" keys on `milk`, the store sees two dimensions rather
+than one, **supersession never fires**, and both preferences sit in the
+profile forever contradicting each other. Rot arriving through a gap in the
+grammar rather than a gap in the architecture.
 
 ---
 
