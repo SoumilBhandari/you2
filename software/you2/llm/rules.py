@@ -244,6 +244,32 @@ def original_case(word: str, source: str) -> str:
     return m.group(0) if m else word
 
 
+_WORDS = re.compile(r"[A-Za-z][\w'-]*")
+
+
+def recase(text: str, source: str) -> str:
+    """Give every word back the capitalisation it had when it was said.
+
+    Patterns match against a lowercased clause, so everything they capture
+    comes back flat: "the user's sister priya is moving to lisbon". These get
+    read aloud and printed in the profile, and a device that renders the
+    names of the people you love in lower case looks broken for a reason that
+    has nothing to do with what it knows.
+
+    Only capitalisation that is *evidence* is copied — a word capitalised
+    mid-sentence in the source. A sentence-initial capital says nothing about
+    the word, and treating it as a name is how "Actually" becomes a person.
+    """
+    def fix(m: re.Match[str]) -> str:
+        word = m.group(0)
+        for found in re.finditer(rf"\b{re.escape(word)}\b", source, re.IGNORECASE):
+            got = found.group(0)
+            if got[:1].isupper() and found.start() > 0:
+                return got
+        return word
+    return _WORDS.sub(fix, text)
+
+
 #: A prepositional phrase attaches *after* the head noun, so everything from
 #: here on is modifier rather than topic.
 _ATTACHMENT = re.compile(
@@ -504,7 +530,8 @@ def find_facts(text: str, context: Sequence[str] = ()) -> list[dict]:
     facts: list[dict] = []
 
     def add(key: str, claim: str, confidence: float = 0.7) -> None:
-        facts.append({"key": key, "text": trim(claim), "confidence": confidence})
+        facts.append({"key": key, "text": recase(trim(claim), text),
+                      "confidence": confidence})
 
     earlier: list[str] = []
     for previous in context:
