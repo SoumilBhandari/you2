@@ -103,9 +103,21 @@ def encode(store: Store, episode: Episode, cfg: BrainConfig | None = None, *,
         return Encoded(skipped=True, reason=f"salience {salience:.2f}")
 
     strong = salience >= cfg.salience_strong
+    # Nothing capped the length of a stored episode. A markdown paragraph
+    # through `you2 import` became a 102 KB neuron — which can never fit the
+    # workspace budget, so it was stored, embedded, counted against the
+    # 512 MB ceiling, and permanently unreachable. Cutting at a sentence
+    # keeps it readable, and the original length is recorded rather than
+    # quietly lost: never truncate silently.
+    stored, cut_from = text, 0
+    if len(text) > cfg.max_episode_chars:
+        stored, cut_from = _cut(text, cfg.max_episode_chars), len(text)
+        store.log("episode_truncated", {"from": cut_from,
+                                        "to": len(stored),
+                                        "head": stored[:60]})
     ep = store.add(Neuron(
         kind=Kind.EPISODE,
-        content=text,
+        content=stored,
         created_at=episode.started_at or now,
         last_access=now,
         salience=salience,
@@ -121,7 +133,8 @@ def encode(store: Store, episode: Episode, cfg: BrainConfig | None = None, *,
         pinned=any(s.explicit >= 1.0 for s in episode.saliences),
         meta={"boundary": episode.boundary_reason,
               "turns": len(episode.turns),
-              "priority_replay": strong},
+              "priority_replay": strong,
+              **({"truncated_from": cut_from} if cut_from else {})},
     ))
     out = Encoded(episode=ep)
 
@@ -322,3 +335,18 @@ def _echo(store: Store, loop_text: str, text: str) -> float:
         lexical *= 0.5
     embedded = float(np.dot(store.embed(loop_text), store.embed(text)))
     return max(lexical, embedded)
+
+
+def _cut(text: str, limit: int) -> str:
+    """Trim to `limit`, preferring a sentence boundary.
+
+    Cutting mid-word leaves a fragment that reads as a transcription error
+    when it is said back; cutting at a full stop reads as an excerpt.
+    """
+    head = text[:limit]
+    for mark in (". ", "! ", "? ", "\n"):
+        at = head.rfind(mark)
+        if at > limit // 2:
+            return head[:at + 1].strip()
+    at = head.rfind(" ")
+    return (head[:at] if at > limit // 2 else head).strip()
