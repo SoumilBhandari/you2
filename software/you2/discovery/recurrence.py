@@ -171,7 +171,45 @@ def detect(store: Store, cfg: BrainConfig, now: float, *,
         ))
 
     found.sort(key=lambda p: (-p.lift, -p.n))
-    return found
+    return block(found)
+
+
+#: How much of a weaker pattern's evidence a stronger one must already
+#: account for before the weaker one is treated as explained.
+BLOCKED_OVERLAP = 0.7
+
+
+def block(found: list[Pattern]) -> list[Pattern]:
+    """Drop patterns a stronger one already explains.
+
+    Lift normalises for the base rate, which stops "you mention work a lot"
+    being a discovery. It does nothing about **confounding**, and contexts
+    here are heavily confounded: someone who talks to the device after work
+    generates `in_the_evening` alongside `it_is_tuesday` on the same
+    episodes, both clear lift 2.0 honestly, and the device reports two
+    patterns where there is one. The eval has been printing that false
+    positive for the life of the project.
+
+    So a pattern whose evidence is already accounted for by a stronger one
+    over the same outcome is dropped. This is Kamin blocking: a cue that adds
+    no predictive value over an established one is not learned, and the
+    reason is exactly this — it is redundant, not wrong. Telling someone
+    about it costs the credibility of the one that was real.
+    """
+    kept: list[Pattern] = []
+    for p in found:
+        mine = set(p.cites)
+        explained = False
+        for strong in kept:
+            if strong.outcome != p.outcome or not mine:
+                continue
+            shared = len(mine & set(strong.cites)) / len(mine)
+            if shared >= BLOCKED_OVERLAP:
+                explained = True
+                break
+        if not explained:
+            kept.append(p)
+    return kept
 
 
 def phrase(p: Pattern) -> str:
