@@ -85,9 +85,9 @@ def answer(store: Store, ws: Workspace, text: str, cfg: BrainConfig,
         if who is not None:
             return who
     if _WHEN_LAST.search(text):
-        return _when_last(ws, now)
+        return _when_last(store, ws, text, now)
     if _WHAT_ABOUT.search(text):
-        return _what_about(ws, now)
+        return _what_about(store, ws, text, now)
     return None
 
 
@@ -139,8 +139,68 @@ def _who(store: Store, name: str, now: float) -> Answer | None:
                   "who", [entity.id])
 
 
-def _when_last(ws: Workspace, now: float) -> Answer | None:
-    episodes = [n for n in ws.neurons() if n.kind is Kind.EPISODE]
+#: The thing a question is asking about, when it names one.
+_TOPIC = re.compile(
+    r"\b(?:about|regarding|on the subject of|to do with|with regard to)\s+"
+    r"(.{2,60}?)\s*\??$", re.IGNORECASE)
+_LAST_TOPIC = re.compile(
+    r"\b(?:when (?:did|was) i last|last time i)\s+\w+\s+(.{2,50}?)\s*\??$",
+    re.IGNORECASE)
+
+
+def topic_of(text: str) -> str:
+    m = _TOPIC.search(text) or _LAST_TOPIC.search(text)
+    if not m:
+        return ""
+    from ..substrate.embed import tokenize
+    return " ".join(tokenize(m.group(1)))
+
+
+def _on_topic(store: Store, topic: str, items: list[Neuron]) -> list[Neuron]:
+    """Only the material actually about the thing asked.
+
+    Retrieval always returns *something* — that is what spreading activation
+    does, and the ambient cues alone guarantee a non-empty workspace. So
+    "resolvable from the workspace alone" quietly became "answer with
+    whatever is in the workspace", and asking about a project this store had
+    never heard of produced a confident sentence about the user's sister and
+    cilantro.
+
+    That is confabulation, and it is the worst failure this device can have:
+    stated in the user's own vocabulary, with no model involved to hedge it,
+    on the fastest path in the system. Saying "nothing on that" is not a
+    degraded answer — it is the correct one, and it is the thing that makes
+    every other answer worth believing.
+    """
+    if not topic:
+        return items
+    from ..substrate.embed import stem, tokenize
+    wanted = {stem(w) for w in tokenize(topic)}
+    if not wanted:
+        return items
+
+    related: set[int] = set()
+    anchor = store.find_entity(topic)
+    if anchor is not None:
+        related = {anchor.id}
+        related |= {o for o, w, _c, _b in store.graph.neighbours(anchor.id)
+                    if w > 0.0}
+
+    out: list[Neuron] = []
+    for n in items:
+        if n.id in related:
+            out.append(n)
+            continue
+        have = {stem(w) for w in tokenize(n.text())}
+        if wanted & have:
+            out.append(n)
+    return out
+
+
+def _when_last(store: Store, ws: Workspace, text: str,
+               now: float) -> Answer | None:
+    episodes = _on_topic(store, topic_of(text),
+                         [n for n in ws.neurons() if n.kind is Kind.EPISODE])
     if not episodes:
         return None
     latest = max(episodes, key=lambda n: n.created_at)
@@ -150,10 +210,16 @@ def _when_last(ws: Workspace, now: float) -> Answer | None:
         "whenlast", [latest.id])
 
 
-def _what_about(ws: Workspace, now: float) -> Answer | None:
-    useful = [n for n in ws.neurons()
-              if n.kind in (Kind.FACT, Kind.EPISODE, Kind.LOOP) and n.text()]
+def _what_about(store: Store, ws: Workspace, text: str,
+                now: float) -> Answer | None:
+    topic = topic_of(text)
+    useful = _on_topic(store, topic, [
+        n for n in ws.neurons()
+        if n.kind in (Kind.FACT, Kind.EPISODE, Kind.LOOP) and n.text()])
     if not useful:
+        if topic:
+            return Answer(f"Nothing about {topic}, as far as I know.",
+                          "whatabout", [])
         return Answer("Nothing on that, as far as I know.", "whatabout", [])
     facts = [n for n in useful if n.kind is Kind.FACT]
     if facts:
