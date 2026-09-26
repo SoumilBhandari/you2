@@ -296,8 +296,13 @@ def test_a_broken_chain_retires_even_though_most_premises_survive(store):
                if n.meta.get("derived")]
     assert len(derived) == 1, "the chain should compile exactly once"
 
+    # Superseded by something *outside* the derivation. Replacing it with
+    # another link of the same chain would be the arc pattern — "was B, now
+    # C" — where a dead premise is the content of the claim rather than a
+    # hole in it, and is correctly exempt.
+    replacement = store.add(Neuron(kind=Kind.ENTITY, content="the Kestrel rebuild"))
     b.invalid_at = at
-    b.superseded_by = a.id
+    b.superseded_by = replacement.id
     store.save(b)
     tms.invalidate(store, b.id, at)
 
@@ -327,3 +332,32 @@ def test_evidence_still_survives_losing_one_of_several(store):
     survivor = store.get(fact.id)
     assert survivor.is_live
     assert survivor.confidence < 0.9, "weakened rather than retired"
+
+
+def test_a_claim_about_a_change_is_not_broken_by_the_change(store):
+    """"Was dairy milk, now oat milk" takes both versions as premises, and the
+    older one being dead is the whole content of the claim rather than a hole
+    in it. Treating every dead rule-premise as a broken link flagged every arc
+    claim the system produces — 228 nights out of a simulated year. An
+    invariant that fires constantly teaches people to ignore it."""
+    from you2.inference import tms
+
+    now = store.clock.now()
+    old = store.add(Neuron(kind=Kind.FACT, key="user/pref_milk",
+                           content="the user prefers dairy milk"))
+    new = store.add(Neuron(kind=Kind.FACT, key="user/pref_milk",
+                           content="the user prefers oat milk now"))
+    old.invalid_at = now
+    old.superseded_by = new.id
+    store.save(old)
+
+    arc = store.add(Neuron(
+        kind=Kind.FACT, key="derived/arc", content='was "dairy milk", now "oat milk"',
+        meta={"derived": True, "derived_from": [new.id, old.id],
+              "cites": [new.id, old.id]}))
+    for premise in (new.id, old.id):
+        store.connect(arc.id, premise, Edge.SUPPORTS, 0.85, at=now)
+
+    tms.invalidate(store, old.id, now)
+    assert store.get(arc.id).is_live, "the change claim is about the change"
+    assert tms.audit(store) == []
