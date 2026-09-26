@@ -64,21 +64,50 @@ def premises(n: Neuron) -> list[int]:
     return list(dict.fromkeys(out))
 
 
-def _required(n: Neuron, premise_id: int) -> bool:
+def _derived_from(n: Neuron) -> set[int]:
+    out: set[int] = set()
+    for raw in (n.meta.get("derived_from") or []):
+        try:
+            out.add(int(raw))
+        except (TypeError, ValueError):
+            continue
+    return out
+
+
+def _required(store: Store, n: Neuron, premise_id: int) -> bool:
     """Is this premise load-bearing, or one piece of evidence among several?
 
     `derived_from` is a rule's premise set and every member is necessary —
     a transitive chain is only as good as its weakest link, literally.
     `cites` is evidence for an extracted claim, and evidence is redundant by
     nature.
+
+    One exception, and it is not a special case so much as the definition
+    working correctly. A claim about a *change* — "was dairy milk, now oat
+    milk" — takes both versions as premises, and the older one being dead is
+    the whole content of the claim rather than a hole in it. So a premise
+    superseded **by another premise of the same derivation** is not a broken
+    link. Without this the stricter audit flags every arc claim the system
+    produces, which is 228 nights out of a simulated year: an invariant that
+    fires constantly teaches people to ignore it.
     """
-    for raw in (n.meta.get("derived_from") or []):
-        try:
-            if int(raw) == premise_id:
-                return True
-        except (TypeError, ValueError):
-            continue
-    return False
+    return premise_id in _derived_from(n) and not about_the_change(
+        store, n, premise_id)
+
+
+def about_the_change(store: Store, n: Neuron, premise_id: int) -> bool:
+    """Is this derivative *about* the supersession that just happened?
+
+    True when the premise was replaced by another premise of the same
+    derivation — the signature of an arc claim, "was X, now Y". Those two
+    facts are its subject, so the older one dying is what makes the claim
+    true rather than what breaks it.
+    """
+    kin = _derived_from(n)
+    if premise_id not in kin:
+        return False
+    premise = store.get(premise_id)
+    return premise is not None and premise.superseded_by in kin
 
 
 def dependents(store: Store, neuron_id: int) -> list[Neuron]:
@@ -120,6 +149,14 @@ def invalidate(store: Store, root_id: int, now: float, *,
                 continue
             seen.add(dependent.id)
 
+            if about_the_change(store, dependent, node_id):
+                # "Was dairy milk, now oat milk." This derivative exists
+                # *because* of the supersession, so it survives it untouched
+                # — and it cannot be rescued by the redundancy rule below,
+                # which needs two live premises and an arc claim only ever
+                # has one.
+                continue
+
             all_premises = premises(dependent)
             live_premises = [p for p in all_premises
                              if p != node_id and _is_live(store, p)]
@@ -140,7 +177,7 @@ def invalidate(store: Store, root_id: int, now: float, *,
             #
             # The two cases are already distinguishable: `derived_from` is a
             # rule's premise set, `cites` is evidence.
-            survives = (_required(dependent, node_id) is False
+            survives = (_required(store, dependent, node_id) is False
                         and len(live_premises) >= 2
                         and len(live_premises) >= 0.5 * max(1, len(all_premises)))
             if survives:
@@ -203,7 +240,7 @@ def audit(store: Store) -> list[int]:
     bad: list[int] = []
     for kind in DERIVATIVE_KINDS:
         for n in store.by_kind(kind, limit=5000, live_only=True):
-            required = [p for p in premises(n) if _required(n, p)]
+            required = [p for p in premises(n) if _required(store, n, p)]
             if required and not all(_is_live(store, p) for p in required):
                 bad.append(n.id)
                 continue
