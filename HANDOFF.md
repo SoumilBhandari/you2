@@ -71,7 +71,7 @@ python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
 this runs on a 2 GB Pi beside an audio stack, and every import costs RSS.
 
 ```bash
-.venv/bin/pytest                      # 277 tests. ~4 min (the eval tests dominate)
+.venv/bin/pytest                      # 279 tests. ~4 min (the eval tests dominate)
 .venv/bin/pytest --ignore=tests/test_eval.py   # ~25 s, what you want while iterating
 
 .venv/bin/you2 demo                   # seed a month of life, open the eye
@@ -96,7 +96,7 @@ deterministic model; without an API key it runs offline and says so.
 
 ## Current state
 
-**Everything in `docs/brain.md` phases 1–9 is built and tested.** 277 tests,
+**Everything in `docs/brain.md` phases 1–9 is built and tested.** 279 tests,
 offline, deterministic, no network or model downloads.
 
 | file | tests | covers |
@@ -129,7 +129,10 @@ built around and it is cheap to actually ask:
 
 | day | precision | focus | diversity | stale | neurons | live facts | edges |
 |---|---|---|---|---|---|---|---|
-| 730 | **1.00** | 0.92 | 0.68 | **0.00** | 2,070 | 14 | 2,920 |
+| 730 | **1.00** | 0.91 | 0.68 | **0.00** | 2,077 | 11 | 2,743 |
+
+On disk that is **8.9 MB**, which is the number that settles the storage
+question the whole design rests on.
 
 Precision *rises* with elapsed time, superseded values never reach the block,
 and after two years of daily use the store is 2,070 neurons holding 14 live
