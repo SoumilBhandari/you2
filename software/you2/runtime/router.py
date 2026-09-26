@@ -20,6 +20,8 @@ from dataclasses import dataclass, field
 from ..activation.workspace import Workspace
 from ..clock import DAY, HOUR, MINUTE, Clock, human
 from ..config import BrainConfig
+from typing import Sequence
+
 from ..recall.answer import answer as answer_from_memory, answerable
 from ..substrate.store import Store
 
@@ -68,7 +70,8 @@ class Router:
         return fired
 
     def route(self, store: Store, text: str, ws: Workspace | None,
-              cfg: BrainConfig, now: float | None = None) -> Routed:
+              cfg: BrainConfig, now: float | None = None,
+              recent: "Sequence[str]" = ()) -> Routed:
         now = now if now is not None else self.clock.now()
 
         if _TIME.search(text):
@@ -97,7 +100,7 @@ class Router:
         # Memory-answerable. The fastest path in the system, and the one that
         # keeps working with no network.
         if ws is not None and answerable(text):
-            found = answer_from_memory(store, ws, text, cfg, now)
+            found = answer_from_memory(store, ws, text, cfg, now, recent)
             if found is not None:
                 return Routed(True, found.text, f"memory:{found.kind}", found.cites)
 
