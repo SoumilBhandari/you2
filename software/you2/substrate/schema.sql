@@ -52,6 +52,11 @@ CREATE INDEX IF NOT EXISTS ix_neurons_created     ON neurons(created_at);
 CREATE INDEX IF NOT EXISTS ix_neurons_access      ON neurons(last_access);
 CREATE INDEX IF NOT EXISTS ix_neurons_session     ON neurons(session_id);
 CREATE INDEX IF NOT EXISTS ix_neurons_kind_tier   ON neurons(kind, tier);
+-- Ambient priming runs `kind = EPISODE ORDER BY created_at DESC LIMIT 12` on
+-- **every turn**. With separate indexes on kind and created_at, SQLite picks
+-- one and sorts the rest: 56 ms at 100k episodes, in a hot path budgeted for
+-- under a second end to end. The composite makes it a 12-row index scan.
+CREATE INDEX IF NOT EXISTS ix_neurons_kind_created ON neurons(kind, created_at);
 -- Fact identity: the lookup that makes supersession possible.
 CREATE INDEX IF NOT EXISTS ix_neurons_key         ON neurons(key) WHERE key IS NOT NULL;
 -- Replay sampling scans this.
