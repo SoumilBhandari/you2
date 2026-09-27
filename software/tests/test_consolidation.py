@@ -572,3 +572,55 @@ def test_blocking_does_not_reach_across_different_outcomes(store):
     b = Pattern(context="it_is_tuesday", outcome="ran_late", lift=2.5, n=6,
                 span_days=50.0, base_rate=0.2, conditional=0.5, cites=[1, 2, 3])
     assert len(block([a, b])) == 2
+
+
+def test_compaction_re_embeds_or_the_block_fills_with_one_sentence(store):
+    """Compaction blanks `content` and lets the episode render as its batch
+    `gist` — and every episode of a batch shares one gist. Left un-re-embedded
+    the vectors still describe the *deleted* text, which breaks two things at
+    once.
+
+    N compacted episodes render as N identical lines while their stale
+    vectors sit 0.41–0.47 apart, so lateral inhibition is structurally unable
+    to see the duplicates: the block gets the same sentence four times. And
+    the episode stays retrievable by the exact words that were just deleted —
+    it answers to "Marta draft" and then renders as a generic gist, which is
+    worse than not answering at all.
+
+    Found by the multi-agent audit, and it is a door the earlier
+    inhibition fix cannot close: that one relies on similarity reaching 1.0.
+    """
+    now = store.clock.now()
+    hub = store.add(Neuron(kind=Kind.ENTITY, content="the Kestrel migration")).id
+    ids = []
+    for said in ("spoke to Marta about the Kestrel migration for a while",
+                 "Priya sent over the latest Kestrel migration draft",
+                 "had a look at the Kestrel migration this evening"):
+        n = store.add(Neuron(kind=Kind.EPISODE, content=said, tier=Tier.COLD,
+                             created_at=now - 500 * DAY,
+                             last_access=now - 500 * DAY))
+        n.gist = "kestrel migration, test team, drafts"
+        n.absorbed = True
+        store.save(n)
+        store.connect(hub, n.id, Edge.ASSOC, 0.95, at=now)
+        ids.append(n.id)
+    store.flush()
+    assert forgetting.compact(store, store.cfg, now).compacted == len(ids)
+    store.flush()
+
+    # Reactivated the way any later mention would reactivate them.
+    for nid in ids:
+        n = store.get(nid)
+        n.last_access = now - DAY
+        n.storage_strength = 2.0
+        store.save(n)
+    store.flush()
+
+    ws = recall(store, "kestrel migration test team drafts", now=now)
+    lines = [i.line for i in ws.items]
+    assert len(lines) == len(set(lines)), lines
+
+    # And it must no longer answer to the words it no longer holds.
+    stale = recall(store, "Marta draft", now=now)
+    assert not [i for i in stale.items
+                if "kestrel migration, test team" in i.line]
