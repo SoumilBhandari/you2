@@ -164,7 +164,20 @@ def compact(store: Store, cfg: BrainConfig, now: float) -> Forgetting:
         out.bytes_freed += len(n.content)
         n.content = ""
         n.meta["compacted_at"] = now
-        store.save(n)
+        # Re-embed, because the neuron no longer says what its vector says.
+        #
+        # Two failures came from leaving it. A compacted episode stayed
+        # retrievable by the exact words that had just been deleted — it
+        # answers to "Marta draft" and then renders as a generic gist, which
+        # is worse than not answering. And every episode of a batch shares
+        # one gist, so N compacted episodes render as N identical lines while
+        # their stale vectors sit 0.41-0.47 apart: lateral inhibition is
+        # structurally unable to see the duplicates, and the block fills with
+        # the same sentence four times.
+        #
+        # Re-embedding makes the duplicates identical *to the mechanism that
+        # exists to remove them*, which is the whole fix.
+        store.save(n, reembed=True)
         out.compacted += 1
     if out.compacted:
         store.log("compaction", out.as_dict())
