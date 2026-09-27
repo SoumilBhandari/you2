@@ -278,3 +278,54 @@ def test_the_hot_path_does_not_slow_down_as_the_store_grows(tmp_path):
     # A 10x larger store must not cost 10x. Generous on purpose — this is a
     # guard against a missing index, not a benchmark.
     assert timings[20_000] < timings[2_000] * 3, timings
+
+
+def test_forget_that_actually_forgets(tmp_path):
+    """The only promise this device makes, and it was leaking in three places.
+
+    Entombing an episode cascaded to facts and stopped. The **entity**
+    extracted from it survived — with the most sensitive word in the
+    utterance as its name, aliased and searchable. The batch **gist** is
+    shared by every episode of a replay batch, so the deleted words sat in
+    its batch-mates' gist column. And `sessions.summary` and the consolidate
+    **journal** each held a copy.
+
+    Someone says "my HIV test came back positive", then "forget that", and
+    the word was still in four places. Found by the multi-agent audit.
+    """
+    import re
+
+    from you2.llm import FakeLLM
+    from you2.runtime.pipeline import Brain
+
+    cfg = BrainConfig(db_path=str(tmp_path / "b.db"))
+    brain = Brain(cfg, clock=SimClock(), llm=FakeLLM(),
+                  embedder=HashEmbedder(dim=cfg.embed_dim))
+    for said in ("I had lunch with David Anderson about the Kestrel contract",
+                 "my HIV test came back positive last Tuesday",
+                 "David Anderson sent the revised numbers"):
+        brain.clock.advance(hours=5)
+        brain.say(said, now=brain.clock.now())
+    brain.close(brain.clock.now())
+    brain.clock.advance(hours=10)
+    brain.night(now=brain.clock.now(), seed=1)
+
+    victim = next(n for n in brain.store.by_kind(Kind.EPISODE, limit=20,
+                                                 live_only=False)
+                  if "HIV" in n.content)
+    brain.store.entomb(victim.id)
+    brain.store.flush()
+
+    leak = re.compile(r"\bhiv\b|\bpositive\b", re.IGNORECASE)
+    tables = [r[0] for r in brain.store.conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table'")]
+    for table in tables:
+        for row in brain.store.conn.execute(f"SELECT * FROM {table}"):
+            assert not leak.search(str(tuple(row))), (table, tuple(row))
+
+    # And nothing else went with it: an entity named in surviving memories is
+    # not the user's to lose.
+    alive = {n.content for n in brain.store.by_kind(Kind.ENTITY, limit=20)}
+    assert "David Anderson" in alive
+    assert brain.store.count(Kind.EPISODE, live_only=True) == 2
+    brain.close_store()
