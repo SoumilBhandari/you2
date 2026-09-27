@@ -280,6 +280,11 @@ class Store:
         has to mean the derived claims too, and provenance is what makes that
         traceable.
         """
+        victim = self.get(neuron_id)
+        said = (victim.content or "") if victim else ""
+        gist = (victim.gist or "") if victim else ""
+        session = victim.session_id if victim else None
+
         killed = [neuron_id]
         if cascade:
             for fact in self.by_kind(Kind.FACT, limit=100000, live_only=False):
@@ -287,13 +292,19 @@ class Store:
                     remaining = [c for c in fact.citations() if c != neuron_id]
                     if not remaining:
                         killed.append(fact.id)
+            killed.extend(self._orphaned_entities(killed))
         for nid in killed:
             self.conn.execute(
                 "UPDATE neurons SET tier='tomb', content='', gist=NULL, meta=NULL "
                 "WHERE id=?", (nid,))
             self.conn.execute("DELETE FROM edges WHERE src=? OR dst=?", (nid, nid))
+            # Aliases are a separate table and a separate index. Leaving them
+            # behind leaves the name itself resolvable.
+            self.conn.execute("DELETE FROM aliases WHERE neuron_id=?", (nid,))
             self.vectors.drop(nid)
             self.soma.pop(nid, None)
+        self._alias_cache = None
+        self._scrub(said, gist, session)
         self.log("entomb", {"root": neuron_id, "removed": killed})
         # Deleting a memory has to reach the conclusions drawn from it, or
         # "forget that" leaves a derivative behind that still asserts it.
@@ -301,6 +312,96 @@ class Store:
         for nid in list(killed):
             invalidate(self, nid, self.clock.now(), reason="entombed")
         return killed
+
+    def _scrub(self, said: str, gist: str, session: str | None) -> None:
+        """Remove derived text that was computed *from* the deleted memory.
+
+        A gist is written per replay batch and shared by every episode in it,
+        so the deleted episode's words end up in its batch-mates' `gist`
+        column, in `sessions.summary`, and in the `consolidate` journal entry.
+        Someone says "my HIV test came back positive", then "forget that", and
+        the word is still in three places.
+
+        Nulling rather than rewriting: a gist is derived and the next night
+        re-derives it. Losing one costs a retrieval handle for a day. Keeping
+        one costs the only promise this device makes.
+        """
+        if gist:
+            self.conn.execute("UPDATE neurons SET gist=NULL WHERE gist=?", (gist,))
+        if session:
+            self.conn.execute(
+                "UPDATE sessions SET summary=NULL WHERE id=?", (session,))
+
+        # Session id alone is not enough: a replay batch can span sessions,
+        # and `consolidate` writes the batch gist to the *first* episode's
+        # session. So the summary carrying the deleted words is often filed
+        # under a session the deleted episode was never part of.
+        #
+        # Scrub by content instead, on exactly the words only this memory
+        # contributed — a word that survives elsewhere is not this memory's
+        # to erase.
+        from .embed import tokenize
+        mine = set(tokenize(said)) | set(tokenize(gist))
+        if mine:
+            for row in self.conn.execute(
+                    "SELECT content, gist FROM neurons WHERE tier != 'tomb'"):
+                mine -= set(tokenize(row["content"] or ""))
+                if not mine:
+                    break
+        for word in list(mine)[:40]:
+            self.conn.execute(
+                "UPDATE sessions SET summary=NULL WHERE instr(summary, ?) > 0",
+                (word,))
+        for needle in (t for t in (said, gist) if t):
+            self.conn.execute(
+                "DELETE FROM journal WHERE instr(payload, ?) > 0", (needle,))
+            # A journal payload holds a truncated copy, so the head of the
+            # utterance has to be matched too.
+            head = needle[:60]
+            if len(head) >= 12:
+                self.conn.execute(
+                    "DELETE FROM journal WHERE instr(payload, ?) > 0", (head,))
+
+    def _orphaned_entities(self, killed: Sequence[int]) -> list[int]:
+        """Entities that exist only because of the memory being deleted.
+
+        "Forget that" cascaded to facts and stopped there, so the entity
+        extracted from the episode survived — with the most sensitive word in
+        the utterance as its name, searchable, aliased, and ready to
+        accumulate. Someone says "my HIV test came back positive" and then
+        "forget that", and a node called HIV is what remains.
+
+        An entity named in other live memories is not the user's to lose and
+        stays. One with nothing left attached is a fragment of the deleted
+        memory wearing a label.
+        """
+        dying = set(killed)
+        orphans: list[int] = []
+        about = list(Edge).index(Edge.ABOUT)
+        candidates: set[int] = set()
+        for nid in dying:
+            for other, weight, code, _back in self.graph.neighbours(nid):
+                if weight <= 0.0 or code != about:
+                    continue
+                soma = self.soma.get(other)
+                if soma is not None and soma.kind is Kind.ENTITY:
+                    candidates.add(other)
+        carriers = (Kind.EPISODE, Kind.FACT, Kind.LOOP, Kind.INSIGHT)
+        for entity_id in candidates:
+            survives = False
+            for other, weight, code, _back in self.graph.neighbours(entity_id):
+                if weight <= 0.0 or other in dying:
+                    continue
+                soma = self.soma.get(other)
+                if soma is None or soma.kind not in carriers:
+                    continue
+                n = self.get(other)
+                if n is not None and n.tier is not Tier.TOMB:
+                    survives = True
+                    break
+            if not survives:
+                orphans.append(entity_id)
+        return orphans
 
     # -------------------------------------------------------------- aliases
 
