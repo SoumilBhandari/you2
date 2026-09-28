@@ -346,7 +346,12 @@ ABLATIONS: dict[str, dict[str, Any]] = {
     "no-fan-effect": {"fan_dampening": 0.0},
     "no-base-level": {"base_decay": 0.0},
     "top-k-only": {"spread_decay": 0.0, "max_hops": 0},
-    "uncapped-block": {"workspace_tokens": 4000, "workspace_max_items": 40},
+    # Split, because raising both together credits the token budget for what
+    # the item cap does. Measured: 400 -> 4000 tokens changes *nothing* (132
+    # tokens used either way), while 12 -> 40 items takes the block to 251.
+    # The workspace capacity is the item cap; the token budget never binds.
+    "uncapped-tokens": {"workspace_tokens": 4000},
+    "uncapped-items": {"workspace_max_items": 40},
     "no-salience-gate": {"salience_floor": 0.0},
 }
 
