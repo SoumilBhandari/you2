@@ -72,6 +72,7 @@ class Store:
         #: updated in exactly the three places that write neurons.
         self.soma: dict[int, Soma] = {}
         self.load()
+        self._check_embedder()
 
     # ------------------------------------------------------------ lifecycle
 
@@ -361,6 +362,58 @@ class Store:
             if len(head) >= 12:
                 self.conn.execute(
                     "DELETE FROM journal WHERE instr(payload, ?) > 0", (head,))
+
+    def _check_embedder(self) -> None:
+        """Refuse to mix two vector spaces in one index.
+
+        The only guard in `VectorIndex.load()` is dimensionality, and that
+        does not discriminate: `HashEmbedder` and MiniLM-L6-v2 are both 384.
+        So swapping the embedder — HANDOFF's own next-work item, described as
+        a one-line change — would leave every existing neuron holding a hash
+        vector while every new query landed in MiniLM space, with cosine
+        between them meaning nothing. Cue seeding, surprise, novelty, the 0.80
+        inhibition radius and the entity-resolution floor would all degrade at
+        once, in a way almost impossible to attribute.
+
+        Re-embedding rather than refusing to open, because a memory device
+        that will not start is worse than one that spends a few seconds
+        rebuilding an index it can rebuild exactly.
+        """
+        from .embed import fingerprint
+
+        try:
+            current = fingerprint(self.embedder)
+        except Exception:                              # noqa: BLE001
+            return
+        row = self.conn.execute(
+            "SELECT v FROM meta WHERE k='embedder'").fetchone()
+        stored = row["v"] if row else None
+        if stored == current:
+            return
+        if stored is not None and len(self.soma):
+            self.reembed_all()
+            self.log("embedder_changed", {"from": stored, "to": current})
+        self.conn.execute(
+            "INSERT INTO meta(k, v) VALUES('embedder', ?) "
+            "ON CONFLICT(k) DO UPDATE SET v=excluded.v", (current,))
+
+    def reembed_all(self, batch: int = 512) -> int:
+        """Recompute every stored vector from the text it describes."""
+        done = 0
+        rows = self.conn.execute(
+            "SELECT id FROM neurons WHERE tier != 'tomb'").fetchall()
+        ids = [int(r["id"]) for r in rows]
+        for start in range(0, len(ids), batch):
+            for nid in ids[start:start + batch]:
+                n = self.get(nid)
+                if n is None:
+                    continue
+                text = n.text()
+                if text.strip():
+                    self.vectors.put(nid, self.embed(text))
+                    done += 1
+        self.conn.commit()
+        return done
 
     def _orphaned_entities(self, killed: Sequence[int]) -> list[int]:
         """Entities that exist only because of the memory being deleted.
