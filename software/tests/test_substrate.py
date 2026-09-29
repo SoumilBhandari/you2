@@ -329,3 +329,51 @@ def test_forget_that_actually_forgets(tmp_path):
     assert "David Anderson" in alive
     assert brain.store.count(Kind.EPISODE, live_only=True) == 2
     brain.close_store()
+
+
+def test_swapping_the_embedder_does_not_silently_mix_vector_spaces(tmp_path):
+    """Dimensionality is not an identity. `HashEmbedder` and MiniLM-L6-v2 are
+    both 384, and the only guard in `VectorIndex.load()` is `dim != self.dim`
+    — so it does not discriminate between them at all.
+
+    Two ways that bites, and the second needs no intent. Swapping to
+    `OnnxEmbedder` — HANDOFF's own next-work item, described as a one-line
+    change — would leave every existing neuron holding a hash vector while
+    every new query landed in MiniLM space. And `get_embedder` falls back to
+    the hash embedder whenever the ONNX runtime cannot load, so a Pi whose
+    model directory is missing after a re-flash starts writing hash vectors
+    into a MiniLM store.
+
+    Either way cosine between the two spaces is noise, and cue seeding,
+    surprise, novelty, the 0.80 inhibition radius and the entity-resolution
+    floor all degrade at once — in a way almost impossible to attribute.
+
+    Found by the multi-agent audit, which proposed exactly this assertion.
+    """
+    import numpy as np
+
+    from you2.substrate.embed import fingerprint
+
+    class Rolled(HashEmbedder):
+        """A different 384-d space. Indistinguishable by the old check."""
+
+        def encode(self, texts):
+            return np.roll(super().encode(texts), 7, axis=1)
+
+    cfg = BrainConfig(db_path=str(tmp_path / "b.db"))
+    first, second = HashEmbedder(dim=cfg.embed_dim), Rolled(dim=cfg.embed_dim)
+    assert first.dim == second.dim
+    assert fingerprint(first) != fingerprint(second)
+
+    store = Store(cfg, SimClock(), first)
+    said = "the garden wall needs rebuilding before winter"
+    for text in (said, "I prefer oat milk", "lunch with David Anderson"):
+        store.add(Neuron(kind=Kind.EPISODE, content=text))
+    store.flush()
+    store.close()
+
+    reopened = Store(cfg, SimClock(), second)
+    hits = reopened.search(said, k=1)
+    assert hits and hits[0][1] >= 0.99, hits
+    assert reopened.journal("embedder_changed", limit=2)
+    reopened.close()
