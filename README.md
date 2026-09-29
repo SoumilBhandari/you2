@@ -34,7 +34,7 @@ That last step is the one nobody does, and it's why every "AI with memory" degra
 
 See [diagrams/architecture.svg](diagrams/architecture.svg) for the whole picture, and **[docs/design.md](docs/design.md) for the complete design document** — self-contained, everything in one place.
 
-Picking this up cold? **[HANDOFF.md](HANDOFF.md)** — what exists, what doesn't, and what will bite you.
+Picking this up cold? **[HANDOFF.md](HANDOFF.md)** for the software and **[handoff_hardware.md](handoff_hardware.md)** for the object — what exists, what doesn't, and what will bite you.
 
 ---
 
@@ -152,7 +152,7 @@ You2/
 ├── docs/           design.md (read this first) · architecture · bill of materials
 ├── HANDOFF.md      current state, gaps, and the traps — read this first
 ├── deploy/         flash a card that boots straight into the eye
-├── hardware/       wiring, pinouts, assembly
+├── hardware/       wiring, assembly, and what to measure before you buy
 └── software/       the brain, the ears, and the eye
 ```
 
