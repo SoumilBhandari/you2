@@ -4,9 +4,14 @@
 Written 9 August 2026.*
 
 This is the **operational** state: what exists, what works, what doesn't, and
-what will bite you. It is not the design — that is
+what will bite you. For `software/` in detail — current numbers, what the
+last session changed and why, and what is still in flight — see
+**[handoff_software.md](handoff_software.md)**. It is not the design — that is
 **[docs/brain.md](docs/brain.md)**, and you should read at least §1 and §17
 before changing anything in `software/`.
+
+**This file is the software half.** The physical object has its own handoff:
+**[HANDOFF_HARDWARE.md](HANDOFF_HARDWARE.md)**.
 
 ---
 
