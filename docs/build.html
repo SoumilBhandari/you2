@@ -1,0 +1,367 @@
+<title>You2 — build document, rev D</title>
+<style>
+:root{
+  --paper:#F4F3EF; --card:#FFFFFF; --plate:#1D2226; --rule:#DEDCD4; --rule-2:#EBE9E2;
+  --ink:#16191C; --ink-2:#4C535A; --ink-3:#838B92;
+  --teal:#2C7A70; --brass:#8C6D1F; --oxide:#A4392A; --ok:#3F7A46;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --paper:#101315; --card:#171B1E; --plate:#0A0D0F; --rule:#282E33; --rule-2:#1E2428;
+         --ink:#E9EDEA; --ink-2:#A6AFB4; --ink-3:#748088;
+         --teal:#6FC0B3; --brass:#C8A64F; --oxide:#DE7361; --ok:#79C182; }
+}
+:root[data-theme="dark"]{ --paper:#101315; --card:#171B1E; --plate:#0A0D0F; --rule:#282E33; --rule-2:#1E2428;
+  --ink:#E9EDEA; --ink-2:#A6AFB4; --ink-3:#748088;
+  --teal:#6FC0B3; --brass:#C8A64F; --oxide:#DE7361; --ok:#79C182; }
+:root[data-theme="light"]{ --paper:#F4F3EF; --card:#FFFFFF; --plate:#1D2226; --rule:#DEDCD4; --rule-2:#EBE9E2;
+  --ink:#16191C; --ink-2:#4C535A; --ink-3:#838B92;
+  --teal:#2C7A70; --brass:#8C6D1F; --oxide:#A4392A; --ok:#3F7A46; }
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:16.5px;
+     line-height:1.6;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1040px;margin:0 auto;padding:0 clamp(16px,4vw,36px) 110px}
+h1{font-size:clamp(34px,5.6vw,54px);line-height:1.03;letter-spacing:-.033em;font-weight:800;margin:0 0 14px;text-wrap:balance}
+h2{font-size:15px;font-family:var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--teal);
+   font-weight:600;margin:0 0 4px}
+h3{font-size:25px;letter-spacing:-.02em;font-weight:750;margin:0 0 18px;text-wrap:balance}
+h4{font-size:14.5px;letter-spacing:.03em;font-weight:750;margin:30px 0 10px;text-transform:uppercase;color:var(--ink-2)}
+p{margin:0 0 15px;max-width:70ch}
+a{color:var(--teal)}
+code,.m{font-family:var(--mono);font-size:.87em;font-variant-numeric:tabular-nums}
+code{background:color-mix(in srgb,var(--teal) 11%,transparent);padding:.1em .36em;border-radius:2px}
+hr{border:0;border-top:1px solid var(--rule);margin:52px 0}
+
+header{padding:60px 0 26px;border-bottom:3px solid var(--ink);margin-bottom:40px}
+.eyebrow{font-family:var(--mono);font-size:11.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-3);margin:0 0 20px}
+.lede{font-size:19px;color:var(--ink-2);max-width:62ch;margin:0 0 28px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:0;border-top:1px solid var(--rule)}
+.stats div{padding:12px 16px 12px 0;border-right:1px solid var(--rule);font-family:var(--mono);font-size:11.5px;
+           letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3)}
+.stats div:last-child{border-right:0}
+.stats b{display:block;font-size:19px;letter-spacing:-.02em;color:var(--ink);text-transform:none;font-weight:650;
+         font-variant-numeric:tabular-nums;margin-top:3px}
+
+section{margin-bottom:56px;scroll-margin-top:20px}
+.toc{background:var(--card);border:1px solid var(--rule);border-radius:4px;padding:20px 24px;margin-bottom:52px}
+.toc ol{margin:0;padding-left:20px;columns:2;column-gap:36px;font-size:15px}
+.toc li{margin:4px 0;break-inside:avoid}
+@media (max-width:620px){ .toc ol{columns:1} }
+
+figure{margin:0 0 14px}
+.plate{background:var(--plate);border:1px solid var(--rule);border-radius:4px;overflow:hidden}
+.plate img{display:block;width:100%;height:auto}
+figcaption{font-family:var(--mono);font-size:11.5px;line-height:1.5;color:var(--ink-3);padding:9px 2px 0}
+figcaption b{color:var(--ink);text-transform:uppercase;letter-spacing:.05em;font-size:10.5px}
+.duo{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.trio{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+@media (max-width:760px){ .duo,.trio{grid-template-columns:1fr} }
+
+.tw{overflow-x:auto;margin:0 0 16px;border-top:2px solid var(--ink)}
+table{border-collapse:collapse;width:100%;font-size:14.5px;min-width:520px}
+th{text-align:left;font-family:var(--mono);font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;
+   color:var(--ink-3);font-weight:600;padding:11px 16px 11px 0;border-bottom:1px solid var(--rule);white-space:nowrap}
+td{padding:11px 16px 11px 0;border-bottom:1px solid var(--rule-2);vertical-align:top}
+tbody tr:last-child td{border-bottom:1px solid var(--rule)}
+td.n,th.n{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right;padding-right:0}
+td.q{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--ink-2)}
+tfoot td{font-weight:700;border-bottom:0;padding-top:13px}
+.tag{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;font-weight:700;
+     padding:2px 7px;border-radius:2px;white-space:nowrap;display:inline-block}
+.tag.need{background:color-mix(in srgb,var(--oxide) 15%,transparent);color:var(--oxide)}
+.tag.opt{background:color-mix(in srgb,var(--ink-3) 18%,transparent);color:var(--ink-2)}
+.tag.print{background:color-mix(in srgb,var(--teal) 16%,transparent);color:var(--teal)}
+
+.note{border-left:3px solid var(--teal);padding:1px 0 1px 18px;margin:0 0 20px;color:var(--ink-2)}
+.note strong{color:var(--ink)}
+.warn{border-left:3px solid var(--oxide);padding:1px 0 1px 18px;margin:0 0 20px;color:var(--ink-2)}
+.warn strong{color:var(--oxide)}
+
+ol.steps{list-style:none;counter-reset:s;padding:0;margin:0}
+ol.steps>li{counter-increment:s;display:grid;grid-template-columns:36px 1fr;gap:16px;padding:15px 0;
+            border-bottom:1px solid var(--rule-2)}
+ol.steps>li::before{content:counter(s);font-family:var(--mono);font-size:12px;color:var(--teal);font-weight:700;
+                    padding-top:.28em;font-variant-numeric:tabular-nums}
+ol.steps b{display:block;margin-bottom:3px;letter-spacing:-.01em}
+ol.steps span{color:var(--ink-2);font-size:15px}
+ul.plain{margin:0 0 16px;padding-left:20px}
+ul.plain li{margin:5px 0;color:var(--ink-2)}
+ul.plain b{color:var(--ink)}
+footer{border-top:1px solid var(--rule);padding-top:22px;color:var(--ink-3);font-size:13.5px}
+</style>
+<div class="wrap">
+<header>
+  <p class="eyebrow">You2 · desk voice assistant · enclosure rev D · build document</p>
+  <h1>Everything you need to build it, and nothing you can't print.</h1>
+  <p class="lede">One ordinary FDM printer, a soldering iron, and a box of screws. No machined parts,
+  no laser cutting, and not one thread cut into plastic.</p>
+  <div class="stats">
+    <div>Size<b>152 × 150 × 192</b></div>
+    <div>Printed parts<b>11</b></div>
+    <div>Filament<b>674 g</b></div>
+    <div>Print plates<b>6</b></div>
+    <div>Fasteners<b>24 + 28</b></div>
+    <div>Parts total<b>≈ $351</b></div>
+  </div>
+</header>
+
+<div class="toc"><ol>
+  <li><a href="#object">The object</a></li>
+  <li><a href="#gate">Before you buy anything</a></li>
+  <li><a href="#printed">Printed parts</a></li>
+  <li><a href="#plates">The six print plates</a></li>
+  <li><a href="#settings">Print settings</a></li>
+  <li><a href="#elec">Electronics</a></li>
+  <li><a href="#fast">Fasteners and consumables</a></li>
+  <li><a href="#tools">Tools</a></li>
+  <li><a href="#assembly">Assembly</a></li>
+  <li><a href="#wiring">Wiring</a></li>
+  <li><a href="#cost">What it costs</a></li>
+  <li><a href="#unknown">What is still unknown</a></li>
+</ol></div>
+
+<section id="object">
+  <h2>01 / The object</h2>
+  <h3>A wedge with one round eye, sized by its parts</h3>
+  <p>A 22° raked face carries an 87.6 mm round display; the vertical skirt below it carries a
+  forward-firing driver; four microphones sit on the top surface as far from that driver as the box
+  allows. Everything vents out the back, because a vent on the front or top is a leak path from the
+  speaker straight into the microphones.</p>
+  <p>Nothing about the size was chosen. The display carrier sets the face length, the driver box sets
+  the skirt, the mic array sets the depth, and the fastener flange sets the width — the model derives
+  the rest and refuses to render if a measurement makes it unbuildable.</p>
+  <div class="note"><strong>Three gates run over this model, and they all pass.</strong>
+  <code>cad/check.py</code> proves every part is a single connected solid; <code>cad/fit.py</code>
+  proves no two parts occupy the same space; and fourteen asserts inside the model itself check the
+  things neither can see — that the display posts compress their gasket by 20 % rather than floating
+  above it, that the driver clamp has preload travel, that the microphone array lands on the top face
+  instead of overhanging its front edge, and that every plate still fits the bed. Between them they
+  caught twenty-three defects that renders did not show — including two Ø8 × 27 mm
+  horizontal cantilevers that would have needed support towers built from the bare bed inside a
+  sealed cavity, and a base-plate boss whose insert bore had no floor because the microSD window ran
+  underneath it.</div>
+  <div class="duo">
+    <figure><div class="plate"><img src="../cad/renders/revD/d-hero.png" alt="Assembled"></div><figcaption><b>Assembled</b> — The eye sits 2.2 mm behind a chamfered bezel, so the rim always touches first.</figcaption></figure>
+    <figure><div class="plate"><img src="../cad/renders/revD/d-exploded.png" alt="Exploded"></div><figcaption><b>Exploded</b> — Three structural prints, two clamps, two gaskets, two ballast pods, one foot.</figcaption></figure>
+  </div>
+  <div class="duo" style="margin-top:18px">
+    <figure><div class="plate"><img src="../cad/renders/revD/d-section.png" alt="Section"></div><figcaption><b>Section</b> — Ribs, the driver's seal land, the Pi turned so its short edge faces the rear window.</figcaption></figure>
+    <figure><div class="plate"><img src="../cad/renders/revD/d-rear.png" alt="Rear"></div><figcaption><b>Rear</b> — I/O window is the intake; both slot fields are exhaust. Needs ≥ 60 mm clearance behind.</figcaption></figure>
+  </div>
+</section>
+
+<hr>
+
+<section id="gate">
+  <h2>02 / Before you buy anything</h2>
+  <h3>Seven numbers, and one of them will be wrong</h3>
+  <p>Every dimension in the model came from a datasheet. Vendor listings for these parts are routinely
+  wrong, and the enclosure is derived from them — so a bad number does not cause a tolerance problem,
+  it causes a reprint of a 392 g part.</p>
+  <div class="tw"><table><thead><tr><th>Parameter</th><th class="q">Assumed</th><th>Why it matters</th></tr></thead><tbody>
+   <tr><td><code>mic_circle_d</code></td><td class="q">44.0 mm</td><td><b>Check this before you buy anything else.</b> Seeed describes the array as “44 mm spacing arranged in a circular layout”. If that means the pitch-circle diameter, the design works. If it means the <em>distance between adjacent capsules</em> — which is what “spacing” means on the linear-4 sibling — then the pitch circle is 44 × √2 = <b>62.2 mm</b>, and at that value <b>the model refuses to render</b>: the ports and their membrane counterbores fall 1.7 mm off the edge of a Ø73 PCB. That is not a tolerance problem, it is a different mic layout. Resolve it with calipers or an email before anything else.</td></tr>
+   <tr><td><code>disp_carrier</code></td><td class="q">115.0 mm</td><td>Sets the raked face length, which is 107 mm of the 190 mm height.</td></tr>
+   <tr><td><code>disp_panel_d</code> / <code>disp_active</code></td><td class="q">91.5 / 87.6</td><td>Two different numbers, and vendors quote whichever flatters. The bezel overlap <code>(panel − aperture)/2</code> is the only thing retaining the glass; if the panel is smaller than assumed, that goes to zero.</td></tr>
+   <tr><td><code>disp_hole_p</code></td><td class="q">105.0 mm</td><td>The carrier's own mounting-hole pitch. The display bolts straight to the faceplate on these.</td></tr>
+   <tr><td><code>spk_bx/by/bz</code></td><td class="q">50 × 45 × 22</td><td>The driver's height sets the 65 mm skirt. A shorter driver is the cheapest way to shrink the whole object.</td></tr>
+   <tr><td><code>spk_cone_d</code></td><td class="q">36 mm</td><td>The radiating diameter, not the box. Grille holes outside it are blocked and do nothing.</td></tr>
+   <tr><td><code>mic_pcb_d</code></td><td class="q">73.0 mm</td><td>With the rake, this sets the depth. 150 mm currently leaves 13 mm spare.</td></tr>
+  </tbody></table></div>
+  <div class="note"><strong>Print the faceplate first.</strong> It is 55 g and about 5 hours, and it is the
+  only part that touches the display. Four of the seven numbers above are confirmed or destroyed the
+  moment you offer the real panel up to it — for a fifteenth of the filament the shell would cost.</div>
+  <p>When you have measured, edit the parameters at the top of <code>cad/you2-revD.scad</code> and run
+  the gate. It checks that every part is still a single connected solid, which is the specific defect
+  that made the previous revision unbuildable:</p>
+  <p><code>python3 cad/check.py cad/you2-revD.scad</code></p>
+</section>
+
+<hr>
+
+<section id="printed">
+  <h2>03 / Printed parts</h2>
+  <h3>Ten parts, two materials, six plates</h3>
+  <div class="tw"><table><thead><tr><th>Part</th><th class="q">Qty</th><th class="q">Material</th><th class="q">Plate</th><th class="q">Size mm</th><th class="n">Mass</th></tr></thead><tbody><tr><td><b>shell</b><br><span style='color:var(--ink-2);font-size:13.5px'>The body. Prints top face down.</span></td><td class='q'>1</td><td class='q'>PETG</td><td class='q'>1</td><td class='q'>152×150×192</td><td class='n'>400 g</td></tr><tr><td><b>faceplate</b><br><span style='color:var(--ink-2);font-size:13.5px'>Holds the display and nothing else. The only part that touches the glass.</span></td><td class='q'>1</td><td class='q'>PETG</td><td class='q'>3</td><td class='q'>140×130×10</td><td class='n'>56 g</td></tr><tr><td><b>base</b><br><span style='color:var(--ink-2);font-size:13.5px'>Floor, Pi mount, ballast anchors, microSD slot, core-board tie slots.</span></td><td class='q'>1</td><td class='q'>PETG</td><td class='q'>2</td><td class='q'>145×143×10</td><td class='n'>92 g</td></tr><tr><td><b>mic clamp</b><br><span style='color:var(--ink-2);font-size:13.5px'>Presses the array onto its gasket directly over each of the four capsules.</span></td><td class='q'>1</td><td class='q'>PETG</td><td class='q'>3</td><td class='q'>104×76×3</td><td class='n'>11 g</td></tr><tr><td><b>driver clamp</b><br><span style='color:var(--ink-2);font-size:13.5px'>Presses the driver onto its gasket and seat, with 20 % squash.</span></td><td class='q'>1</td><td class='q'>PETG</td><td class='q'>2</td><td class='q'>78×16×4</td><td class='n'>5 g</td></tr><tr><td><b>ballast pod</b> <span class="tag opt">optional</span><br><span style='color:var(--ink-2);font-size:13.5px'>Optional. 63 cm³ each — ~101 g of dry sand, or ~283 g of steel shot.</span></td><td class='q'>2</td><td class='q'>PETG</td><td class='q'>4</td><td class='q'>22×96×40</td><td class='n'>49 g</td></tr><tr><td><b>ballast lid</b> <span class="tag opt">optional</span><br><span style='color:var(--ink-2);font-size:13.5px'>Press fit. Glue the seam.</span></td><td class='q'>2</td><td class='q'>PETG</td><td class='q'>4</td><td class='q'>18×92×2</td><td class='n'>7 g</td></tr><tr><td><b>mic gasket</b><br><span style='color:var(--ink-2);font-size:13.5px'>Seals four capsules to four ports AND decouples the array from the panel.</span></td><td class='q'>1</td><td class='q'>TPU</td><td class='q'>5</td><td class='q'>73×73×2</td><td class='n'>7 g</td></tr><tr><td><b>panel gasket</b><br><span style='color:var(--ink-2);font-size:13.5px'>Under the display flange, so printed plastic never point-loads the glass.</span></td><td class='q'>1</td><td class='q'>TPU</td><td class='q'>5</td><td class='q'>92×92×1</td><td class='n'>1 g</td></tr><tr><td><b>speaker gasket</b><br><span style='color:var(--ink-2);font-size:13.5px'>Between the driver face and its seat. Without it the driver is hard-mounted to the shell.</span></td><td class='q'>1</td><td class='q'>TPU</td><td class='q'>5</td><td class='q'>56×51×1</td><td class='n'>1 g</td></tr><tr><td><b>foot</b> <span class="tag opt">optional</span><br><span style='color:var(--ink-2);font-size:13.5px'>Optional. Bottom-edge bumper and feet. Silicone bumpers are the alternative.</span></td><td class='q'>1</td><td class='q'>TPU</td><td class='q'>6</td><td class='q'>158×156×8</td><td class='n'>45 g</td></tr></tbody><tfoot><tr><td>All printed parts</td><td class="q"></td><td class="q">PETG + TPU</td><td class="q">6 plates</td><td class="q"></td><td class="n">674 g</td></tr></tfoot></table></div>
+  <div class="note"><strong>Ballast, if you want it.</strong> The two pods hold 63 cm³ each. Dry sand is
+  ~101 g apiece, steel shot ~283 g. They use volume that is otherwise dead, cost no height, and put the
+  mass at the very bottom — which matters because the real cable-tug failure is the device <em>sliding</em>,
+  and slide force scales directly with weight. They are genuinely optional; skip plate 4 and nothing else
+  changes.</div>
+  <div class="note"><strong>Two-tone for free.</strong> Print the faceplate in black and the shell in a
+  light colour — or the reverse. It costs nothing but a filament change between plates and it does more
+  for how the object reads than any geometry change on this page.</div>
+</section>
+
+<hr>
+
+<section id="plates">
+  <h2>04 / The six print plates</h2>
+  <h3>Every plate fits a 220 × 220 bed, and none of them need support</h3>
+  <p>The shell is the whole trick: printed <b>top face down</b>, the bottom opening faces up so the
+  cavity has no ceiling, the raked face and skirt become steep self-supporting walls, and the four
+  microphone ports print crisp against the plate. Print it any other way and you bury support inside a
+  sealed box.</p>
+  <p>Bed contact is 145 cm², and the part widens as it rises — the top face is 152 × 92 mm and the
+  full section is 152 × 150 mm by two thirds height. Use a brim.</p>
+  <div class="trio">
+    <figure><div class="plate"><img src="../cad/renders/revD/d-plate1.png" alt="Plate 1 · shell"></div><figcaption><b>Plate 1 · shell</b> — PETG · 400 g · ~31 h · top face down</figcaption></figure>
+    <figure><div class="plate"><img src="../cad/renders/revD/d-plate2.png" alt="Plate 2 · base + driver clamp"></div><figcaption><b>Plate 2 · base + driver clamp</b> — PETG · 95 g · ~7 h</figcaption></figure>
+    <figure><div class="plate"><img src="../cad/renders/revD/d-plate3.png" alt="Plate 3 · faceplate + mic clamp"></div><figcaption><b>Plate 3 · faceplate + mic clamp</b> — PETG · 64 g · ~5 h · faceplate face-down</figcaption></figure>
+  </div>
+  <div class="trio" style="margin-top:16px">
+    <figure><div class="plate"><img src="../cad/renders/revD/d-plate4.png" alt="Plate 4 · ballast pods + lids"></div><figcaption><b>Plate 4 · ballast pods + lids</b> — PETG · 55 g · ~4 h · optional</figcaption></figure>
+    <figure><div class="plate"><img src="../cad/renders/revD/d-plate5.png" alt="Plate 5 · gaskets"></div><figcaption><b>Plate 5 · gaskets</b> — TPU 95A · 9 g · ~1 h · mic, panel and speaker</figcaption></figure>
+    <figure><div class="plate"><img src="../cad/renders/revD/d-plate6.png" alt="Plate 6 · foot"></div><figcaption><b>Plate 6 · foot</b> — TPU 95A · 47 g · ~4 h · optional</figcaption></figure>
+  </div>
+</section>
+
+<hr>
+
+<section id="settings">
+  <h2>05 / Print settings</h2>
+  <h3>Nothing exotic</h3>
+  <div class="tw"><table><thead><tr><th>Setting</th><th>PETG parts</th><th>TPU parts</th></tr></thead><tbody>
+    <tr><td>Nozzle</td><td>0.4 mm — or 0.6 mm to halve the time</td><td>0.4 mm</td></tr>
+    <tr><td>Layer</td><td>0.2 mm (0.28 mm with a 0.6 nozzle)</td><td>0.2 mm</td></tr>
+    <tr><td>Walls</td><td>4 perimeters</td><td>3</td></tr>
+    <tr><td>Infill</td><td>15 % gyroid</td><td>15 % gyroid (the foot wants the crush plateau)</td></tr>
+    <tr><td>Supports</td><td><b>None</b> — see the note below</td><td>None</td></tr>
+    <tr><td>Brim</td><td>5 mm on the shell</td><td>5 mm</td></tr>
+    <tr><td>Speed</td><td>normal</td><td>≤ 25 mm/s — slow enough for a Bowden machine</td></tr>
+  </tbody></table></div>
+  <div class="note"><strong>What "no supports" actually means here.</strong> I measured it rather than
+  asserting it: in the print orientation, 147 cm² of the shell is bed contact and <b>28 cm² faces
+  downward at more than 60°</b>. Of that, 9 cm² is the 1.2 mm shadow-gap ledge, which any slicer
+  bridges; 7 cm² is the semicircular underside of two internal ⌀8 bosses, which droop a little and
+  are invisible; the rest is scattered features under 1 cm² each. <b>There is no large flat
+  unsupported span anywhere</b> — which is the thing that actually fails. An earlier version had two
+  horizontal hoop ribs contributing 32 cm² of unsupported ledge on their own; they are now vertical
+  fins, which in this orientation overhang nothing at all.</div>
+  <div class="warn"><strong>The shell is a ~30 hour print at 0.2 mm.</strong> That is one power cut or one
+  filament runout away from a wasted 392 g. Use a 0.6 mm nozzle at 0.28 mm and it drops to about 15
+  hours with no meaningful loss — nothing on this part needs 0.4 mm resolution except the grille, and
+  the grille holes are 2.8 mm.</div>
+  <div class="note"><strong>TPU is optional.</strong> Plate 5 is 8 g and prints fine on a Bowden machine
+  if you slow it down. Plate 6 — the foot — is the only substantial flexible print, and four stick-on
+  silicone bumpers do the same job if you would rather not run TPU at all.</div>
+</section>
+
+<hr>
+
+<section id="elec">
+  <h2>06 / Electronics</h2>
+  <h3>Everything that plugs in</h3>
+  <div class="tw"><table><thead><tr><th>Item</th><th class="q">Qty</th><th class="n">$</th></tr></thead><tbody><tr><td><b>Raspberry Pi 5, <b>2 GB</b></b> <span class="tag need">required</span><br><span style='color:var(--ink-2);font-size:13.5px'>The 8&nbsp;GB SKU only ever existed to hold a local model. Same silicon.</span></td><td class='q'>1</td><td class='n'>$65.00</td></tr><tr><td><b>Waveshare 3.4″ DSI round, 800×800 (C)</b> <span class="tag need">required</span><br><span style='color:var(--ink-2);font-size:13.5px'>Confirm the part number — an older near-identical 3.4″ uses a different overlay name.</span></td><td class='q'>1</td><td class='n'>$87.00</td></tr><tr><td><b>22-pin → 15-pin DSI FFC, 300 mm</b> <span class="tag need">required</span><br><span style='color:var(--ink-2);font-size:13.5px'>The display box ships 15-pin only. A Pi 5 needs 22-pin. Wrong cable = black screen, no error.</span></td><td class='q'>1</td><td class='n'>$2.00</td></tr><tr><td><b>Seeed reSpeaker Flex XVF3800 Circular-4</b> <span class="tag need">required</span><br><span style='color:var(--ink-2);font-size:13.5px'>4 mics on a 73 mm round PCB. <b>Not</b> the $25 Lite — the enclosure has four ports.</span></td><td class='q'>1</td><td class='n'>$55.00</td></tr><tr><td><b>Enclosed speaker, 4 Ω, ≈50 × 45 × 22 mm</b> <span class="tag need">required</span><br><span style='color:var(--ink-2);font-size:13.5px'>Measure it. Its height sets the 65 mm skirt, which is a third of the object.</span></td><td class='q'>1</td><td class='n'>$3.00</td></tr><tr><td><b>Official Raspberry Pi 27 W USB-C PSU</b> <span class="tag need">required</span><br><span style='color:var(--ink-2);font-size:13.5px'>Non-negotiable. Without RPi's own PD profile the Pi caps all USB at 600 mA.</span></td><td class='q'>1</td><td class='n'>$12.00</td></tr><tr><td><b>microSD 32 GB A2</b> <span class="tag need">required</span><br><span style='color:var(--ink-2);font-size:13.5px'>Or a pSLC industrial card for +$9 — this thing writes a database 24/7.</span></td><td class='q'>1</td><td class='n'>$9.00</td></tr><tr><td><b>Pi 5 passive heatsink</b> <span class="tag need">required</span><br><span style='color:var(--ink-2);font-size:13.5px'>Not the active cooler. A fan 60 mm from the mics deletes the wake word.</span></td><td class='q'>1</td><td class='n'>$7.00</td></tr><tr><td><b>USB-A → USB-C cable, 0.3 m</b> <span class="tag need">required</span><br><span style='color:var(--ink-2);font-size:13.5px'>Pi to reSpeaker. Short, so it can be tied down.</span></td><td class='q'>1</td><td class='n'>$5.00</td></tr><tr><td><b>USB flash drive, 16 GB</b> <span class="tag need">required</span><br><span style='color:var(--ink-2);font-size:13.5px'>Off-card backup. The memory store must not share a failure domain with its own backup.</span></td><td class='q'>1</td><td class='n'>$6.00</td></tr></tbody><tfoot><tr><td>Electronics</td><td class="q"></td><td class="n">$251.00</td></tr></tfoot></table></div>
+</section>
+
+<section id="fast">
+  <h2>07 / Fasteners and consumables</h2>
+  <h3>Twenty-four inserts, twenty-eight screws</h3>
+  <p>Every thread in this build is a brass heat-set insert. Nothing is tapped into plastic, because PETG
+  at a 45 °C interior sits close enough to its glass transition that a tapped thread relaxes its preload
+  over weeks.</p>
+  <div class="tw"><table><thead><tr><th>Item</th><th class="q">Qty</th><th class="n">$</th></tr></thead><tbody><tr><td><b>PETG filament, 1 kg</b> <span class="tag need">required</span><br><span style='color:var(--ink-2);font-size:13.5px'>Uses 606 g. Buy two — the shell is a 30 h single point of failure and a runout wastes the lot.</span></td><td class='q'>2</td><td class='n'>$44.00</td></tr><tr><td><b>TPU 95A filament, 0.5 kg</b> <span class="tag need">required</span><br><span style='color:var(--ink-2);font-size:13.5px'>Uses 56 g — only 9 g if you skip the foot.</span></td><td class='q'>1</td><td class='n'>$18.00</td></tr><tr><td><b>Heat-set inserts, M3 standard — 4.6 OD × 5.8</b> <span class="tag need">required</span><br><span style='color:var(--ink-2);font-size:13.5px'>Faceplate ×4, base corners ×4, driver clamp ×2. The model bores these at Ø4.0, <b>not</b> 4.6 — a heat-set insert needs the hole smaller than its own diameter or it spins out.</span></td><td class='q'>10</td><td class='n'>—</td></tr><tr><td><b>Heat-set inserts, M3 short — 4.0 OD × 4.0</b> <span class="tag need">required</span><br><span style='color:var(--ink-2);font-size:13.5px'>Mic clamp ×2, ballast pods ×4. Bored Ø3.6.</span></td><td class='q'>6</td><td class='n'>—</td></tr><tr><td><b>Heat-set inserts, M2.5 — 3.5 OD × 5.0</b> <span class="tag need">required</span><br><span style='color:var(--ink-2);font-size:13.5px'>Display carrier ×4, Pi standoffs ×4. Bored Ø3.2. An assortment kit covers all three sizes.</span></td><td class='q'>8</td><td class='n'>$9.00</td></tr><tr><td><b>M3 × 10 socket cap</b> <span class="tag need">required</span><br><span style='color:var(--ink-2);font-size:13.5px'>Faceplate → shell. Visible, so buy decent ones.</span></td><td class='q'>4</td><td class='n'>—</td></tr><tr><td><b>M3 × 10 countersunk</b> <span class="tag need">required</span><br><span style='color:var(--ink-2);font-size:13.5px'>Base → shell, underside.</span></td><td class='q'>4</td><td class='n'>—</td></tr><tr><td><b>M3 × 8 socket cap</b> <span class="tag need">required</span><br><span style='color:var(--ink-2);font-size:13.5px'>Ballast pods ×4.</span></td><td class='q'>4</td><td class='n'>$8.00</td></tr><tr><td><b>M3 × 6 socket cap</b> <span class="tag need">required</span><br><span style='color:var(--ink-2);font-size:13.5px'>Mic clamp. <b>Not ×8</b> — an ×8 bottoms in the blind bore 0.3 mm before the clamp lands, which is exactly the gasket squash the seal depends on.</span></td><td class='q'>2</td><td class='n'>—</td></tr><tr><td><b>M2.5 × 6 pan head</b> <span class="tag need">required</span><br><span style='color:var(--ink-2);font-size:13.5px'>Display carrier ×4, Pi ×4.</span></td><td class='q'>8</td><td class='n'>—</td></tr><tr><td><b>M2.5 male–female standoff, 6 mm</b> <span class="tag need">required</span><br><span style='color:var(--ink-2);font-size:13.5px'>Pi, into the base inserts.</span></td><td class='q'>4</td><td class='n'>$4.00</td></tr><tr><td><b>Rubber grommet, 14 mm hole</b> <span class="tag need">required</span><br><span style='color:var(--ink-2);font-size:13.5px'>The PSU cable passes through it. No coupler on a 5 A rail.</span></td><td class='q'>1</td><td class='n'>$2.00</td></tr><tr><td><b><b>GORE GAW3343.06.0</b> acoustic vent, ID 3.0 / OD 6.0</b> <span class="tag need">required</span><br><span style='color:var(--ink-2);font-size:13.5px'>Over the mic ports. &lt;2 dB at 1 kHz, IP68, adhesive side toward the housing. An earlier draft named GAW331 — that series does not exist.</span></td><td class='q'>5</td><td class='n'>$6.00</td></tr><tr><td><b>Acoustic mesh fabric, small piece</b> <span class="tag need">required</span><br><span style='color:var(--ink-2);font-size:13.5px'>Behind the speaker grille.</span></td><td class='q'>1</td><td class='n'>$3.00</td></tr><tr><td><b>Silicone bumpers, 60A</b> <span class="tag opt">optional</span><br><span style='color:var(--ink-2);font-size:13.5px'>Only if you skip the TPU foot.</span></td><td class='q'>4</td><td class='n'>$3.00</td></tr><tr><td><b>Dry sand, ~250 g</b> <span class="tag opt">optional</span><br><span style='color:var(--ink-2);font-size:13.5px'>Ballast pods. Play sand, oven-dried. Steel shot if you want ~600 g instead.</span></td><td class='q'>1</td><td class='n'>$0.00</td></tr><tr><td><b>Cable ties + heatshrink</b> <span class="tag need">required</span></td><td class='q'>1</td><td class='n'>$3.00</td></tr></tbody><tfoot><tr><td>Mechanical and consumables</td><td class="q"></td><td class="n">$100.00</td></tr></tfoot></table></div>
+  <h4>Where each fastener goes</h4>
+  <div class="tw"><table><thead><tr><th>Joint</th><th class="q">Insert</th><th class="q">Screw</th><th class="q">Qty</th></tr></thead><tbody>
+    <tr><td>Faceplate → shell</td><td class="q">M3 4.6 × 5.8</td><td class="q">M3 × 10 socket</td><td class="q">4</td></tr>
+    <tr><td>Base → shell</td><td class="q">M3 4.6 × 5.8</td><td class="q">M3 × 10 c'sunk</td><td class="q">4</td></tr>
+    <tr><td>Driver clamp → shell skirt</td><td class="q">M3 4.6 × 5.8</td><td class="q">M3 × 10 socket</td><td class="q">2</td></tr>
+    <tr><td>Mic clamp → shell ceiling</td><td class="q">M3 4.0 × 4.0</td><td class="q">M3 × <b>6</b> socket</td><td class="q">2</td></tr>
+    <tr><td>Ballast pods → base</td><td class="q">M3 4.0 × 4.0</td><td class="q">M3 × 8 socket</td><td class="q">4</td></tr>
+    <tr><td>Display carrier → faceplate</td><td class="q">M2.5 3.2 × 4.0</td><td class="q">M2.5 × 6</td><td class="q">4</td></tr>
+    <tr><td>Pi standoffs → base</td><td class="q">M2.5 3.2 × 4.0</td><td class="q">6 mm M–F standoff</td><td class="q">4</td></tr>
+    <tr><td>Pi → standoffs</td><td class="q">—</td><td class="q">M2.5 × 6</td><td class="q">4</td></tr>
+  </tbody></table></div>
+</section>
+
+<section id="tools">
+  <h2>08 / Tools</h2>
+  <h3>Five things</h3>
+  <ul class="plain">
+  <li><b>Soldering iron with a conical or heat-set tip</b> — For the 24 inserts. ~200 °C. This is the only 'soldering' in the build.</li><li><b>Hex drivers, 2.0 mm and 2.5 mm</b> — M3 and M2.5 socket caps.</li><li><b>Small Phillips / PZ1</b> — M2.5 pan heads.</li><li><b>Digital calipers</b> — Non-negotiable. Seven dimensions have to be checked before you print.</li><li><b>Tweezers, isopropyl, a craft knife</b> — Membranes, gasket seating, cleaning the bed.</li>
+  </ul>
+</section>
+
+<hr>
+
+<section id="assembly">
+  <h2>09 / Assembly</h2>
+  <h3>Twelve steps, in this order</h3>
+  <p>The order matters in one specific way: <b>the display never enters the shell</b>. It bolts to the
+  faceplate, outside, and the faceplate goes on last. That is the whole reason the face is a separate
+  part.</p>
+  <ol class="steps">
+  <li><div><b>Install the 24 heat-set inserts</b><span>Iron at ~200 °C, straight down, let each cool before loading. <b>Every hole is bored smaller than the insert's own diameter</b> — Ø4.0 for a 4.6 mm M3, Ø3.6 for a 4.0 mm M3, Ø3.2 for a 3.5 mm M2.5. Bore at the insert diameter and it spins out the first time you torque a screw. Orientation matters: the two mic inserts face <em>downward</em> with the shell upright, so do those with the shell inverted, and use a stubby iron — they sit 184 mm down a blind well.</span></div></li><li><div><b>Fit the acoustic membranes</b><span>One self-adhesive ePTFE disc into each of the four counterbores on the <b>outside</b> of the top face. This is what makes the top face survive a spill without closing the acoustic path. Glue a scrap of mesh fabric behind the speaker grille from the inside.</span></div></li><li><div><b>Ballast pods (optional)</b><span>Fill each with dry sand to ~3 mm below the rim, press the lid in, run a bead of superglue round the seam. ~110 g each. Set aside.</span></div></li><li><div><b>Base: Pi and pods</b><span>Four M2.5 standoffs into the base inserts. Pi on top, long axis front-to-back, <b>USB-A and Ethernet facing the rear</b>, four M2.5 × 6. Check the microSD lines up with the service slot before going further. Screw the pods down either side.</span></div></li><li><div><b>Driver</b><span>The TPU speaker gasket onto the raised seat in the skirt, driver onto the gasket, clamp bar over it, two M3 × 10. <b>Snug, not tight</b> — the gasket is the mount, and crushing it defeats the decoupling. Route the JST lead up the side away from any other cable.</span></div></li><li><div><b>Mic array</b><span>Gasket onto the ceiling, array up against it, clamp ring over the PCB rim, two M3 × 8. Tighten until the screws bottom on the bosses — they are hard stops, so the gasket compresses exactly 0.3 mm and cannot be crushed. <b>Check each capsule sits under its port before you tighten.</b></span></div></li><li><div><b>reSpeaker core board</b><span>Cable-tie to a side rib. USB to the Pi.</span></div></li><li><div><b>Power cable</b><span>Grommet into the rear hole, PSU plug through it from outside, into the cable clamp, then into the Pi's USB-C. Tighten the clamp on the cable jacket, never on the connector.</span></div></li><li><div><b>Display onto the faceplate</b><span>Panel gasket into the aperture, panel down onto it, carrier onto the four posts, four M2.5 × 6. The bezel overlaps the panel border — that overlap is the entire retention. If the panel is loose, stop and re-measure <code>disp_panel_d</code>.</span></div></li><li><div><b>Connect the display, then close the face</b><span>Connect the FFC to the Pi's <b>DSI-2</b> connector with the shell and faceplate side by side. Close the ZIF latch and put a dab of hot glue on it — a ZIF has no retention against vibration. Fold the slack, never coil it, then seat the faceplate into its rebate and fit four M3 × 10 socket caps.</span></div></li><li><div><b>Base onto the shell</b><span>Four M3 × 10 countersunk, up into the corner bosses.</span></div></li><li><div><b>Foot</b><span>Push the TPU shoe on, or stick four silicone bumpers to the base. It should stand 3 mm proud.</span></div></li>
+  </ol>
+  <h4>Service</h4>
+  <div class="tw"><table><thead><tr><th>Job</th><th>What comes off</th></tr></thead><tbody>
+    <tr><td>microSD</td><td>Nothing — slot in the base, under the board's USB-C edge.</td></tr>
+    <tr><td>Driver clamp screws</td><td>Nothing — both are on a straight line through the rear I/O window.</td></tr>
+    <tr><td>Display or FFC</td><td>Four faceplate screws, from the front.</td></tr>
+    <tr><td>Driver, mic array, Pi</td><td>Four base screws, from below.</td></tr>
+    <tr><td>Everything</td><td>Eight screws.</td></tr>
+  </tbody></table></div>
+</section>
+
+<hr>
+
+<section id="wiring">
+  <h2>10 / Wiring</h2>
+  <h3>In the default build there is nothing to solder</h3>
+  <p>Everything is USB, a DSI ribbon, a JST plug and screws. The optional light bar is the only
+  soldering in the entire project, and it is the reason the default has none.</p>
+  <ul class="plain">
+    <li><b>One mains plug.</b> The official 27 W PSU's captive cable passes through a rubber grommet in the rear face, through an internal clamp, and into the Pi's USB-C. No panel-mount coupler — that would put two more contact interfaces in series with a 5 A rail feeding a board that is fussy about supply voltage.</li>
+    <li><b>Audio stays on USB.</b> Playback and capture must be the same UAC2 device or the echo canceller has no sample-aligned reference. This is most of why the reSpeaker is the pick.</li>
+    <li><b>The speaker output is bridged.</b> Both leads swing. <b>Neither may be grounded</b> and neither may be used as a reference for anything. Verify against your exact SKU — grounding one destroys the amplifier.</li>
+    <li><b>Feed the display 5 V separately</b> from the Pi header. The DSI ribbon cannot supply enough current, and skipping this gives a display that half-works. Run the 5 V and its return as a twisted pair alongside the ribbon so the loop area stays small.</li>
+    <li><b>Strain relief everywhere.</b> Cable clamp on the mains jacket. Hot glue on the DSI ZIF latch. Cable tie on the reSpeaker lead. Every connector in here is a surface-mount part on a board you cannot easily replace.</li>
+  </ul>
+</section>
+
+<hr>
+
+<section id="cost">
+  <h2>11 / What it costs</h2>
+  <h3>≈ $351 in parts, before shipping</h3>
+  <div class="tw"><table><thead><tr><th>Group</th><th>Note</th><th class="n">$</th></tr></thead><tbody>
+    <tr><td>Electronics</td><td>Pi, display, mic array, driver, PSU, SD, heatsink, cables</td><td class="n">251.00</td></tr>
+    <tr><td>Filament</td><td>606 g PETG + 56 g TPU. Two PETG spools, not one — see the note.</td><td class="n">62.00</td></tr>
+    <tr><td>Fasteners &amp; inserts</td><td>24 inserts, 28 screws, 4 standoffs</td><td class="n">21.00</td></tr>
+    <tr><td>Consumables</td><td>Grommet, membranes, mesh, bumpers, ties</td><td class="n">17.00</td></tr>
+  </tbody><tfoot><tr><td>Parts total</td><td>plus shipping from 3–4 vendors, realistically ≈ $410 delivered</td><td class="n">351.00</td></tr></tfoot></table></div>
+  <p>The single biggest correction against the project's original $248 costing is the microphone array:
+  that bill of materials buys a two-microphone rectangular board for an enclosure built around a
+  four-microphone round one. They are not interchangeable, and the difference is $30.</p>
+  <div class="note"><strong>The light bar is not in this total.</strong> It adds about $18 — and 14 mm of
+  height, 8 mm of depth, the only soldering, the only level shifter, and a 459 mm² unsealed aperture in
+  the front face just above the driver. An 800 × 800 emissive disc is more visible across a room than a
+  4.5 mm diffused slot. Build v1 without it; <code>LED_BAR = true</code> re-sizes the model if you
+  disagree later.</div>
+</section>
+
+<hr>
+
+<section id="unknown">
+  <h2>12 / What is still unknown</h2>
+  <h3>Nothing here has been built</h3>
+  <p>The geometry is gated — every part exports as one connected solid, every plate fits the bed, and
+  the model asserts its own buildability. None of that is the same as having made one.</p>
+  <ul class="plain">
+    <li><b>Barge-in.</b> Whether the echo canceller holds with a driver this close to the array. Test it on a bench with the parts loose, before any of this exists — long response at normal volume, wake word over the top from 2 m and 4 m. If it fails, nothing else on this page matters.</li>
+    <li><b>Which speaker, exactly.</b> The part has no number and no target playback level is written down anywhere, so the echo budget cannot be computed before ordering.</li>
+    <li><b>Whether the reSpeaker is 16 kHz-capped over USB.</b> If it is, the four-mic upgrade buys beamforming rather than bandwidth, and voice quality is capped whatever you pick.</li>
+    <li><b>Real interior temperature</b> at the 60 mm rear clearance the venting needs — and what happens when someone pushes it against a wall, at which point the box is sealed.</li>
+    <li><b>Whether <code>mic_circle_d</code> is 44.</b> The cheapest thing in the project to check and the most expensive to get wrong.</li>
+  </ul>
+</section>
+
+<footer>
+  Model <code>cad/you2-revD.scad</code> · geometry gate <code>cad/check.py</code> ·
+  STLs <code>cad/stl/revD/</code> · renders <code>cad/renders/revD/</code> ·
+  wiring and measurement list in <code>hardware/</code>.
+  <br>Every dimension is from a datasheet, not from calipers. Measure before you print.
+</footer>
+</div>
