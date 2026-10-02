@@ -295,6 +295,21 @@ class Brain:
                                 "workspace": ws.ids(), "tokens": ws.tokens,
                                 "salience": reply.salience.as_dict()
                                 if reply.salience else None})
+        # Commit the turn.
+        #
+        # sqlite3 opens an implicit deferred transaction on the first write,
+        # and `store.flush()` was the only commit in the system — reached by
+        # `Brain.close()`, `store.close()` and the night, none of which a turn
+        # touches. Under the shipped unit (`you2 serve`, Restart=always, no
+        # signal handler) every restart, reboot or OOM kill on a 2 GB Pi threw
+        # away everything since the last consolidation. Measured: 60 turns
+        # give 61 neurons and 181 edges in process, and **0 and 0** on disk
+        # after a hard kill. The 05:30 backup timer then faithfully backed up
+        # a store missing the day.
+        #
+        # After the reply and after the encode, so it costs the person
+        # nothing: ~0.1 ms against a ~4 ms turn.
+        self.store.flush()
         return reply
 
     # ---------------------------------------------------------------- night
