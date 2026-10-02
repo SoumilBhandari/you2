@@ -66,6 +66,7 @@ class Store:
         self.vectors = VectorIndex(self.conn, dim=self.cfg.embed_dim,
                                    quantize=self.cfg.quantize_vectors)
         self._alias_cache: dict[str, int] | None = None
+        self._txn_depth = 0
         #: The soma cache. Spreading activation needs each visited neuron's
         #: decay inputs, and 800 SQLite round-trips per turn does not fit in a
         #: 50 ms retrieval budget. Derived from the DB, rebuilt on load(), and
@@ -107,16 +108,34 @@ class Store:
         return {r["id"] for r in rows}
 
     def flush(self) -> None:
+        """Commit, unless a multi-statement transaction is open.
+
+        The guard is not defensive tidiness. `persist_graph` deletes every
+        edge and re-inserts them inside one transaction, and it runs on the
+        night thread while turns run on another. A commit landing in that
+        window would make the empty edge table durable and put it beyond that
+        transaction's rollback — and `store.load()` rebuilds the graph from
+        exactly those rows. This must stay correct before anything starts
+        committing per turn.
+        """
+        if self._txn_depth:
+            return
         self.conn.commit()
 
     @contextmanager
     def transaction(self) -> Iterator[sqlite3.Connection]:
+        self._txn_depth += 1
         try:
             yield self.conn
-            self.conn.commit()
         except Exception:
-            self.conn.rollback()
+            self._txn_depth -= 1
+            if self._txn_depth == 0:
+                self.conn.rollback()
             raise
+        else:
+            self._txn_depth -= 1
+            if self._txn_depth == 0:
+                self.conn.commit()
 
     def close(self) -> None:
         self.flush()
@@ -293,6 +312,7 @@ class Store:
                     remaining = [c for c in fact.citations() if c != neuron_id]
                     if not remaining:
                         killed.append(fact.id)
+            killed.extend(self._echoes(neuron_id, said))
             killed.extend(self._orphaned_entities(killed))
         for nid in killed:
             self.conn.execute(
@@ -307,12 +327,44 @@ class Store:
         self._alias_cache = None
         self._scrub(said, gist, session)
         self.log("entomb", {"root": neuron_id, "removed": killed})
+        # The one unrecoverable state, and the device says "Forgotten." out
+        # loud. Without this the row is still on disk at tier='hot' with its
+        # content verbatim after a kill, and search returns it.
+        self.flush()
         # Deleting a memory has to reach the conclusions drawn from it, or
         # "forget that" leaves a derivative behind that still asserts it.
         from ..inference.tms import invalidate
         for nid in list(killed):
             invalidate(self, nid, self.clock.now(), reason="entombed")
         return killed
+
+    def _echoes(self, victim_id: int, said: str) -> list[int]:
+        """Live episodes that quote the memory being deleted.
+
+        Asking about something before deleting it leaves the question behind,
+        and the question contains the same words: "what did I say about the
+        HIV test" survives "forget that" and keeps the entity alive with it.
+        Memory questions are encoded on purpose — what someone tries to
+        recall is evidence about them — but not once they have asked for the
+        subject to be gone.
+
+        Two shared content words, which is narrow: an unrelated episode from
+        the same evening shares none.
+        """
+        from .embed import stem, tokenize
+
+        mine = {stem(w) for w in tokenize(said)}
+        if len(mine) < 2:
+            return []
+        out: list[int] = []
+        for row in self.conn.execute(
+                "SELECT id, content FROM neurons "
+                "WHERE kind='episode' AND tier != 'tomb'"):
+            if row["id"] == victim_id or not row["content"]:
+                continue
+            if len(mine & {stem(w) for w in tokenize(row["content"])}) >= 2:
+                out.append(int(row["id"]))
+        return out
 
     def _scrub(self, said: str, gist: str, session: str | None) -> None:
         """Remove derived text that was computed *from* the deleted memory.
@@ -443,7 +495,14 @@ class Store:
         for entity_id in candidates:
             survives = False
             for other, weight, code, _back in self.graph.neighbours(entity_id):
-                if weight <= 0.0 or other in dying:
+                # ABOUT only. A memory *carries* an entity when it is about
+                # it; an ASSOC edge is co-activation, written by `broadcast`
+                # whenever two things happened to win the same workspace.
+                # Counting those as carriers meant that merely *asking* about
+                # a memory before deleting it wired an unrelated episode to
+                # its entity and kept the name alive — "forget that" left a
+                # node called HIV in the store.
+                if weight <= 0.0 or other in dying or code != about:
                     continue
                 soma = self.soma.get(other)
                 if soma is None or soma.kind not in carriers:
