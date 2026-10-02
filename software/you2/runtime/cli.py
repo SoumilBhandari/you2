@@ -177,6 +177,19 @@ def _serve(brain: Brain, args: argparse.Namespace,
         webbrowser.open(where)
 
     stop = threading.Event()
+    # Without these the `finally` below is dead code under the shipped unit:
+    # systemd sends SIGTERM, python exits, and `brain.close()` — the only
+    # thing that seals the open episode — never runs.
+    import signal
+
+    def _bye(_signum: int, _frame: object) -> None:
+        stop.set()
+
+    for sig in (signal.SIGTERM, signal.SIGINT):
+        try:
+            signal.signal(sig, _bye)
+        except ValueError:                     # not on the main thread
+            pass
     if args.night:
         threading.Thread(target=_night_loop, args=(brain, stop), daemon=True,
                          name="you2-night").start()
