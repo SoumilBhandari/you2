@@ -33,6 +33,7 @@ parts then did not fit inside it.
 | **reSpeaker SKU** | Lite (2 mic, rectangular) vs Flex XVF3800 Circular-4 (4 mic, 73 mm round on FPC) | The BOM buys the Lite. The enclosure models the Flex. **These are not interchangeable** — four ports on a 44 mm circle over a two-mic rectangular board is four holes over nothing. Pick one and make the CAD match. |
 | **reSpeaker sample rate** | Confirm the USB-audio descriptor's supported rates | Both boards are reported to cap at 16 kHz over UAC2. If so, the 4-mic upgrade buys beamforming, not bandwidth, and TTS quality is capped regardless of which voice you pick. |
 | **Speaker leads** | Confirm bridged (BTL) output | If the driver output is bridged — and the arithmetic in the audit says it is — **neither lead may be grounded** and neither may be used as a reference. Grounding one destroys the amplifier. |
+| **Acoustic vents** | GORE **GAW3343.06.0**, ID 3.0 / OD 6.0 | `mic_mem_d` is 6.2 to locate a 6.0 mm disc. An earlier draft named GAW331; that series does not exist. Adhesive side toward the housing. |
 | **PSU** | Genuine Raspberry Pi 27 W | The Pi 5 caps total USB current at 600 mA unless it detects Raspberry Pi's own PD profile. You are hanging a bus-powered mic array off that. |
 
 ## The three you can only get with a soldering iron and a room
