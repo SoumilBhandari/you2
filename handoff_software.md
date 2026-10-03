@@ -1,6 +1,6 @@
 # Software handoff
 
-*The software half, in detail. Written 10 August 2026, at a deliberate pause.*
+*The software half, in detail. Updated 10 August 2026.*
 
 [HANDOFF.md](HANDOFF.md) is the whole project — repo map, hardware context,
 run commands, the standing traps. **Read that first.** This is the companion
@@ -18,7 +18,7 @@ re-deriving several of them.
 
 ## Where it is
 
-Everything in `docs/brain.md` phases 1–9 is built and tested. **284 tests**,
+Everything in `docs/brain.md` phases 1–9 is built and tested. **286 tests**,
 offline, deterministic, no network and no model downloads.
 
 | file | tests | covers |
@@ -28,7 +28,7 @@ offline, deterministic, no network and no model downloads.
 | `test_encoding.py` | 23 | segmentation, binding, loops, episode caps |
 | `test_perception.py` | 23 | prosody, attention, discourse, salience |
 | `test_activation.py` | 22 | spreading, base-level, inhibition, workspace, cues |
-| `test_runtime.py` | 22 | the whole turn, routing, reconsolidation, working memory |
+| `test_runtime.py` | 24 | the whole turn, routing, reconsolidation, working memory, **durability under kill** |
 | `test_audio.py` | 20 | wake word, VAD, endpointing, barge-in, the loop |
 | `test_substrate.py` | 19 | store, graph, vectors, embedder identity, scale |
 | `test_inference.py` | 19 | graph rules, compilation, TMS, parsimony |
@@ -39,7 +39,7 @@ offline, deterministic, no network and no model downloads.
 ```bash
 cd software
 .venv/bin/pytest --ignore=tests/test_eval.py   # ~30 s, what you want while iterating
-.venv/bin/pytest                               # 284, ~4 min
+.venv/bin/pytest                               # 286, ~4 min
 ```
 
 ### Measured
@@ -60,7 +60,8 @@ Retrieval over simulated history (`you2 eval --days 730`):
 | 730 | **1.00** | 0.91 | 0.68 | **0.00** | 2,077 | 11 |
 
 Two years of daily use is **8.9 MB on disk**. Hot-path retrieval is **0.52 ms
-at 100k neurons** and flat across a 10× range.
+at 100k neurons** and flat across a 10× range. A turn is p50 2.3 ms, p95
+3.7 ms, and **is committed before it returns** — see below.
 
 Ablation deltas at one year (`you2 eval --ablate`):
 
@@ -85,7 +86,7 @@ correction hijacking unrelated keys, and nothing else in the suite noticed.
 
 ## What changed in the last session
 
-Thirty-two commits. Two of them added instruments; the rest are what the
+Thirty-four commits. Two of them added instruments; the rest are what the
 instruments found.
 
 **The extraction benchmark** (`you2 extract`) is new and is the reason most
@@ -95,40 +96,48 @@ true for an afternoon. `eval/sloppy.py` is a deterministic model that is wrong
 the way real models are wrong, so what `llm/validate.py` buys is a measurement
 rather than an assertion.
 
-Seventeen bugs, in rough order of severity:
+Eighteen bugs, in rough order of severity:
 
-1. **A correction could hijack an unrelated memory.** `reconsolidate.target`
+1. **A restart threw away every memory since the last night.** `sqlite3` opens
+   an implicit deferred transaction on the first write, and `store.flush()`
+   was the only commit — reached by `Brain.close()`, `store.close()` and the
+   night, none of which a turn touches. 60 turns gave 61 neurons and 181 edges
+   in process and **0 and 0** on disk after `os._exit(9)`. Under the shipped
+   unit (`Restart=always`, no signal handler) that is every reboot and every
+   OOM kill; the 05:30 backup then faithfully backed up a store missing the
+   day. "Forgotten." was not durable either.
+2. **A correction could hijack an unrelated memory.** `reconsolidate.target`
    ranked by activation, so the most *active* memory won against a total
    semantic mismatch — and the replacement was filed under its key. Live facts
    went 14 → 90. The guard belongs on the **subject, not the wording**.
-2. **The last batch of every night was silently abandoned.** Integer division
+3. **The last batch of every night was silently abandoned.** Integer division
    in `night.run`. Batches are chronological, so the dropped one was always
    the most recent — a revised preference was drawn and dropped five nights
    running while the report said "5 batches".
-3. **"Forget that" left the words in four places** — the extracted entity, the
+4. **"Forget that" left the words in four places** — the extracted entity, the
    batch-mates' gist, `sessions.summary`, and the journal.
-4. **The memory path confabulated.** Asked about a project it had never heard
+5. **The memory path confabulated.** Asked about a project it had never heard
    of, it answered confidently about the user's sister and cilantro.
-5. **Swapping the embedder silently mixed two vector spaces** — dimensionality
+6. **Swapping the embedder silently mixed two vector spaces** — dimensionality
    is not an identity, and both embedders are 384.
-6. **Loudness never reached the arousal estimate.** `extract` peak-normalised
+7. **Loudness never reached the arousal estimate.** `extract` peak-normalised
    before computing RMS, so the 0.35-weighted term returned 0.5196 across a
    47× amplitude range.
-7. **Compaction left vectors describing deleted text**, so compacted episodes
+8. **Compaction left vectors describing deleted text**, so compacted episodes
    rendered as identical lines that inhibition structurally could not see.
-8. **A broken inference chain survived** because most of its premises did.
-9. **Nominal ellipsis** — "I only ever buy semi-skimmed" after "we're out of
+9. **A broken inference chain survived** because most of its premises did.
+10. **Nominal ellipsis** — "I only ever buy semi-skimmed" after "we're out of
    milk". Key stability 0.67 → 1.00.
-10. **Recurrence reported a confounded pattern.** Added Kamin blocking; false
+11. **Recurrence reported a confounded pattern.** Added Kamin blocking; false
     positives 1 → 0.
-11. **No cap on episode length** — one paragraph became a 102 KB neuron.
-12. **It could not answer about what you just said.** Added a working-memory
+12. **No cap on episode length** — one paragraph became a 102 KB neuron.
+13. **It could not answer about what you just said.** Added a working-memory
     buffer over the open segment.
-13. **A repeated claim could fork one key forty times.**
-14. **`by_kind(... ORDER BY ...)` had no composite index** — 56 ms per turn.
-15. **"500 rejected" was a query limit**, not a count. Real figure 1,101.
-16. **Names lost their capitals** in the profile block.
-17. **`Kind.AFFECT`** was wired into five sites and constructed nowhere.
+14. **A repeated claim could fork one key forty times.**
+15. **`by_kind(... ORDER BY ...)` had no composite index** — 56 ms per turn.
+16. **"500 rejected" was a query limit**, not a count. Real figure 1,101.
+17. **Names lost their capitals** in the profile block.
+18. **`Kind.AFFECT`** was wired into five sites and constructed nowhere.
 
 And three documented claims corrected against measurement, plus **two proposed
 changes measured and rejected** — all six in `docs/brain.md` §19.
@@ -139,6 +148,19 @@ changes measured and rejected** — all six in `docs/brain.md` §19.
 
 The seven original traps are in [HANDOFF.md](HANDOFF.md) and still apply.
 These are the ones the last session added.
+
+### Nothing is on disk until something commits
+
+`store.flush()` is the only commit in the system, and for most of this
+project's life the turn path never reached it. If you add a write path, ask
+what commits it — and if you add a *long* one, guard it: `flush()` is a no-op
+inside `transaction()` because `persist_graph` deletes every edge and
+re-inserts them on the night thread, and a commit landing in that window makes
+the empty table durable and beyond rollback.
+
+Anything claiming durability must be tested by killing a subprocess.
+`close()`, `__del__` and `atexit` each hide this bug, and the suite was green
+through all of it.
 
 ### A loop that reports success can still be dropping work
 
@@ -212,17 +234,24 @@ will change the eval numbers.
 
 ## In flight
 
-### The multi-agent audit
+### The multi-agent audit — finished
 
-A 75-lens audit is **paused mid-run**, with 152 agent results cached. Resume:
+**537 agents, 535 completed, 31.8M tokens, 11,432 tool uses, 7.8 hours.**
+75 lenses across memory neuroscience and systems engineering, each finding
+put through two independent attempts to refute it, then an implementation
+design for what survived. **211 findings, 27 survived**, merged to 21.
+
+Its own headline: *a day of memory lost to any restart, a correction guard
+that is a no-op for the 71% of facts that are about the person, and compiled
+inferences spoken as things they said.*
+
+Full output: the run's `journal.jsonl` under
+`~/.claude/projects/.../subagents/workflows/wf_ba23e852-da4/`, one line per
+agent. Re-run with edited post-processing (agents replay from cache):
 
 ```bash
 Workflow({scriptPath: "<scratchpad>/brain-audit.js", resumeFromRunId: "wf_ba23e852-da4"})
 ```
-
-Cached agents replay instantly; only the unfinished ones run. The first
-attempt died on a session limit with the verification and synthesis phases
-lost, which is why nothing in it should be treated as confirmed.
 
 **Findings verified and fixed:** the compaction re-embed, "forget that", the
 prosody normalisation, the embedder identity, `Kind.AFFECT`, the inert token
@@ -243,6 +272,42 @@ budget, inert replay priority.
 
 **Do not implement from the finding list without reading the code.** Four of
 the first eight high-confidence findings did not survive contact with it.
+
+### Next two, both specified and neither built
+
+Ranked #2 and #3 by the audit. Both come with an implementation design in the
+journal; both still need verifying against the code before you write anything.
+
+**The correction guard is a no-op inside `user/*`.** `reconsolidate._dimension_of`
+returns `key.partition("/")[0]` — the **subject**, not the dimension — and the
+guard compares only that prefix. Every fact about the person shares `user`: 15
+of the 21 gold facts in `eval/transcripts.py`, and all four `IDENTITY_KEYS`.
+Inside that namespace the guard eliminates nothing and the victim is still
+picked by `0.6*activation + 0.4*cosine`, which is exactly the hijack the
+docstring says was fixed. Measured on a 6×5 matrix: **16 of 30 cells damage a
+fact the correction never names** — "actually I prefer oat milk now" leaves
+`user/employer` holding "the user prefers oat milk now". The existing
+regression test passes only because its fixture victim is
+`coffee_machine/state`, and it asserts `.text()` and never `.key`.
+
+The fix is wiring, not new mechanism: `validate.canonical_key` already exists
+and is already the sole gate on the write path. Qualify a candidate only when
+it snaps to the same key. Expect one honest regression — the elliptical "no, I
+drink semi-skimmed now" stops repairing and lands as a second live milk fact,
+which is silent duplication in place of silent corruption of an unrelated
+dimension.
+
+**Compiled inferences are spoken as things they said.** Three independent
+lenses found this. `recall/answer.py` renders via `Neuron.text()`, which is
+`content or gist` and carries no meta, so the `(inferred)` prefix is dropped
+on the one path with no model downstream to hedge — and `_about_me` sorts by
+`-confidence`, while a compiled contrast carries 0.95 against the extractor's
+0.7 default, so derivations sort *first* by construction. On the project's own
+365-day corpus, 5 of 11 live facts are derived and "what do you know about me"
+speaks three of them flat, including two superseded values recited as current
+fact. `person/model.py` carries the guard, `workspace.render` carries it — 
+`recall/` is the one renderer that does not. It violates a §17 standing
+decision and HANDOFF trap #6 verbatim.
 
 ### Unverified, worth doing next
 
