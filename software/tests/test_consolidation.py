@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from you2 import DAY, WEEK, YEAR, BrainConfig, SimClock
+from you2 import DAY, BrainConfig, SimClock
 from you2.activation import recall
 from you2.consolidation import (
     abstraction, dream, forgetting, homeostasis, night, replay, supersede,
