@@ -19,7 +19,7 @@ from you2.audio import (
     ScriptedASR, SilenceTurn, ToneTTS, converse, make, sentences, text_frames,
 )
 from you2.llm import FakeLLM
-from you2.runtime import Brain, Bus, State
+from you2.runtime import Brain, Bus
 from you2.substrate import HashEmbedder, Kind
 
 
