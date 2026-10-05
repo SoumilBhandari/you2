@@ -250,6 +250,11 @@ assert(mic_circle_d/2 + mic_mem_d/2 + mic_edge_keep < mic_pcb_d/2,
            " mm vent needs ", mic_edge_keep, " mm of PCB outboard of it and has ",
            mic_pcb_d/2 - (mic_circle_d/2 + mic_mem_d/2)));
 assert(mic_boss_x + boss_od/2 < W/2 - wall - 2, "mic clamp bosses foul the side wall");
+// The bore must house the insert AND stop short of the outside of the top face.
+assert(mic_bore > 4.0 + 0.3,
+       str("mic insert bore is ", mic_bore, " mm — too shallow for a 4.0 mm M3 insert"));
+assert(mic_roof >= 1.2,
+       "less than 3 perimeters of roof over the mic insert bore — it will break through");
 // mic_squash is the CLAMPED height, so the compression is the difference.
 mic_comp = mic_gasket_t - mic_squash;
 assert(mic_comp > 0.05*mic_gasket_t && mic_comp < 0.45*mic_gasket_t,
@@ -393,6 +398,14 @@ mic_stack = mic_squash + 1.4 + mic_clamp_t;
 // The boss must stop where the CLAMP starts, not where the screw head does —
 // run it the full stack height and it occupies the same space as the ring.
 mic_under = mic_squash + 1.4;          // gasket (compressed) + PCB
+//: Material left above the mic insert bore. The bore used to ask for
+//: ins_m3_l + 1.0 = 6.2 mm out of the 5.6 mm that exists between the clamp face
+//: and the outside of the top face, so it came OUT THE TOP: two 3.6 mm holes in
+//: the one surface this design seals, straight into the cavity, on a box whose
+//: acoustic rule is that nothing vents through the top. A render does not show
+//: it and no assert looked.
+mic_roof  = 1.2;                       // 3 perimeters at a 0.4 nozzle
+mic_bore  = wall + mic_under - mic_roof;
 module mic_bosses() {
     intersection() {
         body(shrink = INNER);
@@ -401,10 +414,12 @@ module mic_bosses() {
     }
 }
 module mic_boss_holes() {
-    // 1.0 mm of spare depth so an M3 x 6 seats on the insert, not on the bottom
-    // of a blind bore — bottoming out cancels the designed gasket squash exactly
+    // Depth is derived from what is THERE, not from what the insert would like.
+    // The M3 x 6 cannot bottom out regardless: it passes through a 3.0 mm clamp
+    // ring and so engages 3.0 mm of a 4.0 mm insert, leaving its tip 1.0 mm
+    // clear of the insert's own bottom.
     for (sx = [-1,1]) translate([sx*mic_boss_x, mic_inset_y, H - wall - mic_under - 0.1])
-        cylinder(d = ins_m3_d, h = ins_m3_l + 1.0);
+        cylinder(d = ins_m3_d, h = mic_bore + 0.1);
 }
 
 module speaker_cut() {
