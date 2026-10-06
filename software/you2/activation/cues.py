@@ -18,9 +18,8 @@ import re
 from dataclasses import dataclass, field
 from typing import Sequence
 
-from ..clock import DAY, day_key, part_of_day, weekday
+from ..clock import DAY
 from ..config import BrainConfig
-from ..substrate.embed import tokenize
 from ..substrate.neuron import Kind
 from ..substrate.store import Store
 from .spread import Cue
@@ -186,9 +185,3 @@ def build(store: Store, text: str, cfg: BrainConfig, *,
         add(n.id, W_AMBIENT * (1.0 - age_h / 24.0), "ambient")
 
     return out
-
-
-def ambient_context(now: float) -> str:
-    """A short human-readable stamp for the episode record. Cheap, and it is
-    what makes 'you always seem drained after Tuesday meetings' computable."""
-    return f"{weekday(now)} {part_of_day(now)} {day_key(now)}"
