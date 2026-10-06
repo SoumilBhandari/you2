@@ -101,9 +101,18 @@ def _slash(brain: Brain, line: str) -> None:
         if not loops:
             print("  nothing open")
     elif cmd == "/new":
-        from ..discovery import pending
-        for n in pending(brain.store, limit=10):
+        # Mark them told. `pending` skips anything carrying meta["delivered"]
+        # and `deliver` is the only thing that ever writes it, so without this
+        # call the list never drains and /new re-offers the same insights for
+        # the life of the store.
+        from ..discovery import deliver, pending
+        shown = pending(brain.store, limit=10)
+        for n in shown:
             print(f"  #{n.id} [{n.meta.get('type')}] {n.content}")
+        for n in shown:
+            deliver(brain.store, n, brain.clock.now())
+        if not shown:
+            print("  nothing new")
     elif cmd == "/forget":
         hits = brain.store.search(rest, k=1)
         if not hits:
