@@ -17,7 +17,7 @@ from you2 import BrainConfig, SimClock
 from you2.activation import recall
 from you2.llm import FakeLLM
 from you2.runtime import Bar, Brain, Bus, State, serve, viz
-from you2.substrate import Edge, HashEmbedder, Kind, Neuron, Store
+from you2.substrate import Edge, HashEmbedder, Kind, Neuron
 
 
 @pytest.fixture
