@@ -12,7 +12,7 @@ import pytest
 
 from you2 import DAY, BrainConfig, SimClock
 from you2.clock import weekday
-from you2.person import Person, build, rhythms, stance, style
+from you2.person import build, rhythms, stance, style
 from you2.substrate import Edge, HashEmbedder, Kind, Neuron, Store
 
 
