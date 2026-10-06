@@ -22,7 +22,6 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
-from typing import Sequence
 
 from ..clock import DAY, iso
 from ..config import BrainConfig
