@@ -112,18 +112,3 @@ def downscale(store: Store, cfg: BrainConfig, *, persist: bool = True) -> Homeos
 
     store.log("homeostasis", out.as_dict())
     return out
-
-
-def saturation(store: Store) -> float:
-    """Fraction of learned edges near the ceiling.
-
-    If this climbs past ~0.2 and stays there, rho is too gentle for how much
-    this person talks, and retrieval will get gradually vaguer in a way that
-    is very easy to misattribute to the model.
-    """
-    weights = np.fromiter(
-        (w for _s, _d, t, w in store.graph.all_edges()
-         if w > 0.0 and t not in STRUCTURAL), dtype=np.float32)
-    if weights.size == 0:
-        return 0.0
-    return float((weights > 0.9).mean())
