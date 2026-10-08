@@ -251,10 +251,6 @@ _HYPOTHETICAL = re.compile(
     r"\bif (?:it|they|this|that) (?:comes|works|happens|goes)\b|"
     r"\bhypothetical|\bperhaps\b|\bpossibly\b)", re.I)
 
-_WORLD = re.compile(
-    r"^\s*(?:the\s+)?[A-Za-z][\w'-]*(?:\s+[\w'-]+){0,2}\s+"
-    r"(?:is|are|was|were)\s+(?:a|an|the)\s+\w+", re.I)
-
 _ASSISTANT = re.compile(r"^\s*(?:friday|the assistant|the device|you)\b", re.I)
 
 MIN_CONTENT = 2
