@@ -14,7 +14,6 @@ produce consistent keys is most of the work in these prompts.
 
 from __future__ import annotations
 
-import json
 from typing import Sequence
 
 from ..substrate.neuron import Neuron
@@ -210,11 +209,3 @@ wrongly believe.
 Return JSON: {{"false_variant": "..."}}"""
     return [{"role": "system", "content": SYSTEM_JUDGE},
             {"role": "user", "content": user}]
-
-
-def compact(text: str, limit: int = 240) -> str:
-    return text if len(text) <= limit else text[: limit - 1] + "…"
-
-
-def as_json(obj: object) -> str:
-    return json.dumps(obj, separators=(",", ":"), default=str)
