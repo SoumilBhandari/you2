@@ -21,7 +21,6 @@ refuses to surface it.
 
 from __future__ import annotations
 
-import math
 import statistics
 from dataclasses import dataclass, field
 from typing import Any
@@ -30,10 +29,6 @@ from ..clock import DAY, part_of_day, weekday
 from ..config import BrainConfig
 from ..substrate.neuron import Kind, Neuron, Tier
 from ..substrate.store import Store
-
-WEEKDAYS = ("monday", "tuesday", "wednesday", "thursday", "friday",
-            "saturday", "sunday")
-PARTS = ("morning", "afternoon", "evening", "night")
 
 #: Below this an average is an anecdote. Stated in the code rather than left
 #: to judgement, because the temptation to report a striking pattern from five
@@ -70,7 +65,6 @@ class Rhythms:
     by_weekday: dict[str, Bucket] = field(default_factory=dict)
     by_part: dict[str, Bucket] = field(default_factory=dict)
     baseline_valence: float = 0.0
-    baseline_arousal: float = 0.0
     spread_valence: float = 0.0
     total: int = 0
     span_days: float = 0.0
@@ -159,7 +153,6 @@ def build(store: Store, cfg: BrainConfig, now: float,
 
     valences = [ep.valence for _t, ep in events]
     out.baseline_valence = statistics.fmean(valences)
-    out.baseline_arousal = statistics.fmean(ep.arousal for _t, ep in events)
     out.spread_valence = (statistics.pstdev(valences) if len(valences) > 1 else 0.0)
 
     def accumulate(target: dict[str, Bucket], key: str, ep: Neuron) -> None:
@@ -179,22 +172,3 @@ def build(store: Store, cfg: BrainConfig, now: float,
     for b in out.by_part.values():
         b.volume = b.n / max(1.0, out.span_days)
     return out
-
-
-def quiet_since(store: Store, now: float, days: float = 14.0) -> float | None:
-    """How long since a day with no negative-valence episode.
-
-    Underrated: a run of unbroken bad days is the clearest signal a person
-    is having a hard time, and it needs no sentiment model beyond the one
-    already computed at encoding.
-    """
-    bad_days: set[str] = set()
-    from ..clock import day_key
-    for ep in store.by_kind(Kind.EPISODE, limit=5000, live_only=False):
-        if (now - ep.created_at) / DAY > days:
-            continue
-        if ep.valence <= -0.25:
-            bad_days.add(day_key(ep.created_at))
-    if not bad_days:
-        return None
-    return float(len(bad_days))
