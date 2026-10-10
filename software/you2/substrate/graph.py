@@ -24,7 +24,7 @@ from typing import Iterable, Iterator
 
 import numpy as np
 
-from .synapse import CODE_EDGES, CONDUCTION, EDGE_CODES, Edge
+from .synapse import CODE_EDGES, EDGE_CODES, Edge
 
 #: (other_id, weight, edge_code, backward)
 Neighbour = tuple[int, float, int, bool]
@@ -162,9 +162,6 @@ class Graph:
                 return float(self._weights[p])
         return 0.0
 
-    def remove(self, src: int, dst: int, etype: str | Edge) -> None:
-        self.upsert(src, dst, etype, 0.0)
-
     def scale_all(self, rho: float, *, exempt: frozenset[Edge] = frozenset()) -> None:
         """Multiplicative downscaling. Preserves relative structure exactly
         while pushing the accumulated noise floor below threshold -- which is
@@ -230,10 +227,6 @@ class Graph:
                 if entry[1] > 0.0:
                     yield entry
 
-    def conductance(self, weight: float, code: int, backward: bool) -> float:
-        c = CONDUCTION[CODE_EDGES[code]]
-        return weight * (c.back if backward else c.forward)
-
     def fan(self, node: int) -> int:
         """Total degree. What the fan effect is computed against."""
         n = 0
@@ -244,9 +237,6 @@ class Graph:
         if ov:
             n += sum(1 for e in ov if e[1] > 0.0)
         return n
-
-    def degree_of(self, node: int) -> int:
-        return self.fan(node)
 
     def hops(self, a: int, b: int, max_hops: int = 6,
              budget: int = 4000) -> int:
