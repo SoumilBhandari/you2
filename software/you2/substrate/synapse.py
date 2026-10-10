@@ -78,21 +78,6 @@ EDGE_CODES: dict[Edge, int] = {e: i for i, e in enumerate(Edge)}
 CODE_EDGES: dict[int, Edge] = {i: e for e, i in EDGE_CODES.items()}
 
 
-@dataclass(slots=True)
-class Synapse:
-    src: int
-    dst: int
-    type: Edge = Edge.ASSOC
-    weight: float = 0.1
-    created_at: float = 0.0
-    last_fired: float = 0.0
-    fire_count: int = 0
-
-    def conduction(self, *, backward: bool = False) -> float:
-        c = CONDUCTION[self.type]
-        return c.back if backward else c.forward
-
-
 def hebbian(weight: float, a_i: float, a_j: float, rate: float) -> float:
     """Soft-bounded Hebbian update.
 
@@ -101,17 +86,3 @@ def hebbian(weight: float, a_i: float, a_j: float, rate: float) -> float:
     """
     delta = rate * a_i * a_j * (1.0 - weight)
     return min(1.0, max(0.0, weight + delta))
-
-
-def fan_dampen(weight: float, fan: int, k: float = 1.0) -> float:
-    """ACT-R's fan effect, applied at spread time rather than stored.
-
-    The more things a cue is attached to, the less activation any one of them
-    receives. Without this, 'work' and 'coffee' become hubs that dominate
-    every retrieval. Applied at traversal time so that learning stays local
-    and a new edge doesn't require rewriting every sibling.
-    """
-    if k <= 0.0 or fan <= 1:
-        return weight
-    import math
-    return weight / (1.0 + k * math.log1p(fan))
