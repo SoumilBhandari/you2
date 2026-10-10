@@ -19,7 +19,26 @@ python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
 ```
 
 Nothing here needs hardware, a network, or a model download. `numpy` is the
-only hard dependency. ~16k lines.
+only hard dependency. ~16k lines. Verified on 3.11, 3.13 and 3.14; `pyproject`
+asks for ≥3.11 and means it.
+
+**Three things about the first five minutes**, all of which look like the
+memory is broken and none of which are:
+
+- **Nothing is retrievable for the first three turns.** The episode buffer
+  seals every three turns and only a sealed episode is written, so telling it
+  something and immediately asking about it returns nothing.
+- **No facts exist until a night runs.** `/stats` reports `"fact": 0` straight
+  after a conversation. Run `/night` and the keys appear.
+- **In `--fake`, judge recall with `/why`, not the reply.** The stand-in has no
+  language model; it picks the block line closest to your question, which is
+  enough to show retrieval landed and not enough to read as an answer.
+
+`you2 listen` wants the wake phrase — `hey friday` — on **every** line. There
+is an 8-second dwell window after each turn where a follow-up needs no prefix,
+but it runs on the real clock, so at typing speed it has expired and the line
+is dropped in silence. A real microphone additionally needs `sounddevice` and
+`brew install portaudio`, neither of which is declared in `pyproject`.
 
 Picking this up cold? **[../handoff_software.md](../handoff_software.md)** —
 current numbers, what changed and why, and what will waste your afternoon.
@@ -223,9 +242,35 @@ Two years of daily use is **8.9 MB on disk**. The whole premise — put the
 world knowledge in the weights and the store stays small — measured rather
 than asserted.
 
-Precision **rises** with elapsed time and superseded values never reach the
-block. That is the one chart that matters: if it fell, consolidation would not
-be working, and every memory system that has shipped fails exactly there.
+Superseded values never reach the block, at any checkpoint. **That** is the
+column that matters, and it is the one to watch: remove base-level decay and
+it breaks to 0.50, which is a real claim about supersession that a real change
+can falsify.
+
+**The precision column is not.** This file used to call the 0.50 → 1.00 rise
+"the one chart that matters — if it fell, consolidation would not be working".
+It cannot fall, so it cannot regress, so it tests nothing.
+`eval/synthetic.py:168` plants every preference change at
+`int(days * 0.55)` and the probes ask for the *new* values (`oat`, `lumen`,
+`ashcombe`, `seated`). Before that day four of the eight probes ask for tokens
+that have never been uttered, so the store cannot answer them however well it
+works: precision 0.50, then 1.00. The step is the moment the generator speaks.
+
+Two measurements, either one sufficient:
+
+- **The threshold moves with the run length.** Day 180 scores 0.50 inside a
+  365-day run and 1.00 inside a 180-day run — same seed, same day index,
+  opposite result. In this two-year table the changes land on days 401–410,
+  which is why day 365 reads 0.50 above.
+- **It does not need the brain.** With `downscale_rho=1.0`,
+  `prune_weight_min=0.0`, `spread_decay=0.0`, `max_hops=0`, `base_decay=0.0`
+  and `inhibition=0.0` — downscaling, spreading, base-level decay and
+  inhibition all off at once — the curve is unchanged: 0.50, 0.50, 0.50, 1.00.
+
+Fixing it means probing for the value *current as of each checkpoint* rather
+than the end-state value, so early checkpoints ask answerable questions and the
+curve can go down when the store gets worse. That is a design change which
+moves every published precision number here, so it has not been made.
 
 **What this does and does not measure.** It exercises the consolidation
 machinery — supersession, downscaling, decay, tiering, replay prioritisation,
@@ -356,7 +401,11 @@ the code moved underneath them. Replay priority "can still draw an old
 high-salience episode" — it cannot, the eligible pool is a median of 17 against
 a limit of 600. "Unless something reactivates it" — nothing does. Prosody
 "arousal is largely energy" — energy was normalised away before it was
-measured, and returned 0.5196 across a 47× amplitude range.
+measured, and returned 0.5196 across a 47× amplitude range. `graded_suppress`
+offered a ramped alternative "because the default stays hard" — the default had
+learned to ramp, so the function was a copy of what `suppress` already did.
+Style claimed to measure "profanity, how much they narrate versus state" — the
+second fed nothing, and the first was never measured at all.
 
 **Watch the columns that move.** Probe precision is 1.00 in every ablation
 variant, so it discriminates nothing; it is an alarm, not a signal. *Live
@@ -369,6 +418,23 @@ refute it. It produced 211 findings, 27 of which survived. It found the
 durability bug above. It also produced four confident findings that did not
 survive contact with the code, which is the reason nothing from it is
 implemented without reading the source first.
+
+**A dead-code sweep by category**, each candidate then handed to a second pass
+whose only job was to prove it *is* used. 176 lines went: 47 unused imports,
+11 symbols occurring exactly once in the whole tree, 8 dataclass fields written
+every run and read by nothing, and two functions a later change had quietly
+superseded. Eleven proposals were overturned by the verifier and are still
+here — including `recall.deep`, which no caller reaches and which is
+deliberately kept, because unreferenced and dead are not the same thing.
+
+Two of its findings were not dead code at all, and are the more interesting
+half. `Conduction.symmetric` marks `ASSOC`, `CONTRADICTS` and `ANALOGOUS` as
+symmetric, and `store.strengthen` canonically orders `if Edge(etype) is
+Edge.ASSOC` — so two of the three declared invariants are unenforced, and the
+same contradiction written both ways becomes two edges. And
+`contradiction.resolve` — "apply the user's answer" — was reachable from
+nothing, while `contradiction.pending` runs every night: the device asks which
+of two conflicting claims is right and has no path to act on the reply.
 
 ---
 
