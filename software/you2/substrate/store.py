@@ -232,13 +232,6 @@ class Store:
                 storage_strength=storage_strength, access_count=access_count,
                 last_access=last_access)
 
-    def save_many(self, neurons: Iterable[Neuron]) -> int:
-        n = 0
-        for neuron in neurons:
-            self.save(neuron)
-            n += 1
-        return n
-
     def by_key(self, key: str, *, live_only: bool = True) -> Neuron | None:
         sql = f"SELECT {_NEURON_COLS} FROM neurons WHERE key=?"
         if live_only:
@@ -567,14 +560,6 @@ class Store:
         new = hebbian(current, a_i, a_j, self.cfg.hebbian_rate)
         self.connect(src, dst, etype, new)
         return new
-
-    def edges_of(self, neuron_id: int) -> list[tuple[int, Edge, float, bool]]:
-        return [(o, Edge(list(Edge)[c]), w, b)
-                for o, w, c, b in self.graph.neighbours(neuron_id)]
-
-    def prune_edges(self, w_min: float) -> int:
-        cur = self.conn.execute("DELETE FROM edges WHERE weight < ?", (w_min,))
-        return cur.rowcount or 0
 
     def persist_graph(self) -> int:
         """Write the in-RAM graph back to disk. Called at the end of the
