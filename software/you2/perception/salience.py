@@ -65,10 +65,6 @@ class Salience:
     def keep(self) -> bool:
         return self.decision != "discard"
 
-    @property
-    def strong(self) -> bool:
-        return self.decision == "strong"
-
     def as_dict(self) -> dict[str, float | str]:
         return {
             "total": round(self.total, 3), "surprise": round(self.surprise, 3),
