@@ -58,7 +58,6 @@ class Turn:
     ended_at: float
     prosody: Prosody | None = None
     woken: bool = False
-    barged: bool = False
     stages: dict[str, float] = field(default_factory=dict)
 
     @property
