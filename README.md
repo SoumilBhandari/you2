@@ -153,7 +153,7 @@ You2/
 │   └── renders/revD/     hero, exploded, section, and the six print plates
 ├── docs/build.html       THE BUILD DOCUMENT — every part, plate, fastener, step
 ├── hardware/             wiring · assembly · what to measure before you buy
-├── diagrams/             system architecture + dimensioned drawings
+├── diagrams/             system architecture + the brain
 ├── docs/                 design.md · brain.md · hardware-plan.md · bom.md
 ├── deploy/               flash a card that boots straight into the eye
 ├── software/             the brain, the ears, and the eye
