@@ -63,12 +63,6 @@ class Router:
         self.clock = clock
         self.timers: list[Timer] = []
 
-    def due(self, now: float | None = None) -> list[Timer]:
-        now = now if now is not None else self.clock.now()
-        fired = [t for t in self.timers if t.fires_at <= now]
-        self.timers = [t for t in self.timers if t.fires_at > now]
-        return fired
-
     def route(self, store: Store, text: str, ws: Workspace | None,
               cfg: BrainConfig, now: float | None = None,
               recent: "Sequence[str]" = ()) -> Routed:
