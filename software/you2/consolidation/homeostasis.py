@@ -38,7 +38,6 @@ class Homeostasis:
     pruned: int = 0
     mean_before: float = 0.0
     mean_after: float = 0.0
-    max_before: float = 0.0
     saturated_before: int = 0
     saturated_after: int = 0
     mass_before: float = 0.0
@@ -90,7 +89,7 @@ def _stats(store: Store) -> tuple[int, float, float, int, float]:
 
 def downscale(store: Store, cfg: BrainConfig, *, persist: bool = True) -> Homeostasis:
     """One night of renormalisation."""
-    n_before, mean_before, max_before, sat_before, mass_before = _stats(store)
+    n_before, mean_before, _max_before, sat_before, mass_before = _stats(store)
 
     store.graph.scale_all(cfg.downscale_rho, exempt=STRUCTURAL)
     pruned = store.graph.prune(cfg.prune_weight_min, exempt=STRUCTURAL)
@@ -99,7 +98,7 @@ def downscale(store: Store, cfg: BrainConfig, *, persist: bool = True) -> Homeos
 
     out = Homeostasis(
         edges_before=n_before, edges_after=n_after, pruned=pruned,
-        mean_before=mean_before, mean_after=mean_after, max_before=max_before,
+        mean_before=mean_before, mean_after=mean_after,
         saturated_before=sat_before, saturated_after=sat_after,
         mass_before=mass_before, mass_after=mass_after,
     )
