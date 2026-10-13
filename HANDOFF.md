@@ -43,7 +43,7 @@ The one-line thesis, and the thing every decision comes back to:
 | `cad/` | `you2-revD.scad` is the enclosure; `check.py` and `fit.py` are its gates |
 | `hardware/` | wiring, assembly, and what to measure before you buy |
 | `docs/build.html` | **the build document** — every part, plate, fastener and step |
-| `diagrams/` | system architecture and the rev C general-arrangement drawing |
+| `diagrams/` | system architecture and the brain — the rev C enclosure drawing was deleted with rev C |
 
 ### `software/you2/` — 14 packages, ~12k lines
 
