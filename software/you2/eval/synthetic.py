@@ -133,7 +133,6 @@ class Truth:
     relational, so the profile cannot answer them and only the cascade can.
     These are what the ablations move."""
     recurrence: str = ""
-    bridge: tuple[str, str] = ("", "")
     contradiction_key: str = ""
     contradiction_fact_key: str = ""
     """Key stem of the fact that must end up with exactly one live
@@ -141,7 +140,6 @@ class Truth:
     mentioning the same project."""
     open_loops: list[str] = field(default_factory=list)
     closed_loops: list[str] = field(default_factory=list)
-    total_utterances: int = 0
     span_days: float = 0.0
 
 
@@ -191,7 +189,6 @@ def generate(days: int = 365, *, seed: int = 0, start: float = 1767225600.0,
     for k in range(4):
         out.append(Utterance(BRIDGE_A, at(int(days * 0.2) + k * 21, 11.0), "bridge_a"))
         out.append(Utterance(BRIDGE_B, at(int(days * 0.25) + k * 19, 15.0), "bridge_b"))
-    truth.bridge = (BRIDGE_A, BRIDGE_B)
 
     # --- the contradiction --------------------------------------------------
     out.append(Utterance(CONTRADICTION[0], at(int(days * 0.3), 10.0), "contra_a"))
@@ -230,7 +227,6 @@ def generate(days: int = 365, *, seed: int = 0, start: float = 1767225600.0,
         out.append(Utterance(text, at(day, hour), tag))
 
     out.sort(key=lambda u: u.at)
-    truth.total_utterances = len(out)
 
     # --- probes: what a correct store must still answer at the end ----------
     truth.probes = [
