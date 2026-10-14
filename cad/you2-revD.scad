@@ -94,6 +94,9 @@ mic_mem_d    = 6.2;    // GORE GAW3343.06.0 is OD 6.0 — 6.2 locates it
 mic_mem_t    = 0.4;
 mic_inset_y  = 25;     // DERIVED-ish: centres the array in the usable top face.
                        // At 14 it overhung the raked face's top edge by 2 mm.
+mic_edge_keep = 4.0;   // ring of bare PCB left outboard of each membrane:
+                       // the GORE part is adhesive-bonded, and 2 mm of rim is
+                       // not a bond line. This is what the assert enforces.
 mic_gasket_t = 1.5;
 mic_squash   = 1.2;    // clamped height -> 0.3 mm (20 %) gasket compression
 mic_clamp_t  = 3.0;
@@ -103,8 +106,9 @@ mic_boss_x   = 44;
 spk_bx       = 50;     // driver box width                <-- MEASURE
 spk_by       = 45;     // driver box height               <-- MEASURE
 spk_bz       = 22;     // driver box depth                <-- MEASURE
-spk_cone_d   = 36;
-spk_grille_d = 38;
+spk_cone_d   = 36;     // RADIATING diameter, not the box   <-- MEASURE
+spk_grille_d = spk_cone_d + 2;   // holes outside the cone are blocked and do
+                                 // nothing; +2 keeps one ring over the surround
 grille_hole  = 2.8;    // 40.3 % open over the field
 grille_pitch = 4.2;
 seal_land    = 1.2;    // how far the seat stands proud of the skirt's inner face
@@ -180,6 +184,11 @@ t_top0    = cr_prof * tan((90 - rake) / 2);
 t_sh0     = cr_prof * tan(rake / 2);
 bar_allow = LED_BAR ? bar_w + 6 : 0;
 
+// Depth of the clamp face below the skirt's outer skin. The 0.8 is the 20 %
+// gasket squash: the driver's own back face lands 0.2 mm further out than this,
+// so bolting the clamp down compresses the gasket by exactly that difference.
+drv_reach = wall + seal_land + spk_gask*0.8 + spk_bz;
+
 spk_z     = base_t + 4 + seal_w + spk_by/2;
 skirt_h   = ceil(spk_z + spk_by/2 + seal_w + 4);
 
@@ -220,7 +229,12 @@ assert(mic_inset_y - mic_pcb_d/2 > top_front + 2, "mic array overhangs the front
 assert(mic_inset_y + mic_pcb_d/2 < top_rear - 2,  "mic array overhangs the rear wall");
 assert(spk_z - spk_by/2 - seal_w > base_t,     "driver box fouls the base plate");
 assert(spk_z + spk_by/2 + seal_w < skirt_h,    "driver box breaks through the shoulder");
-assert(mic_circle_d/2 + mic_mem_d/2 + 4 < mic_pcb_d/2, "mic ports fall off the array PCB");
+// NOT "the ports fall off the board" — at mic_circle_d = 62.2 the membrane's
+// outer edge still sits 2.3 mm INSIDE a 73 mm PCB. What fails is the bond land.
+assert(mic_circle_d/2 + mic_mem_d/2 + mic_edge_keep < mic_pcb_d/2,
+       str("no bond land for the mic membranes — the ", mic_mem_d,
+           " mm vent needs ", mic_edge_keep, " mm of PCB outboard of it and has ",
+           mic_pcb_d/2 - (mic_circle_d/2 + mic_mem_d/2)));
 assert(mic_boss_x + boss_od/2 < W/2 - wall - 2, "mic clamp bosses foul the side wall");
 // mic_squash is the CLAMPED height, so the compression is the difference.
 mic_comp = mic_gasket_t - mic_squash;
@@ -235,8 +249,19 @@ assert(H <= BED_Z,                             "shell is taller than the build v
 disp_squash = panel_gask - (post_h - (disp_stack - disp_pcb_t));
 assert(disp_squash > 0.05*panel_gask && disp_squash < 0.45*panel_gask,
        "display posts wrong length — the panel gasket is uncompressed or crushed");
-assert(spk_gask*0.2 > 0.1,
-       "driver clamp has no preload travel — the speaker gasket is not compressed");
+// The driver gasket gets NO squash assert, deliberately. The clamp face is
+// DEFINED as drv_reach = ... + spk_gask*0.8 + ..., so the compression is 20 % by
+// construction and any assert on it is a tautology dressed as a check. The one
+// that was here — `spk_gask*0.2 > 0.1` — is the shape that mistake takes: true
+// for every gasket over 0.5 mm, containing no term from the clamp at all. The
+// display and mic gaskets DO get asserts because their stack-ups are built from
+// independent numbers that can disagree; this one cannot.
+//
+// What is not definitional about the driver mount is the two things below.
+assert(spk_boss_x - 5 > 1,
+       "driver clamp webs foul the driver box — the 10 mm web needs 1 mm clear of spk_bx/2");
+assert(ins_m3_ll + 1 < drv_reach - wall - seal_land,
+       "M3 insert is longer than the web is deep — it would break into the driver pocket");
 
 // ============================================================================
 //  HELPERS
@@ -381,7 +406,6 @@ module speaker_seal_land() {
 // bare bed inside a closed cavity. A web with a 45-degree ramp on its model-top
 // edge spans the same gap, is rooted to the skirt over its whole height, and
 // overhangs nothing. It also stiffens the panel the driver bolts to.
-drv_reach = wall + seal_land + spk_gask*0.8 + spk_bz;   // clamp face, 27.0
 module driver_bosses() {
     intersection() {
         body(shrink = INNER);
