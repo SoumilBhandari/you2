@@ -18,8 +18,17 @@ Usage:
     python3 cad/fit.py cad/you2-revD.scad -D LED_BAR=true
 
 A result under 0.01 cm3 is clear. Between 0.01 and 0.05 is a coplanar contact —
-two faces touching, which is what a gasket seat or a screw boss is supposed to
-do. Above that is real interference.
+two faces touching, the way a gasket seat or a screw boss is meant to. Above
+that is real interference. In practice no pair in this suite has ever landed in
+the contact band: the parts here meet across gaskets, which are separate solids,
+so every honest answer is either 0.000 or a defect.
+
+Every pair in this suite currently reads 0.000, which is the answer a completely
+broken harness also gives. So it runs two controls first: an empty model, which
+must measure zero, and an overlap whose volume is known exactly by arithmetic
+(two 10 mm cubes offset 5 mm in each axis intersect in 5^3 mm3 = 0.125 cm3).
+Between them they exercise the boolean, the STL parse and the signed-volume sum,
+which is everything the number depends on.
 """
 import argparse, os, struct, subprocess, sys, tempfile
 
@@ -71,6 +80,23 @@ def volume(lib, expr, defines):
     return abs(v) / 1000
 
 
+# name, expression, expected cm3. The overlap is 5x5x5 mm by construction.
+CONTROLS = [("an empty model",           "// nothing",                                    0.000),
+            ("a known 5x5x5 mm overlap", "intersection(){ cube(10); "
+                                         "translate([5,5,5]) cube(10); }",                0.125)]
+
+
+def controls(defines):
+    """Prove the measurement works, in both directions, before trusting a 0.000."""
+    for name, expr, want in CONTROLS:
+        got = volume("", expr, defines)
+        if abs(got - want) > 0.001:
+            print(f"  HARNESS BROKEN  {name} measured {got:.4f} cm3, expected {want:.3f}")
+            print("  every 'clear' below would be meaningless — refusing to run")
+            return False
+    return True
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("scad")
@@ -85,9 +111,7 @@ def main():
         return 2
     lib = body[:body.index(marker)]        # everything except the top-level dispatch
 
-    sanity = volume(lib, "// nothing", defines)
-    if sanity != 0.0:
-        print(f"harness broken: an empty model measured {sanity} cm3")
+    if not controls(defines):
         return 2
 
     bad = 0
@@ -102,7 +126,7 @@ def main():
             bad += 1
         print(f"  {name:<32}{v:>8.3f} cm3   {status}")
     print()
-    print("no interference" if not bad else f"{bad} interference(s) — parts occupy the same space")
+    print("controls passed; no interference" if not bad else f"{bad} interference(s) — parts occupy the same space")
     return 1 if bad else 0
 
 
