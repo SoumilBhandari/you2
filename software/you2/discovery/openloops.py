@@ -75,13 +75,3 @@ def nudged(store: Store, loop: Neuron, now: float) -> None:
         loop.invalid_at = now
         loop.meta["closed_reason"] = "abandoned"
     store.save(loop)
-
-
-def closed_recently(store: Store, now: float, days: float = 7.0) -> list[Neuron]:
-    """Loops resolved lately. "You said you'd do X, and you did" is worth
-    being able to say, and it is why closing invalidates rather than deletes."""
-    out = []
-    for loop in store.by_kind(Kind.LOOP, limit=500, live_only=False):
-        if loop.invalid_at and (now - loop.invalid_at) / DAY <= days:
-            out.append(loop)
-    return out
