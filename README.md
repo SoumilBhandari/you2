@@ -169,7 +169,7 @@ A wedge. Angled face so the screen looks at you rather than the ceiling, microph
 
 The front is one big round display — the "eye" — sitting 2.2 mm behind a chamfered bezel, so the rim is always the first thing to touch anything.
 
-**Nothing about the size was chosen.** The display carrier sets the face length, the driver box sets the skirt, the mic array sets the depth, and the fastener flange sets the width. Change a part dimension at the top of the model and the enclosure re-sizes itself; if a measurement makes it unbuildable, 14 asserts fail with the reason rather than rendering a shell you cannot assemble.
+**Almost nothing about the size was chosen.** The display carrier sets the face length, the driver box sets the skirt, and the mic array sets the depth — the height is derived, not picked. Width and depth are the exception: they are hand-typed constants that the asserts *guard* rather than derive, and they are the two numbers to raise when one fires. Change a part dimension at the top of the model and the enclosure re-sizes itself; if a measurement makes it unbuildable, 16 asserts fail with the reason rather than rendering a shell you cannot assemble.
 
 | | |
 |---|---|
@@ -187,7 +187,7 @@ The front is one big round display — the "eye" — sitting 2.2 mm behind a cha
 
 220 × 220 × 250 bed, 0.4 mm nozzle, one material at a time. **No machined parts, no laser cutting, and no thread cut into plastic anywhere** — all 24 are brass heat-set inserts, which need a soldering iron and nothing else. In the default build there is nothing to solder.
 
-Six plates, every one fitting the bed, none needing support. The trick is the shell's orientation: printed **top face down**, the bottom opening faces up so the cavity has no ceiling, the raked face and skirt become steep self-supporting walls, and the four microphone ports print crisp against the plate. Measured rather than asserted — 147 cm² of bed contact and 28 cm² facing downward at more than 60°, of which 9 cm² is a 1.2 mm ledge that bridges. No large flat unsupported span anywhere.
+Six plates, every one fitting the bed, none needing support. The trick is the shell's orientation: printed **top face down**, the bottom opening faces up so the cavity has no ceiling, the raked face and skirt become steep self-supporting walls, and the four microphone ports print crisp against the plate. Measured rather than asserted, in the model's own plate-1 orientation — 141.6 cm² of bed contact and 31.2 cm² facing downward at more than 60°, spread across 143 separate patches. Only seven of them are larger than 1 cm², and the biggest is 7.2 cm² of shadow-gap ledge that any slicer bridges. No large flat unsupported span anywhere, which is the thing that actually fails.
 
 ![Plate 1 — the shell, top face on the bed](cad/renders/revD/d-plate1.png)
 
@@ -210,7 +210,7 @@ python3 cad/check.py cad/you2-revD.scad   # every part is ONE connected solid
 python3 cad/fit.py   cad/you2-revD.scad   # no two parts share space
 ```
 
-Between them and 14 in-model asserts they caught **23 defects renders did not show** — a microphone array overhanging the top face by 2 mm, a driver that never touched its own seal, eight insert holes bored at the insert's own diameter, and two Ø8 × 27 mm horizontal cantilevers that would have needed support towers built from the bare bed inside a sealed cavity.
+Between them and 16 in-model asserts they caught **23 defects renders did not show** — a microphone array overhanging the top face by 2 mm, a driver that never touched its own seal, eight insert holes bored at the insert's own diameter, and two Ø10 × 24 mm horizontal cantilevers that would have needed support towers built from the bare bed inside a sealed cavity.
 
 Model: [cad/you2-revD.scad](cad/you2-revD.scad) · Renders: [cad/renders/revD/](cad/renders/revD/) · **Build document: [docs/build.html](docs/build.html)**
 
@@ -240,9 +240,9 @@ The LLM runs on an API (Groq's free tier covers ~480× this workload), which del
 with it the expensive half of the hardware. A Pi 5 **2 GB** at $65 is the same quad Cortex-A76 silicon as the $175 8 GB
 board; the RAM was only ever there to hold a model that now lives elsewhere.
 
-The enclosure is gated rather than merely rendered — every part exports as a single connected solid, no two parts occupy the same space, and 14 asserts check the things neither gate can see. **That still is not a claim that it fits.** Every dimension came from a datasheet, and vendor listings for these parts are routinely wrong.
+The enclosure is gated rather than merely rendered — every part exports as a single connected solid, no two parts occupy the same space, and 16 asserts check the things neither gate can see. **That still is not a claim that it fits.** Every dimension came from a datasheet, and vendor listings for these parts are routinely wrong.
 
-**One number can invalidate the design.** Seeed describes the mic array as *"44 mm spacing arranged in a circular layout"*. If that is the pitch-circle diameter, this works. If it means the distance between adjacent capsules — which is what "spacing" means on the linear-4 sibling — the pitch circle is 62.2 mm, and at that value the model refuses to render because the ports fall off the edge of the board. Settle it with calipers before ordering: [hardware/measure-first.md](hardware/measure-first.md).
+**One number can invalidate the design.** Seeed describes the mic array as *"44 mm spacing arranged in a circular layout"*. If that is the pitch-circle diameter, this works. If it means the distance between adjacent capsules — which is what "spacing" means on the linear-4 sibling — the pitch circle is 62.2 mm, and at that value the model refuses to render. Not because the ports fall off the board: the membrane's outer edge still sits 2.3 mm inside a Ø73 PCB. Because 2.3 mm of rim is not a bond line for an adhesive-backed Ø6 vent, and the model asserts a 4 mm land. Settle it with calipers before ordering: [hardware/measure-first.md](hardware/measure-first.md).
 
 In the default build there is **nothing to solder**. A soldering iron is still needed, for 24 heat-set inserts.
 
