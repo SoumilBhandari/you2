@@ -36,7 +36,8 @@ The one-line thesis, and the thing every decision comes back to:
 |---|---|
 | `docs/design.md` | hardware, enclosure, voice pipeline, BOM logic. **Predates the software.** |
 | `docs/brain.md` | **the software design.** 20 sections. Read §1, §17 (standing decisions), §19 (corrections). |
-| `docs/architecture.md`, `docs/bom.md` | hot path and parts, from the hardware phase |
+| `docs/architecture.md` | the hot path, from the hardware phase |
+| `docs/bom.md` | **not the parts list** — its five costings were deleted for buying the wrong microphone board. What is left is why the LLM moved off the device, and the five things most likely to go wrong. Parts are in `docs/build.html`. |
 | `software/` | everything that runs |
 | `software/ui/` | the eye — 800×800 round display, canvas 2D, no dependencies |
 | `deploy/` | `flash.sh` writes an SD card that boots into the eye; `install.sh` converges a running Pi |
