@@ -234,7 +234,7 @@ State has to survive being read from the far side of the room with your back tur
 
 Design phase, and honestly so. The software runs; **nothing physical has been built** — nothing printed, no part ordered, no dimension measured with a caliper.
 
-**Parts come to ≈ $351**, roughly $410 delivered. The old $248 costing in [docs/bom.md](docs/bom.md) is superseded: it buys a two-microphone board for a four-microphone enclosure, and omits every fastener, gasket and membrane. The corrected list is in [docs/build.html](docs/build.html).
+**Parts come to ≈ $351**, roughly $410 delivered — the list is in [docs/build.html](docs/build.html). Five older costings used to live in [docs/bom.md](docs/bom.md); all five bought a two-microphone board for a four-microphone enclosure and omitted every fastener, gasket and membrane, so they have been deleted. What is left in that file is the reasoning they were wrapped around: why the LLM moved off the device, and the five things most likely to go wrong.
 
 The LLM runs on an API (Groq's free tier covers ~480× this workload), which deleted the local-inference requirement and
 with it the expensive half of the hardware. A Pi 5 **2 GB** at $65 is the same quad Cortex-A76 silicon as the $175 8 GB
