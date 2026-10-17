@@ -93,7 +93,7 @@ behaviour, but it is a guard rail, not a derivation.
 | `speaker_gasket` | 1 | TPU 95A | 5 | 1 g |
 | `foot` | 1 | TPU 95A | 6 | 45 g |
 
-**674 g** total — 620 g PETG, 54 g TPU. Six plates, every one fitting a
+**730 g** total — 676 g PETG, 54 g TPU. Six plates, every one fitting a
 220 × 220 × 250 bed. Plates 4 and 6 are optional.
 
 24 brass heat-set inserts, 24 screws, 4 standoffs. **≈ $351 in parts.**
