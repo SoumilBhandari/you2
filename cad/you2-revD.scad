@@ -71,6 +71,14 @@ fp_t         = 4.2;
 fp_rebate    = 2.2;
 fp_lip_x     = 11.0;   // wide enough to host a M3 socket head + 2 mm of edge
 fp_lip_y     = 6.0;
+// Corner radius of the faceplate and of the rebate it drops into. This is the
+// one number in the file that is purely how it looks. At 6 the plate was a
+// hard-cornered rectangle carrying a circle, with the shell's own rectangle
+// outside it — three outlines arguing. Large enough and the plate reads as one
+// soft shape around the eye instead. It is bounded above by the corner screws:
+// the counterbore has to stay in material, and the assert below says by how
+// much.
+fp_r         = 16.0;
 // HEAT-SET INSERTS — these are HOLE diameters, not insert outer diameters.
 // A heat-set insert needs the hole SMALLER than its OD so the melt has
 // something to grip; boring the hole at the OD gives zero interference and the
@@ -240,6 +248,24 @@ assert(mic_boss_x + boss_od/2 < W/2 - wall - 2, "mic clamp bosses foul the side 
 mic_comp = mic_gasket_t - mic_squash;
 assert(mic_comp > 0.05*mic_gasket_t && mic_comp < 0.45*mic_gasket_t,
        "mic gasket is uncompressed or crushed — check mic_squash against mic_gasket_t");
+// The faceplate's own corner radius against its corner screws. The plate is
+// fp_w + 2*(fp_lip_x-0.7) by fp_l + 2*(fp_lip_y-0.7); a screw at fp_screws()
+// sits in the corner quadrant once fp_r is large, and its Ø6.2 counterbore has
+// to stay inside the arc. This is the only thing stopping fp_r going higher.
+fp_ow  = fp_w + 2*(fp_lip_x - 0.7);
+fp_ol  = fp_l + 2*(fp_lip_y - 0.7);
+fp_sx  = fp_w/2 + fp_lip_x/2;          // fp_screws(), first component
+fp_sy  = fp_l/2 - 8;
+fp_cx  = max(0, fp_sx - (fp_ow/2 - fp_r));
+fp_cy  = max(0, fp_sy - (fp_ol/2 - fp_r));
+fp_edge = fp_r - (sqrt(fp_cx*fp_cx + fp_cy*fp_cy) + 6.2/2);
+// 1.2 mm is three perimeters at a 0.4 nozzle. Two is not enough on a corner
+// carrying screw preload, and 18.0 — which the first cut of this used — leaves
+// exactly two.
+assert(fp_r < 6.05 || fp_edge > 1.2,
+       str("faceplate corner radius eats the screw counterbore — fp_r = ", fp_r,
+           " leaves ", fp_edge, " mm of material outboard of it, needs 1.2"));
+
 assert(max(W, D) <= max(BED_X, BED_Y) && min(W, D) <= min(BED_X, BED_Y),
        "shell footprint exceeds the bed");
 assert(H <= BED_Z,                             "shell is taller than the build volume");
@@ -307,7 +333,7 @@ module slot_field(n, pitch, len, w, t) {
         }
 }
 
-module fp_outline(gx = 0, gy = 0) { rrect(fp_w + 2*gx, fp_l + 2*gy, 6); }
+module fp_outline(gx = 0, gy = 0) { rrect(fp_w + 2*gx, fp_l + 2*gy, fp_r); }
 function fp_screws() = [for (sx = [-1,1], sy = [-1,1])
                         [sx*(fp_w/2 + fp_lip_x/2), sy*(fp_l/2 - 8)]];
 function post_xy()   = [for (sx = [-1,1], sy = [-1,1]) [sx*disp_hole_p/2, sy*disp_hole_p/2]];
