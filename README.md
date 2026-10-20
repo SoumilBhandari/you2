@@ -220,7 +220,9 @@ Model: [cad/you2-revD.scad](cad/you2-revD.scad) · Renders: [cad/renders/revD/](
 
 The original design put a 102 mm light bar across the skirt to signal state — idle, listening, thinking, speaking. It is the only soldering in the project, the only level shifter, the only second supply, and a 459 mm² unsealed aperture in the front face just above the driver. It also costs 14 mm of height and 8 mm of depth.
 
-An 800 × 800 emissive disc showing a full-field colour is more visible across a room than a 4.5 mm diffused slot. `LED_BAR = false` is the default; set it true and the model re-sizes itself if you disagree.
+An 800 × 800 emissive disc showing a full-field colour is more visible across a room than a 4.5 mm diffused slot. `LED_BAR = false` is the default; set it true and the model re-sizes itself if you disagree — 158 × 158 × 207 rather than 152 × 150 × 192.
+
+Until recently that was a claim rather than a fact. Nothing ran the switches, so `LED_BAR = true` exported a shell with a 1.7 × 1.2 × 2.0 mm chip floating at each side — the rev C failure exactly, in a variant the documentation called clean. `cad/check.py --variants` runs every part under every switch combination now.
 
 ### The screen
 
