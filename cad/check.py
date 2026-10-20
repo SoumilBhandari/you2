@@ -27,6 +27,17 @@ DEFAULT_PARTS = ["shell", "faceplate", "base", "mic_clamp", "driver_clamp",
                  "ballast_pod", "ballast_lid", "mic_gasket", "panel_gasket",
                  "speaker_gasket", "foot"]
 
+# The model has three switches, and only one configuration was ever gated. Two
+# of the others were broken: LED_BAR = true exported the shell with a
+# 1.7 x 1.2 x 2.0 mm chip floating at each side, while every assert passed and
+# the documentation said both variants were clean. A switch nothing runs is a
+# switch that does not work.
+VARIANTS = [("default", []),
+            ("LED_BAR", ["LED_BAR=true"]),
+            ("no ballast", ["BALLAST=false"]),
+            ("flutes", ["FLUTES=true"]),
+            ("LED_BAR + flutes", ["LED_BAR=true", "FLUTES=true"])]
+
 
 def export(scad, mode, extra):
     out = os.path.join(tempfile.mkdtemp(), f"{mode}.stl")
@@ -107,15 +118,37 @@ def main():
     ap.add_argument("--parts", nargs="*", default=DEFAULT_PARTS)
     ap.add_argument("-D", dest="defines", action="append", default=[],
                     help="extra OpenSCAD -D, e.g. -D LED_BAR=true")
+    ap.add_argument("--variants", action="store_true",
+                    help="run every part under every switch combination")
     a = ap.parse_args()
     extra = [x for d in a.defines for x in ("-D", d)]
 
     if not self_test():
         return 2
 
+    if a.variants:
+        bad = 0
+        for name, defs in VARIANTS:
+            print(f"  --- {name} " + "-" * (52 - len(name)))
+            fails = grade(a.scad, a.parts,
+                          extra + [x for d in defs for x in ("-D", d)])
+            bad += fails
+        print()
+        print("every variant builds" if not bad
+              else f"{bad} part/variant combination(s) failed")
+        return 1 if bad else 0
+
+    bad = grade(a.scad, a.parts, extra)
+    print()
+    print("self-test passed; all parts are single solids" if not bad
+          else f"{bad} part(s) failed — a floating feature will not print")
+    return 1 if bad else 0
+
+
+def grade(scad, parts, extra):
     bad = 0
-    for part in a.parts:
-        stl, err = export(a.scad, part, extra)
+    for part in parts:
+        stl, err = export(scad, part, extra)
         if stl is None:
             print(f"  FAIL  {part:<14} did not export\n        {err}")
             bad += 1
@@ -130,10 +163,7 @@ def main():
                 print(f"        floating piece, {cnt} verts, centroid {cen}")
         if err:
             print(f"        {err}")
-    print()
-    print("self-test passed; all parts are single solids" if not bad
-          else f"{bad} part(s) failed — a floating feature will not print")
-    return 1 if bad else 0
+    return bad
 
 
 if __name__ == "__main__":
