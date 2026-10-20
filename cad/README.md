@@ -36,9 +36,16 @@ beautifully.
 
 ```bash
 python3 cad/check.py cad/you2-revD.scad   # every part is ONE connected solid
+python3 cad/check.py cad/you2-revD.scad --variants   # ...under every switch
 python3 cad/fit.py   cad/you2-revD.scad   # no two parts occupy the same space
 python3 cad/docs.py                       # the prose agrees with the model
+python3 cad/render.py                     # regenerate all fifteen images
 ```
+
+**Run `--variants`.** The model has three switches and only one configuration
+was ever gated. `LED_BAR = true` was broken for as long as it has existed: the
+shell exported with a chip floating at each side, every assert passed, and the
+documentation said both variants were clean.
 
 The first two begin by proving they can fail — `check.py` on a mesh it knows is
 two pieces, `fit.py` on an overlap of known volume. A gate that has only ever
