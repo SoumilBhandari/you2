@@ -110,7 +110,7 @@ python3 cad/fit.py   cad/you2-revD.scad     # no two parts share space
 openscad -o /dev/null --export-format=binstl -D 'MODE="shell"' cad/you2-revD.scad
 ```
 
-All three gates pass on both variants (`-D LED_BAR=true` as well), and 16 asserts
+All three gates pass on both variants (`-D LED_BAR=true` as well), and 17 asserts
 inside the model pass.
 
 Render a PNG with `--render`. **Never preview** — the CSG tree exceeds
