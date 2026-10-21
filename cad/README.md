@@ -101,7 +101,7 @@ done
 The shell prints **top face down**. That is the whole trick: the bottom opening
 then faces up so the cavity has no ceiling, the raked face and the skirt become
 steep self-supporting walls, and the four mic ports print crisp against the
-plate. 141.6 cm² of bed contact and 31.2 cm² facing down at more than 60°,
+plate. 141.6 cm² of bed contact and 30.6 cm² facing down at more than 60°,
 spread over 143 patches of which only seven exceed 1 cm². The largest is 7.2 cm²
 of 1.2 mm shadow-gap ledge, which bridges.
 
