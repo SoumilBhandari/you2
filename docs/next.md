@@ -7,19 +7,61 @@ through the real pipeline, or read out of the code. Where a number could not
 honestly be obtained from the synthetic corpus, that is said rather than
 papered over.
 
-The ordering claim: **the device currently says things that are false, and
-the instrument that was supposed to catch that measures nothing.** Fix the
-speaking before building anything new.
+The ordering claim: **the device deletes memories it was never asked to
+delete, says things that are false, and the instrument meant to catch that
+measures nothing.** A1 is irreversible and one afternoon of work; do it on
+its own. Then fix the speaking. Build nothing new until both are done.
 
 ---
 
 ## A. Things the device says that are not true
 
-**A1. A fact is stamped with the night that read it, not the day it was said.**
+**A1. An unanchored regex irreversibly deletes a memory on ordinary English.**
+This is the worst defect in the system and it should be fixed alone, first.
+
+`_HARD_DELETE` (`reconsolidate.py:42`) is
+`\b(forget (that|about that|what i said|it)|delete that|remove that|never mind that)\b`
+with no anchor and no negation handling. Ten ordinary sentences, ten matches,
+nine of them false:
+
+| utterance | matched |
+|---|---|
+| `I'll never forget that lunch with David Anderson` | `forget that` |
+| `don't forget that the bins go out tomorrow` | `forget that` |
+| `I won't forget that you helped me` | `forget that` |
+| `we should delete that column in the spreadsheet at work` | `delete that` |
+| `I hope you don't forget about that dentist appointment` | `forget about that` |
+| `remind me to delete that file tomorrow` | `delete that` |
+
+What happens on a match is the other half. `apply()` at
+`reconsolidate.py:152` calls `target(store, ws, text, kinds=DELETABLE)` with
+**no `said=` argument**, so `subject = _dimension_of(said) if said else None`
+is None and the subject guard — the thing that stops a correction hitting an
+unrelated memory — is skipped entirely. The best-scoring workspace item goes
+straight to `store.entomb()`, whose own docstring calls it *"the only
+unrecoverable state"*, with `cascade=True` reaching every fact citing it.
+`DELETABLE` includes `Kind.EPISODE`. The device then replies with the single
+word `"Forgotten."` while `repair.target` still holds the neuron it destroyed.
+
+Three changes: anchor the marker to the head of a clause the way
+`_LEADING_MARKER` already does and exclude negated forms
+(`never|won't|can't|don't` + forget); render the victim into the reply —
+*"Forgotten: the Kestrel migration keeps slipping"* — since `Repair.target` is
+right there; and for anything that is not a bare imperative, hold the
+candidate and require a confirming turn before entombing.
+
+**A2. A fact is stamped with the night that read it, not the day it was said.**
 `supersede._create` writes `created_at=now, valid_at=now` from the night's
 clock, and `abstraction.consolidate` discards the citing episodes' dates it
 already holds. This is the shared root of the re-supersession churn and the
 retrieval blackout below — one bug, three symptoms.
+
+The churn is sharper than "it re-supersedes": each idle night writes a
+*pair* of rows at the **same** `created_at`, and `store.history_of`
+orders by `created_at DESC` with no liveness filter — so among same-night
+ties `history[0]` is a **superseded** row. That is exactly the sentence
+`engine.contrast` renders, which is why the false claim is
+self-contradictory: *was "…morning", now "…morning"*, at 0.95 confidence.
 
 Measured over a demo month plus eight nights twenty days apart: neurons
 41 → 32, fact rows 17 → 8, versions of `user/pref_meet` 10 → 2 (the true count;
@@ -31,7 +73,7 @@ It is the only defect here still writing new bad state on every run, which is
 why it goes first: every other fix is cheaper to validate against a store that
 has stopped churning.
 
-**A2. Superseded facts never leave the hot cue index.**
+**A3. Superseded facts never leave the hot cue index.**
 `forgetting.decay_and_tier` iterates only `Kind.EPISODE`, and `Store.save`
 derives hot scope from tier alone, so a superseded fact stays `Tier.HOT`
 forever. `cues.build` then spends its eight semantic seeds on neurons that
@@ -46,7 +88,7 @@ while the answer sits in the store as a live hot fact. With the fix the
 workspace holds 8 items / 139 tok across eight nights instead of collapsing to
 1 item / 21 tok.
 
-**A3. `contrast` reads transaction time where it means valid time.**
+**A4. `contrast` reads transaction time where it means valid time.**
 `engine.contrast` spans `history[0].created_at - history[-1].created_at` and
 `store.history_of` orders by `created_at DESC` with no liveness filter. Both
 are the wrong column. A genuine change sixty days apart is written on one
@@ -55,20 +97,25 @@ fires** — while the churn from A1 makes it fire falsely. Today it is a pure
 false-positive generator: it speaks only when the bug feeds it, and never when
 the feature is warranted.
 
-**A4. Derived facts are spoken unlabelled, and sort first.**
+**A5. Derived facts are spoken unlabelled, and sort first.**
 `workspace.render` labels `meta['derived']` with `(inferred)`. `recall/answer.py`
 does not — `_about_me`, `_who` and `_what_about` all emit `n.text()` raw, and
 two of them sort by `-confidence`, where a compiled contrast carries 0.95
 against the extractor's 0.7 default. So an inference outranks everything the
 person actually said, on the one path with no model in it to hedge.
 
-**A5. `_who` and `_about_me` skip the topic filter that exists for them.**
+**A6. `_who` and `_about_me` skip the topic filter that exists for them.**
 `_on_topic` is applied in `_what_about` and `_when_last` and skipped in the
-other two, which sort on confidence alone. At day 210 `who is Priya Raman`
-answers *"the coffee machine is making that noise again"* — for all four
-planted people — because `coffee_machine/state` carries confidence 1.00.
+other two, which sort on confidence alone. At day 210, `who is X` answers
+*"the coffee machine is making that noise again"* for **7 of the 7 entities**
+that return any fact at all — the four planted people plus Kestrel, the garden
+wall and the Halloway report — because `coffee_machine/state` carries
+confidence 1.00. One premise to correct before starting: ABOUT edges from
+facts to entities *do* exist (`supersede._cite` writes them), which makes the
+fix easier rather than harder — `person/stance.py` already traverses them
+every night.
 
-**A6. The correction guard is coarse, and the reason it had to be is a
+**A7. The correction guard is coarse, and the reason it had to be is a
 two-token bug.** `reconsolidate._dimension_of` returns the subject, and the
 docstring justifies that entirely on the elliptical "semi-skimmed" case. But
 `rules.is_elliptical` inspects the *last* token: `is_elliptical("semi-skimmed")`
