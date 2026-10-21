@@ -358,6 +358,41 @@ enclosure to exist.
 6. Print the shell. ~400 g, ~31 h at 0.2 mm — closer to 15 h with a 0.6 mm
    nozzle, which nothing on this part suffers from.
 
+### And what to build, as opposed to measure
+
+The gates have now caught more than the renders ever did, and each new one has
+paid for itself on its first run. That is the pattern worth continuing.
+
+1. **Put a slicer in the gate.** Filament mass and print time are the last
+   numbers in this project maintained by hand, and they had drifted into three
+   different answers (674 g, 662 g, 730 g) before `docs.py` summed the table.
+   PrusaSlicer and OrcaSlicer both have a CLI that will produce both from an
+   STL. Do that and every number in the build document is derived.
+2. **A minimum-feature check.** Nothing here measures wall thickness. A part
+   can be one connected solid, clear of every other part, satisfy all
+   seventeen asserts, and still have a 0.3 mm web that no slicer will produce.
+   It is the classic FDM failure and this repo is currently blind to it.
+3. **Run the gates on commit.** They only run when someone remembers, and the
+   evidence is that numbers went wrong for weeks at a time. `docs.py --quick`
+   takes about two seconds.
+4. **Derive `W` and `D`.** They are the last hand-typed dimensions, guarded by
+   asserts rather than produced by them — and that gap is exactly what let
+   `LED_BAR = true` ship broken, because `D` grew with the switch and `W` did
+   not. Deriving both turns "almost nothing about the size was chosen" into
+   something true.
+5. **Decide the light bar.** It builds now, but it is off by default, costs
+   6 mm of width, 8 mm of depth and 15 mm of height, and is the only soldering,
+   the only level shifter and the only unsealed aperture in the project. Commit
+   to it or delete it; maintaining an off-by-default variant is how it broke.
+6. **The rear I/O bezel and the reSpeaker mount**, both already named in the
+   model as deferred until a board can be measured. Small prints, and neither
+   can be designed from a datasheet.
+7. **`docs/build.html` has no generator.** It is the best thing in this repo and
+   it is hand-edited, because the script that made it lived in a scratch
+   directory that no longer exists — the same way the renders lost their source
+   until `cad/render.py`. Its tables are now the authority for mass and money,
+   so it cannot be regenerated from the model until (1) lands.
+
 ---
 
 ## Conventions
