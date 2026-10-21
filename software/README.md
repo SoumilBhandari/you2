@@ -43,6 +43,8 @@ is dropped in silence. A real microphone additionally needs `sounddevice` and
 Picking this up cold? **[../handoff_software.md](../handoff_software.md)** —
 current numbers, what changed and why, and what will waste your afternoon.
 
+What to build next, with the measurement behind each item: **[../docs/next.md](../docs/next.md)**.
+
 ---
 
 ## What it is
