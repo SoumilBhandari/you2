@@ -200,8 +200,8 @@ faces up so the cavity has no ceiling, the raked face and skirt are steep
 self-supporting walls, and the mic ports print crisp against the plate.
 
 Measured in the model's own plate-1 orientation: **141.6 cm² of bed contact and
-31.2 cm² facing downward at more than 60°.** The largest single contribution is
-7.2 cm² of 1.2 mm shadow-gap ledge, which bridges; the next largest is 2.9 cm²,
+30.6 cm² facing downward at more than 60°.** The largest single contribution is
+7.2 cm² of 1.2 mm shadow-gap ledge, which bridges; the next largest is 2.7 cm²,
 only seven patches exceed 1 cm² at all, and 6.6 cm² of the total lands in the
 first 20 mm of the print. **No large flat
 unsupported span anywhere** — which is the thing that actually fails.
