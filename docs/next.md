@@ -172,8 +172,20 @@ enforcement, or a reader with no writer.
   setting it false silently does nothing, and the interruptibility guarantee
   is stated as a fact in the docs.
 
-The sweep should become a test: for every `BrainConfig` field assert a read
-outside `config.py`; for every `meta[...]` key assert both a writer and a
+**The `BrainConfig` half of this is now a test.** `test_every_config_field_is_read_somewhere`
+parses `config.py`, greps the rest of the package, and fails on any field
+nothing reads. It found four more beyond `barge_in`: `journal_path` (a
+file-based journal replaced by a SQLite table), `retrieval_strength_init`
+(retrieval strength is computed from time since access, not stored, so there was
+nothing to initialise), `interrupt_check_seconds` (a polling interval replaced
+by an `Interrupt` callback) and `llm_night_model` (documented as "consolidation
+can run a smaller, cheaper model than the primary" and never passed to one).
+Three were vestigial and deleted; `llm_night_model` is now threaded through the
+two consolidation calls that reach an LLM. `barge_in` stays listed, in the
+test's own `UNWIRED_CONFIG` with its reason, so it is an acknowledged gap rather
+than a quiet pass.
+
+The `meta[...]` half is still open: for every key assert both a writer and a
 reader; for every name in a package `__all__` assert a caller. It starts green
 once these are dispositioned and stays green.
 
