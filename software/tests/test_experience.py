@@ -224,6 +224,38 @@ def test_brightness_is_clamped():
                 assert max(channel) <= ceiling, (state, channel)
 
 
+def test_the_bar_follows_the_level_published_by_the_audio_loop():
+    """The bar polled bus.state and nothing else, so set_level was never called
+    and _level stayed 0.0 for the life of the process. LISTENING and SPEAKING
+    both render mode "level" — the two states anyone actually watches were
+    drawing a meter pinned at zero, while the loop published a level event 33
+    times a second that had no consumer.
+    """
+    import time as _time
+    from pathlib import Path
+    from you2.runtime.events import Bus
+
+    bus = Bus()
+    bar = Bar(device=Path("/nonexistent"), fps=120.0)
+    # At level 0 the meter is a dim floor with a faint centre; the point is
+    # that it never moved off it, whatever was said.
+    quiet = sum(sum(px) for px in bar.frame(State.LISTENING, 0.0))
+
+    bar.start(bus)
+    try:
+        bus.publish("level", level=1.0)
+        loud = quiet
+        for _ in range(200):                    # ~1 s ceiling, not a fixed sleep
+            loud = sum(sum(px) for px in bar.frame(State.LISTENING, 0.0))
+            if loud != quiet:
+                break
+            _time.sleep(0.005)
+    finally:
+        bar.stop()
+    assert loud > quiet, ("the bar never saw the level event — this is the bug: "
+                          f"full scale rendered {loud}, silence renders {quiet}")
+
+
 def test_each_state_looks_different():
     bar = Bar()
     seen = {state: bar.frame(state, 2.0) for state in State}
