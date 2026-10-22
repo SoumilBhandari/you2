@@ -43,6 +43,8 @@ import numpy as np
 SAMPLE_RATE = 16000
 FRAME_MS = 30.0
 FRAME = int(SAMPLE_RATE * FRAME_MS / 1000)
+#: How much trailing audio the turn model scores: 256 x 30 ms = 7.7 s.
+WINDOW_FRAMES = 256
 
 #: The wake word. Changeable at any point without touching a line of pipeline
 #: code — it is a custom openWakeWord model, trained in about ninety minutes
@@ -227,6 +229,7 @@ class TurnDecision:
 
 @runtime_checkable
 class TurnDetector(Protocol):
+    def feed_audio(self, frame: np.ndarray) -> None: ...
     def update(self, *, speaking: bool, silence_ms: float,
                partial: str) -> TurnDecision: ...
     def reset(self) -> None: ...
@@ -252,12 +255,22 @@ class SmartTurn:
                partial: str) -> TurnDecision:
         if speaking or silence_ms < 120.0:
             return TurnDecision(False)
-        window = np.concatenate(self._audio[-256:]) if self._audio else np.zeros(FRAME)
+        if not self._audio:
+            # Nobody fed this detector. Scoring np.zeros here returns whatever
+            # the model says about digital silence — a constant, and a plausible
+            # looking one, which is how this went unnoticed. Say so instead.
+            return TurnDecision(False, 0.0, "smart-turn: no audio fed")
+        window = np.concatenate(self._audio[-WINDOW_FRAMES:])
         p = float(self._sess.run(None, {"input": window[None, :]})[0].squeeze())
         return TurnDecision(p >= self.threshold, p, "smart-turn")
 
     def feed_audio(self, frame: np.ndarray) -> None:
         self._audio.append(frame)
+        # update() only ever looks at the last WINDOW_FRAMES. Without this the
+        # list grows to MAX_UTTERANCE_S of audio — 1000 frames, ~1.9 MB — and
+        # every one of them is retained to be ignored.
+        if len(self._audio) > WINDOW_FRAMES * 2:
+            del self._audio[:-WINDOW_FRAMES]
 
     def reset(self) -> None:
         self._audio.clear()
@@ -279,6 +292,9 @@ class SilenceTurn:
     def __init__(self, base_ms: float = 480.0, min_ms: float = 220.0,
                  max_ms: float = 1100.0) -> None:
         self.base_ms, self.min_ms, self.max_ms = base_ms, min_ms, max_ms
+
+    def feed_audio(self, frame: np.ndarray) -> None:
+        return          # this one decides from timing and text, not waveform
 
     def update(self, *, speaking: bool, silence_ms: float,
                partial: str) -> TurnDecision:
