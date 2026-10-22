@@ -206,7 +206,7 @@ def _read(store: Store, llm: Any | None, batch: Batch, now: float,
     if llm is not None:
         try:
             messages = prompts.extract_batch(batch.episodes, now, known)
-            payload = llm.structured(messages)
+            payload = llm.structured(messages, model=store.cfg.llm_night_model)
             if isinstance(payload, dict):
                 return payload, False
         except (LLMError, ValueError, TypeError, KeyError) as exc:
