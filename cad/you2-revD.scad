@@ -151,6 +151,19 @@ standoff_h   = 6;
 base_t       = 4.0;
 base_clear   = 0.5;    // the plate is a true offset of the opening; 0.35 left a
                        // tessellation sliver at the rounded corners
+// The drain field is rotated 90 degrees when it is cut, so this LENGTH runs
+// along x and the pitch runs along y. At 44 it reached x = +-22.0 while the
+// cable-tie slots start at x = +-22.4 — a 0.4 mm web between two voids, which
+// is below what a 0.4 mm nozzle lays down, so the slicer merges them into one
+// opening. Neither geometry gate can see it: both features are CUTS, and
+// fit.py compares solids.
+drain_n      = 5;
+drain_pitch  = 17;
+drain_len    = 40;
+drain_w      = 5;
+tie_x        = 24;     // first cable-tie slot centre; the second is +10
+tie_w        = 3.2;
+tie_l        = 9;
 sd_slot_w    = 16;
 sd_slot_l    = 10;     // narrow, and outboard of the Pi hole column at
                        // x = -24.5 — a wider window undercuts that standoff boss
@@ -255,6 +268,12 @@ assert(mic_bore > 4.0 + 0.3,
        str("mic insert bore is ", mic_bore, " mm — too shallow for a 4.0 mm M3 insert"));
 assert(mic_roof >= 1.2,
        "less than 3 perimeters of roof over the mic insert bore — it will break through");
+// Two CUTS that nearly meet leave a web no nozzle can fill, and the slicer
+// merges them into one opening. Neither mesh gate sees this: both are voids.
+tie_web = (tie_x - tie_w/2) - drain_len/2;
+assert(tie_web > 1.2,
+       str("only ", tie_web, " mm of base between the drain slots and the ",
+           "cable-tie slots — shorten drain_len or move tie_x"));
 // mic_squash is the CLAMPED height, so the compression is the difference.
 mic_comp = mic_gasket_t - mic_squash;
 assert(mic_comp > 0.05*mic_gasket_t && mic_comp < 0.45*mic_gasket_t,
@@ -683,15 +702,16 @@ module base() {
         }
         // drain / debris path. NOT a thermal intake: buoyancy at a 3 mm foot
         // height cannot drive useful flow through a base at this scale.
-        translate([0, pi_y, -1]) rotate([0,0,90]) slot_field(5, 17, 44, 5, base_t + 2);
+        translate([0, pi_y, -1]) rotate([0,0,90])
+            slot_field(drain_n, drain_pitch, drain_len, drain_w, base_t + 2);
         // the microSD socket is on the underside of the LONG edge that carries
         // USB-C and the micro-HDMIs — which this layout puts at x = -28, not +28
         translate([-35, pi_y - pi_long/2 + 8, -1]) linear_extrude(height = base_t + 2) rrect(sd_slot_l, sd_slot_w, 3);
         // cable-tie slots for the reSpeaker core board. "Tie it to a rib" was
         // not a feature that existed; this is.
         for (sx = [-1, 1], i = [0, 1])
-            translate([sx*(24 + i*10), pi_y + pi_long/2 - 4, -1])
-                linear_extrude(height = base_t + 2) rrect(3.2, 9, 1.2);
+            translate([sx*(tie_x + i*10), pi_y + pi_long/2 - 4, -1])
+                linear_extrude(height = base_t + 2) rrect(tie_w, tie_l, 1.2);
     }
 }
 
