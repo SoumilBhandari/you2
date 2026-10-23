@@ -102,9 +102,23 @@ class Store:
             self.soma[n.id] = Soma(n.last_access, n.access_count,
                                    n.storage_strength, n.pinned, n.kind, n.tier)
 
+    def _hot_scope(self, neuron: Neuron) -> bool:
+        """Should this neuron be a candidate for a semantic cue seed?
+
+        Tier alone is not enough. `decay_and_tier` only walks episodes, so a
+        superseded fact stays Tier.HOT forever, while `workspace.compete`
+        refuses anything not live -- so those seeds are spent on candidates
+        that are structurally forbidden from winning. Measured on the demo:
+        3 of the 8 seeds were already dead at night 0, 5 at night 1, 7 at
+        night 2, at which point the live fact was not in the seed set at all
+        and `why` reported `considered 4, selected 1`.
+        """
+        return neuron.tier is Tier.HOT and neuron.is_live
+
     def _hot_ids(self) -> set[int]:
         rows = self.conn.execute(
-            "SELECT id FROM neurons WHERE tier = 'hot'").fetchall()
+            "SELECT id FROM neurons WHERE tier = 'hot' "
+            "AND invalid_at IS NULL AND superseded_by IS NULL").fetchall()
         return {r["id"] for r in rows}
 
     def flush(self) -> None:
@@ -172,7 +186,7 @@ class Store:
         text = embed_text if embed_text is not None else neuron.text()
         if text:
             vec = self.embedder.encode([text])[0]
-            self.vectors.put(neuron.id, vec, hot=(neuron.tier is Tier.HOT))
+            self.vectors.put(neuron.id, vec, hot=self._hot_scope(neuron))
 
         if aliases:
             self.add_aliases(neuron.id, aliases)
@@ -207,9 +221,9 @@ class Store:
                           (*row.values(), nid))
         if reembed and neuron.text():
             vec = self.embedder.encode([neuron.text()])[0]
-            self.vectors.put(neuron.id, vec, hot=(neuron.tier is Tier.HOT))
+            self.vectors.put(neuron.id, vec, hot=self._hot_scope(neuron))
         else:
-            self.vectors.set_scope(neuron.id, neuron.tier is Tier.HOT)
+            self.vectors.set_scope(neuron.id, self._hot_scope(neuron))
         self._cache_soma(neuron)
 
     def touch(self, neuron_id: int, *, storage_strength: float,
