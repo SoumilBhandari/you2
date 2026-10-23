@@ -43,6 +43,16 @@ class Snapshot:
     diversity: float = 0.0
     """Mean pairwise dissimilarity among selected items. Low means the block
     is eight paraphrases, which is exactly what inhibition prevents."""
+    focus_macro: float = 0.0
+    """Focus averaged per probe rather than per item. The micro average is
+    dominated by whichever probe retrieved most, so one probe failing
+    completely moves it barely at all."""
+    worst_probe_focus: float = 0.0
+    """The least on-topic probe in the set. This is the one to watch."""
+    min_selected: int = 0
+    """Fewest items any probe got into the workspace. Zero means a question
+    was answered with nothing, and should be read as a failure rather than as
+    a rounding error."""
     block_tokens: float = 0.0
     visited: float = 0.0
     neurons: int = 0
@@ -124,7 +134,7 @@ class Result:
 
 
 def focus_and_diversity(brain: Brain, truth: Truth,
-                        now: float) -> tuple[float, float]:
+                        now: float) -> tuple[float, float, float, float, int]:
     """Retrieval quality, measured where the profile cannot help.
 
     focus      of the items retrieved, how many are actually about the thing
@@ -139,10 +149,14 @@ def focus_and_diversity(brain: Brain, truth: Truth,
     on_topic = 0.0
     total = 0.0
     diversities: list[float] = []
+    per_probe: list[float] = []
+    min_selected = 1 << 30
     for query, token in truth.hard_probes:
         ws = brain._retrieve(query, now)
+        min_selected = min(min_selected, len(ws.items))
         if not ws.items:
             total += 1.0
+            per_probe.append(0.0)
             continue
         # An item counts as on-topic if it names the thing OR is bound to it
         # in the graph. Literal token matching alone under-counts badly:
@@ -155,10 +169,13 @@ def focus_and_diversity(brain: Brain, truth: Truth,
             related = {anchor.id}
             related |= {o for o, w, _c, _b in brain.store.graph.neighbours(anchor.id)
                         if w > 0.0}
+        hit = 0.0
         for item in ws.items:
             total += 1.0
             if token in item.neuron.text().lower() or item.neuron.id in related:
                 on_topic += 1.0
+                hit += 1.0
+        per_probe.append(hit / len(ws.items))
         ids = ws.ids()
         if len(ids) > 1:
             sims = []
@@ -167,8 +184,16 @@ def focus_and_diversity(brain: Brain, truth: Truth,
                 sims.extend(float(x) for x in row)
             if sims:
                 diversities.append(1.0 - float(np.mean(sims)))
+    # The micro average is what this returned alone, and it hides a total
+    # failure: a twelve-item probe contributes twelve to the denominator and
+    # an empty probe contributes one. Measured at day 180, micro focus 0.89
+    # against a macro of 0.80 -- with one probe at 0.00, one item retrieved
+    # and none of it on topic, which the aggregate called healthy.
     return (on_topic / total if total else 0.0,
-            float(np.mean(diversities)) if diversities else 0.0)
+            float(np.mean(diversities)) if diversities else 0.0,
+            float(np.mean(per_probe)) if per_probe else 0.0,
+            min(per_probe) if per_probe else 0.0,
+            0 if min_selected == (1 << 30) else min_selected)
 
 
 def probe(brain: Brain, truth: Truth, now: float) -> tuple[float, float, float, float, float]:
@@ -280,11 +305,15 @@ def run(*, days: int = 365, seed: int = 0, cfg: BrainConfig | None = None,
 
 def _snapshot(brain: Brain, truth: Truth, day: int, now: float) -> Snapshot:
     precision, stale, _kinds, tokens, visited = probe(brain, truth, now)
-    focus, diversity = focus_and_diversity(brain, truth, now)
+    focus, diversity, focus_macro, worst, min_selected = focus_and_diversity(
+        brain, truth, now)
     stats = brain.store.stats()
     return Snapshot(
         day=day, at=now, probe_precision=precision, stale_leakage=stale,
-        focus=focus, diversity=diversity, block_tokens=tokens, visited=visited,
+        focus=focus, diversity=diversity, focus_macro=focus_macro,
+        worst_probe_focus=worst,
+        min_selected=min_selected,
+        block_tokens=tokens, visited=visited,
         neurons=stats["neurons"], live_facts=stats["live_facts"],
         superseded_facts=stats["superseded_facts"], edges=stats["edges"],
         open_loops=sum(1 for n in brain.store.by_kind(Kind.LOOP, limit=500)
