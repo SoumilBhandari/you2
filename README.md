@@ -271,6 +271,7 @@ Things that are easy to lose sight of once you're deep in it:
 ## Licence
 
 MIT — see [LICENSE](LICENSE). Use it, change it, sell it; just keep the notice.
+That covers the enclosure in `cad/` too: print it, change it, sell what you print.
 
 Two things that are *not* covered by it, because they are not in this repo:
 the speech models you supply yourself (Moonshine for ASR, Piper for TTS —
