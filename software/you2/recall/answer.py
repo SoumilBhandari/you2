@@ -134,12 +134,33 @@ def _open_loops(store: Store, now: float) -> Answer:
     return Answer(text, "openloops", [n.id for n in loops[:4]])
 
 
+def _say(neuron: Neuron) -> str:
+    """One spoken fact, carrying the label if it was inferred rather than said.
+
+    `workspace.render` has always labelled a compiled inference, and every
+    answer in this module called `n.text()` instead and stripped it -- on the
+    one path with no model in it to hedge. A compiled contrast carries 0.95
+    against the extractor's 0.7, so the inference also sorted ahead of
+    everything the person actually told us.
+    """
+    text = neuron.text().strip().replace("\n", " ")
+    if neuron.kind is Kind.FACT and neuron.meta.get("derived"):
+        return f"(inferred) {text}"
+    return text
+
+
+def _stated_first(facts: list[Neuron]) -> list[Neuron]:
+    """What they said, before what we worked out. Confidence alone puts the
+    derivation on top, which is backwards for anything spoken aloud."""
+    return sorted(facts, key=lambda n: (bool(n.meta.get("derived")),
+                                        -n.confidence, -n.storage_strength))
+
+
 def _about_me(store: Store) -> Answer:
-    facts = sorted(store.by_kind(Kind.FACT, limit=60, live_only=True),
-                   key=lambda n: (-n.confidence, -n.storage_strength))[:5]
+    facts = _stated_first(store.by_kind(Kind.FACT, limit=60, live_only=True))[:5]
     if not facts:
         return Answer("Not much yet — we've only just started.", "aboutme", [])
-    return Answer(_list([f.text() for f in facts], limit=5) + ".",
+    return Answer(_list([_say(f) for f in facts], limit=5) + ".",
                   "aboutme", [f.id for f in facts])
 
 
@@ -154,11 +175,17 @@ def _who(store: Store, name: str, now: float) -> Answer | None:
             n = store.get(other)
             if n is not None and n.is_live:
                 facts.append(n)
-    facts.sort(key=lambda n: -n.confidence)
+    # Without this, every entity in the store answers with whatever fact holds
+    # the highest confidence -- measured at day 210, 7 of the 7 entities that
+    # returned any fact at all answered "the coffee machine is making that
+    # noise again". `_what_about` and `_when_last` were already protected by
+    # exactly this filter; `_who` and `_about_me` were the two that skipped it.
+    facts = _on_topic(store, entity.content, facts)
+    facts = _stated_first(facts)
     role = entity.meta.get("role")
     lead = f"{entity.content}" + (f" — {role}" if role else "")
     if facts:
-        return Answer(f"{lead}. {_list([f.text() for f in facts[:3]])}.",
+        return Answer(f"{lead}. {_list([_say(f) for f in facts[:3]])}.",
                       "who", [entity.id] + [f.id for f in facts[:3]])
     return Answer(f"{lead}. First came up {ago(now - entity.created_at)} ago.",
                   "who", [entity.id])
