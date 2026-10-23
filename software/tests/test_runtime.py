@@ -148,13 +148,39 @@ def test_forget_that_removes_it_and_its_conclusions(brain):
     brain.say("what do I think about cilantro")
     reply = brain.say("forget that")
     assert reply.repair.kind == "deleted"
-    assert reply.text == "Forgotten."
+    # Naming the victim is the point: the delete is unrecoverable, so the one
+    # person who could catch a mistake needs to be told what went.
+    assert reply.text.startswith("Forgotten: ")
+    assert "cilantro" in reply.text
 
 
 def test_correction_detection_does_not_fire_on_ordinary_speech():
     for text in ("that's a good idea", "I think it moved to September",
                  "actually pretty good"):
         assert not reconsolidate.looks_like_deletion(text)
+
+
+def test_a_turn_of_phrase_is_not_an_instruction_to_delete():
+    """The unanchored version of this pattern matched ten plain sentences out
+    of ten and nine were wrong -- and the branch behind it is the only
+    unrecoverable operation in the system."""
+    for text in ("I'll never forget that lunch with David Anderson",
+                 "don't forget that the bins go out tomorrow",
+                 "I won't forget that you helped me",
+                 "we should delete that column in the spreadsheet at work",
+                 "I hope you don't forget about that dentist appointment",
+                 "remind me to delete that file tomorrow",
+                 "she said to forget about that whole business",
+                 "I can never forget what I said to her",
+                 "I'm trying not to forget that appointment"):
+        assert not reconsolidate.looks_like_deletion(text), text
+
+    # ...while the instruction itself still lands, including after a clause
+    # boundary and behind the politeness people actually use.
+    for text in ("forget that", "forget about that", "delete that",
+                 "never mind that", "please forget that",
+                 "ok forget what I said", "that was wrong. forget that."):
+        assert reconsolidate.looks_like_deletion(text), text
 
 
 # -------------------------------------------------------------------- prosody

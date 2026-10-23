@@ -39,8 +39,23 @@ _LEADING_MARKER = re.compile(
     r"^(?:no|nope|nah|actually|sorry|wait|hang on|hold on|i meant|"
     r"scratch that|correction)\b[,:]?\s*", re.IGNORECASE)
 
+#: Asking to be forgotten, as an instruction rather than as a turn of phrase.
+#:
+#: Anchored to the head of a clause, because unanchored this fires on ordinary
+#: English and the branch behind it is the only unrecoverable operation in the
+#: system. Measured on ten plain sentences, the unanchored version matched ten
+#: and nine were wrong: "I'll never forget that lunch with David Anderson",
+#: "don't forget that the bins go out tomorrow", "we should delete that column
+#: in the spreadsheet". Every one of those would have entombed whichever
+#: memory happened to score highest.
+#:
+#: The negative lookbehind is the other half. "never forget" and "won't forget"
+#: are the exact opposite of this request, and they are far more common in
+#: speech than the imperative is.
+_NOT_A_COMMAND = r"(?<!\bnever )(?<!\bnot )(?<!n't )(?<!\bdo not )(?<!\bto )"
 _HARD_DELETE = re.compile(
-    r"\b(forget (that|about that|what i said|it)|delete that|"
+    r"(?:^|[.!?;]\s*|^\s*(?:please|ok|okay|hey)[,\s]+)\s*" + _NOT_A_COMMAND +
+    r"(forget (?:that|about that|what i said|it)|delete that|"
     r"remove that|never mind that)\b", re.IGNORECASE)
 
 
@@ -151,7 +166,10 @@ def apply(store: Store, llm: Any | None, ws: Workspace | None, text: str,
           cfg: BrainConfig, now: float) -> Repair:
     """Handle a correction or a deletion, right now."""
     if looks_like_deletion(text):
-        victim = target(store, ws, text, kinds=DELETABLE)
+        # `said=text` matters: without it `target` sees subject=None and skips
+        # the dimension guard entirely, handing the best-scoring workspace item
+        # straight to the only unrecoverable call in the codebase.
+        victim = target(store, ws, text, said=text, kinds=DELETABLE)
         if victim is not None:
             removed = store.entomb(victim.id)
             store.log("repair", {"kind": "deleted", "target": victim.id,

@@ -178,7 +178,13 @@ class Brain:
                                      text, self.cfg, now)
         reply.repair = repair
         if repair.kind == "deleted":
-            reply.text, reply.route = "Forgotten.", "router"
+            # Name the victim. The deletion is unrecoverable, so a bare
+            # "Forgotten." gives the one person who could catch a mistake no
+            # way to notice it -- and `repair.target` is holding the neuron
+            # that was just destroyed.
+            gone = repair.target.text() if repair.target is not None else ""
+            reply.text = f"Forgotten: {gone}" if gone else "Forgotten."
+            reply.route = "router"
             return self._finish(reply, turn, ws, now, prosody, source, skip_encode=True)
         if repair.kind == "corrected":
             reply.text = "Got it — updated."
