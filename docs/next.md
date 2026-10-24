@@ -259,6 +259,24 @@ a simulated year.
 
 ---
 
+## Done since this was written
+
+| | shipped |
+|---|---|
+| **A1** the unanchored delete | `ab94897` — anchored to a clause head, negation lookbehind, `said=` passed so the dimension guard runs, and the reply names the victim. 17 of 17 on the new corpus. |
+| **A3** dead facts holding cue seeds | `720e4b2` — hot vector scope now means HOT *and* live. The blackout is gone: five consecutive nights hold at 7 considered / 3 selected / 76 tok, against 3/0/0 before. |
+| **A5** unlabelled inferences | `b00bdac` — `_say()` carries `(inferred)`, `_stated_first()` puts what they said ahead of what we worked out. |
+| **A6** the coffee-machine answer | `b00bdac` — `_who` and `_about_me` now run `_on_topic`, the filter the other two branches already had. |
+| **C** `/new` never draining | `0e7febe` — `deliver()` wired in after printing. |
+| **B2** micro-averaged focus | `0a8bcab` — `focus_macro`, `worst_probe_focus` and `min_selected` on every Snapshot. |
+
+**A2 is the one left in group A**, and it is the biggest: a fact is still
+stamped with the night that read it rather than the day it was said, so the
+re-supersession churn and the self-contradictory contrast claim are both
+still live. A4 depends on it. Everything in D and E is untouched.
+
+---
+
 ## Not doing
 
 - **Deleting the inert mechanisms.** `workspace_tokens` and `salience_floor`
