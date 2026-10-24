@@ -383,11 +383,14 @@ paid for itself on its first run. That is the pattern worth continuing.
 3. **Run the gates on commit.** They only run when someone remembers, and the
    evidence is that numbers went wrong for weeks at a time. `docs.py --quick`
    takes about two seconds.
-4. **Derive `W` and `D`.** They are the last hand-typed dimensions, guarded by
-   asserts rather than produced by them — and that gap is exactly what let
-   `LED_BAR = true` ship broken, because `D` grew with the switch and `W` did
-   not. Deriving both turns "almost nothing about the size was chosen" into
-   something true.
+4. **Derive `W` and `D`.** Attempted and deliberately not done; the model now
+   says why where the constants are. The flange assert wants `W > 151`, but the
+   real threshold is `W = 154` for `LED_BAR = true` and `152` for the default —
+   swept with `check.py`, 152 and 153 chip. Nothing in the x-direction differs
+   between the variants, so the bound moves through `fp_l` → `H`, `D`, rake,
+   sliding the rebate's corner along a surface rolled in plan and filleted in
+   profile. Deriving that means re-deriving the rolled corner. A formula that is
+   subtly wrong is worse than a constant with a gate on it.
 5. **Decide the light bar.** It builds now, but it is off by default, costs
    6 mm of width, 8 mm of depth and 15 mm of height, and is the only soldering,
    the only level shifter and the only unsealed aperture in the project. Commit
