@@ -25,7 +25,7 @@ a ray that escapes into the cavity is not measuring a wall.
     python3 cad/thickness.py cad/you2-revD.scad
     python3 cad/thickness.py cad/you2-revD.scad --parts shell --rays 8000
 """
-import argparse, os, struct, subprocess, sys, tempfile
+import argparse, os, struct, subprocess, sys, tempfile, zlib
 
 import numpy as np
 
@@ -69,7 +69,7 @@ def load(path):
     return tris[good].astype(np.float64), normals[good].astype(np.float64)
 
 
-def probe(tris, normals, n_rays, rng):
+def probe(tris, normals, n_rays, rng, worst=1):
     """Thickness at a stratified sample of facets. Returns (t, origin) arrays."""
     areas = np.linalg.norm(np.cross(tris[:, 1] - tris[:, 0],
                                     tris[:, 2] - tris[:, 0]), axis=1) / 2
@@ -116,7 +116,17 @@ def main():
     ap.add_argument("--floor", type=float, default=FLOOR)
     a = ap.parse_args()
     extra = [x for d in a.defines for x in ("-D", d)]
-    rng = np.random.default_rng(20260922)      # deterministic: a gate must be
+    # One generator seeded PER PART, not one shared across the run. With a
+    # shared generator the sample for the fifth part depends on how many rays
+    # the first four consumed, so `--parts shell` and a full run probed
+    # different places and disagreed about whether the shell was sound. A gate
+    # whose answer depends on what else you asked it is not a gate.
+    # zlib.crc32, NOT hash(): Python randomises string hashing per process, so
+    # seeding from hash() made the sample different on every invocation — the
+    # exact non-determinism this is here to remove.
+    def gen(tag):
+        return np.random.default_rng(zlib.crc32(tag.encode()))
+    rng = gen("control")
 
     # Prove the probe can measure before trusting it: a 2 mm plate must read
     # 2 mm. Without this, a broken ray test reports inf everywhere and every
@@ -146,7 +156,7 @@ def main():
             bad += 1
             continue
         tris, normals = load(stl)
-        t, origins = probe(tris, normals, a.rays, rng)
+        t, origins = probe(tris, normals, a.rays, gen(part))
         finite = np.isfinite(t)
         if not finite.any():
             print(f"  ----  {part:<14} no ray crossed a wall under {MAX_T} mm")
@@ -162,8 +172,10 @@ def main():
         print(f"  {mark}  {part:<14} min {lo:5.2f} mm  median {np.median(tt):5.2f}"
               f"  {thin:>4} of {len(tt)} rays under {a.floor} ({pct:.1f} %)")
         if mark != "ok  ":
-            print(f"        thinnest at x={where[0]:.1f} y={where[1]:.1f} "
-                  f"z={where[2]:.1f}")
+            order = np.argsort(tt)[:3]
+            for k in order:
+                print(f"        {tt[k]:5.2f} mm at x={oo[k][0]:7.1f} "
+                      f"y={oo[k][1]:7.1f} z={oo[k][2]:7.1f}")
     print()
     print(f"every sampled wall is at least {a.floor} mm" if not bad
           else f"{bad} part(s) have walls a 0.4 mm nozzle will not fill")
