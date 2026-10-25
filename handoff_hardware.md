@@ -113,7 +113,7 @@ python3 cad/docs.py                         # the prose agrees with the model
 python3 cad/render.py                       # regenerate all fifteen images
 ```
 
-All three pass, under all five switch combinations, and 20 asserts inside the
+All three pass, under all five switch combinations, and 21 asserts inside the
 model pass.
 
 **`--variants` is not optional and this file used to claim its result without
@@ -364,13 +364,6 @@ enclosure to exist.
 The gates have now caught more than the renders ever did, and each new one has
 paid for itself on its first run. That is the pattern worth continuing.
 
-0. **One wall is still too thin, and `cad/thickness.py` reports it every run.**
-   The Ø14 grommet inlet at x = 44 cuts through the cable saddle's own side
-   wall, leaving about 0.5 mm where the hole's rim meets it — below what a
-   0.4 mm nozzle lays down. The saddle spans x 35.5–52.5 with 3.25 mm walls;
-   the inlet eats to x = 51. Move `inlet_x` inboard, shrink the hole, or widen
-   the saddle. The gate exits 1 until this is fixed, which is correct.
-
 1. **Put a slicer in the gate.** Filament mass and print time are the last
    numbers in this project maintained by hand, and they had drifted into three
    different answers (674 g, 662 g, 730 g) before `docs.py` summed the table.
@@ -378,7 +371,7 @@ paid for itself on its first run. That is the pattern worth continuing.
    STL. Do that and every number in the build document is derived.
 2. **A minimum-feature check.** Nothing here measures wall thickness. A part
    can be one connected solid, clear of every other part, satisfy all
-   twenty asserts, and still have a 0.3 mm web that no slicer will produce.
+   twenty-one asserts, and still have a 0.3 mm web that no slicer will produce.
    It is the classic FDM failure and this repo is currently blind to it.
 3. **Run the gates on commit.** They only run when someone remembers, and the
    evidence is that numbers went wrong for weeks at a time. `docs.py --quick`

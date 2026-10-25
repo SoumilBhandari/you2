@@ -206,6 +206,8 @@ inlet_d      = 14;    // rubber grommet. NOT a panel-mount USB-C coupler:
                       // The official PSU's captive cable passes straight through.
 inlet_x      = 44;
 inlet_z      = 22;
+saddle_tie_d  = 3.6;   // zip tie through the saddle's side walls
+saddle_tie_dy = -3;    // from the saddle centre, FORWARD of the inlet bore
 
 /* [Detailing] --------------------------------------------------------------- */
 flute_d      = 5.0;
@@ -285,6 +287,12 @@ tie_web = (tie_x - tie_w/2) - drain_len/2;
 assert(tie_web > 1.2,
        str("only ", tie_web, " mm of base between the drain slots and the ",
            "cable-tie slots — shorten drain_len or move tie_x"));
+// Same failure one layer up: the saddle's tie hole and the inlet bore are both
+// cuts, and they crossed. Keep the tie hole forward of where the bore starts.
+saddle_tie_gap = (D/2 - (wall + 3)) - ((D/2 - 9) + saddle_tie_dy + saddle_tie_d/2);
+assert(saddle_tie_gap > 1.2,
+       str("saddle tie hole is ", saddle_tie_gap,
+           " mm from the inlet bore — the two cuts will meet"));
 // mic_squash is the CLAMPED height, so the compression is the difference.
 mic_comp = mic_gasket_t - mic_squash;
 assert(mic_comp > 0.05*mic_gasket_t && mic_comp < 0.45*mic_gasket_t,
@@ -593,9 +601,20 @@ module cable_clamp() {
             cube([17, 16, 20], center = true);
             cube([10.5, 26, 13], center = true);
             translate([0, 0, -8]) cube([10.5, 26, 12], center = true);   // opens DOWNWARD in the model = upward in print
-            // tie holes through the two side walls only — full-width slots
-            // cut the saddle into three disconnected pieces
-            for (sy = [-1, 1]) translate([0, sy*5.0, 5]) rotate([0, 90, 0]) cylinder(d = 3.6, h = 30, center = true);
+            // ONE tie hole, through the two side walls only — full-width
+            // slots cut the saddle into three disconnected pieces.
+            //
+            // There were two, at y = +-5 from the saddle centre. The rear one
+            // landed at y = 71, inside the inlet bore's y 69..78, so the two
+            // CUTS crossed and left 0.31 mm of material at the crossing —
+            // found by the wall gate, invisible to the other two because
+            // neither compares voids. Only 11 mm of saddle sits clear of the
+            // bore; two holes fit in that with 1.2 mm webs and nothing to
+            // spare, and one is enough: the hole opens through BOTH side
+            // walls, so a tie goes in one side, over the jacket, and out the
+            // other.
+            translate([0, saddle_tie_dy, 5]) rotate([0, 90, 0])
+                cylinder(d = saddle_tie_d, h = 30, center = true);
         }
     }
 }
