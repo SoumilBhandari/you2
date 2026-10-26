@@ -185,9 +185,24 @@ two consolidation calls that reach an LLM. `barge_in` stays listed, in the
 test's own `UNWIRED_CONFIG` with its reason, so it is an acknowledged gap rather
 than a quiet pass.
 
-The `meta[...]` half is still open: for every key assert both a writer and a
-reader; for every name in a package `__all__` assert a caller. It starts green
-once these are dispositioned and stays green.
+**The `meta[...]` half is now a test too**, and the answer was not what the
+sweep expected. 33 keys; 13 written and never read. None of them turned out to
+be dead logic — `retracted`, `stale_premise` and `weakened_by` all sit beside
+an `invalid_at` or a confidence cut that does the actual work, so the keys are
+provenance, not mechanism.
+
+What was wrong is that **nothing could read them**. The CLI surfaced exactly two
+meta keys (`type`, `derived`) and the UI one. Thirteen fields recording why each
+memory is in the state it is in, written every night, with no command, API or
+page able to display any of them. Forensics nobody can perform is just bytes.
+
+`you2 inspect <id>` renders a memory with its provenance, its validity window
+and its strongest associations, and `test_every_provenance_key_the_system_writes_can_be_displayed`
+fails if a new key is added without a label — so the next one cannot vanish
+quietly. The scan found ten more keys while being written, which is the test
+earning its place before it was finished.
+
+Still open: for every name in a package `__all__` assert a caller.
 
 ---
 

@@ -139,6 +139,103 @@ def cmd_why(args: argparse.Namespace) -> int:
     return 0
 
 
+#: meta keys the rest of the system writes as provenance and never reads back.
+#: They are the record of WHY a memory is in the state it is in, and until this
+#: command existed nothing could show them: thirteen fields written to every
+#: night's work that no command, API or page could display.
+PROVENANCE = {
+    "absorbed_at": "absorbed into a summary at",
+    "absorbed_reason": "absorbed because",
+    "closed_by_text": "open loop closed by",
+    "closed_reason": "closed because",
+    "closed_score": "closure confidence",
+    "last_replay": "last replayed at",
+    "outdated_at": "superseded at",
+    "retracted": "retracted by the person",
+    "stale_premise": "premise that died",
+    "stale_reason": "invalidated because",
+    "needs_rederivation": "awaiting re-derivation",
+    "verdict": "usefulness verdict",
+    "weak_grounding": "flagged thin evidence at",
+    "weakened_by": "confidence cut by the death of",
+    "derived": "derived rather than said",
+    "derived_from": "derived from",
+    "compacted_at": "compacted at",
+    "delivered": "already told to the person",
+    "nudged_at": "last nudged at",
+    "outdated_by": "superseded by",
+    "restated": "times the person restated it",
+}
+
+
+def cmd_inspect(args: argparse.Namespace) -> int:
+    """Everything known about one memory, including why it is the way it is."""
+    from ..clock import human
+
+    brain = build(args)
+    n = brain.store.get(args.id)
+    if n is None:
+        print(f"no neuron #{args.id}")
+        return 1
+
+    when = lambda t: human(t) if t else "—"
+    print(f"#{n.id}  {n.kind}")
+    print(f"  {n.text() or '(cold — no content)'}")
+    print()
+    print(f"  key            {n.key or '—'}")
+    print(f"  confidence     {n.confidence:.3f}")
+    print(f"  storage        {n.storage_strength:.3f}")
+    print(f"  created        {when(n.created_at)}")
+    print(f"  last access    {when(n.last_access)}  ({n.access_count}x)")
+    if n.valid_at or n.invalid_at:
+        print(f"  valid          {when(n.valid_at)} -> {when(n.invalid_at)}")
+    if n.invalid_at:
+        print("  LIVE           no — invalid_at is set, so recall skips it")
+    if n.superseded_by:
+        print(f"  superseded by  #{n.superseded_by}")
+    cites = n.citations()
+    if cites:
+        print(f"  cites          {', '.join('#%d' % c for c in cites)}")
+
+    shown = {"cites"}
+    prov = [(k, v) for k, v in n.meta.items() if k in PROVENANCE]
+    if prov:
+        print()
+        print("  why it is in this state")
+        for k, v in sorted(prov):
+            shown.add(k)
+            if isinstance(v, float) and v > 1e8:        # a timestamp
+                v = when(v)
+            elif isinstance(v, int) and k in ("stale_premise", "weakened_by"):
+                v = f"#{v}"
+            print(f"    {PROVENANCE[k]:<30} {v}")
+
+    rest = {k: v for k, v in n.meta.items() if k not in shown}
+    if rest:
+        print()
+        print("  other metadata")
+        for k, v in sorted(rest.items()):
+            print(f"    {k:<30} {str(v)[:70]}")
+
+    # Neighbour is a plain tuple — (id, weight, edge-type code, is_backward),
+    # not an object with .node/.weight. Reading it as an object gave every edge
+    # "#0 ? 0.00", which looked like an empty graph rather than a bug.
+    from ..substrate.synapse import CODE_EDGES
+
+    edges = list(brain.store.graph.neighbours(n.id))
+    if edges:
+        print()
+        print(f"  {len(edges)} association(s), strongest first")
+        for other_id, weight, code, back in sorted(edges, key=lambda e: -e[1])[:8]:
+            other = brain.store.get(other_id)
+            label = other.text()[:46].replace("\n", " ") if other else "(missing)"
+            arrow = "<-" if back else "->"
+            print(f"    {weight:5.2f}  {arrow} #{other_id:<5} "
+                  f"{str(CODE_EDGES.get(code, code)):<12} {label}")
+    brain.close()
+    return 0
+
+
 def cmd_stats(args: argparse.Namespace) -> int:
     brain = build(args)
     stats = brain.stats()
@@ -499,6 +596,11 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("chat", parents=[common]).set_defaults(fn=cmd_chat)
     sub.add_parser("night", parents=[common]).set_defaults(fn=cmd_night)
     sub.add_parser("stats", parents=[common]).set_defaults(fn=cmd_stats)
+
+    insp = sub.add_parser("inspect", parents=[common],
+                          help="everything known about one memory, and why")
+    insp.add_argument("id", type=int)
+    insp.set_defaults(fn=cmd_inspect)
 
     sv = sub.add_parser("serve", parents=[common],
                         help="the eye, the light bar, and the night timer")

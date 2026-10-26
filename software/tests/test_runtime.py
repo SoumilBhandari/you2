@@ -544,3 +544,79 @@ def test_a_later_turn_still_closes_the_loop_it_resolves(brain):
     loops = brain.store.by_kind(Kind.LOOP, limit=20, live_only=False)
     assert any(l.invalid_at is not None for l in loops), \
         "a genuine closure in a later turn must still close"
+
+
+# ---------------------------------------------- provenance you can actually read
+
+def test_every_provenance_key_the_system_writes_can_be_displayed():
+    """Thirteen meta keys were written and no command could show any of them.
+
+    `absorbed_reason`, `outdated_at`, `stale_premise`, `weakened_by`, `verdict`,
+    `weak_grounding` and the rest are the record of WHY a memory is in the state
+    it is in. The store wrote them every night; the CLI surfaced exactly two
+    meta keys (`type` and `derived`) and the UI one. Forensics nobody can
+    perform is just bytes.
+
+    `you2 inspect` renders them. This asserts the renderer knows about every key
+    the package writes, so adding a new one without a label fails here rather
+    than silently vanishing into the database.
+    """
+    import ast
+    import pathlib
+
+    from you2.runtime.cli import PROVENANCE
+
+    pkg = pathlib.Path(__file__).resolve().parent.parent / "you2"
+    written: set[str] = set()
+    for path in pkg.rglob("*.py"):
+        try:
+            tree = ast.parse(path.read_text(errors="replace"))
+        except SyntaxError:
+            continue
+        for node in ast.walk(tree):
+            if (isinstance(node, ast.Subscript)
+                    and isinstance(node.slice, ast.Constant)
+                    and isinstance(node.slice.value, str)
+                    and isinstance(getattr(node, "ctx", None), ast.Store)
+                    and (getattr(node.value, "attr", None) == "meta"
+                         or getattr(node.value, "id", None) == "meta")):
+                written.add(node.slice.value)
+
+    assert len(written) > 10, "the meta scan found almost nothing — it broke"
+
+    # Keys that carry data rather than explain state. They are shown under
+    # "other metadata", so they need no label.
+    DATA_KEYS = {
+        "cites", "question", "type", "kind", "turns", "boundary",
+        "priority_replay", "source", "session", "speaker", "at", "tags",
+        "schema", "slots", "rule", "support", "examples", "probe",
+        "members", "nudges", "rating_id", "repeats", "role",
+    }
+    unlabelled = written - set(PROVENANCE) - DATA_KEYS
+    assert not unlabelled, (
+        f"meta keys nothing can explain: {sorted(unlabelled)} — give each a "
+        f"line in PROVENANCE, or add it to DATA_KEYS if it is data not reasoning")
+
+
+def test_inspect_renders_a_real_neuron(brain, capsys):
+    """The edge list is a tuple, not an object. Reading it as an object printed
+    '#0 ? 0.00' for every association, which looks like an empty graph."""
+    from you2.runtime.cli import main as cli_main
+
+    talk(brain, ["my name is Priya", "I live in Leeds", "Priya likes rain"])
+    brain.store.conn.commit()
+    first = brain.store.by_kind(Kind.EPISODE, limit=1)[0]
+    first.meta["stale_reason"] = "a premise died"
+    brain.store.save(first)
+    brain.store.conn.commit()
+
+    # Through the real parser, not a hand-built Namespace: that also asserts
+    # the subcommand is actually wired up, which a direct call cannot.
+    rc = cli_main(["inspect", str(first.id), "--db", brain.cfg.db_path])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert f"#{first.id}" in out
+    assert "why it is in this state" in out
+    assert "invalidated because" in out and "a premise died" in out
+    assert "#0" not in out.split("association")[-1], \
+        "edges rendered as #0 — the Neighbour tuple was read as an object"
