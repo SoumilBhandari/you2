@@ -1,0 +1,66 @@
+#!/bin/sh
+# Pre-commit gate. Fast checks only, on purpose.
+#
+# Every defect this project has shipped and then found was drift: a number in
+# prose that stopped matching the model, a config knob nothing read, a meta key
+# nothing could display. All three are caught by checks that run in under two
+# seconds, and none of them is caught by a human remembering.
+#
+# What deliberately does NOT run here:
+#   the full test suite      144 s
+#   check.py --variants      minutes (five OpenSCAD exports per part)
+#   fit.py / thickness.py    minutes
+# A hook that costs two minutes is a hook that gets disabled, and a disabled
+# hook catches nothing. Those stay manual and are listed at the end of a CAD
+# commit as a reminder.
+#
+# Install:  git config core.hooksPath .githooks
+# Skip once: git commit --no-verify
+
+set -e
+root=$(git rev-parse --show-toplevel)
+cd "$root"
+staged=$(git diff --cached --name-only --diff-filter=ACM)
+[ -z "$staged" ] && exit 0
+
+fail=0
+
+# The prose gate: numbers in six documents against the model. 0.3 s.
+if command -v python3 >/dev/null 2>&1; then
+    if ! python3 cad/docs.py --quick >/tmp/you2-docs.$$ 2>&1; then
+        echo "pre-commit: the prose disagrees with the model"
+        sed 's/^/  /' /tmp/you2-docs.$$
+        fail=1
+    fi
+    rm -f /tmp/you2-docs.$$
+fi
+
+# Reachability: a config knob nothing reads, a meta key nothing can show. 1.4 s.
+if echo "$staged" | grep -q '^software/'; then
+    py=software/.venv/bin/python
+    [ -x "$py" ] || py=$(command -v python3)
+    if ! (cd software && "../$py" -m pytest -q \
+            -k "config_field or provenance_key" >/tmp/you2-reach.$$ 2>&1); then
+        echo "pre-commit: a config knob or meta key is unreachable"
+        # The assertion message names the offending key and what to do. Dumping
+        # the tail of pytest output instead shows source context and buries it.
+        grep '^E ' /tmp/you2-reach.$$ | head -4 | sed 's/^E */  /'
+        fail=1
+    fi
+    rm -f /tmp/you2-reach.$$
+fi
+
+# Slow gates are not run. Say so rather than letting them be forgotten.
+if echo "$staged" | grep -qE '^cad/.*\.scad$'; then
+    echo "pre-commit: CAD changed — the mesh gates are NOT run by this hook:"
+    echo "    python3 cad/check.py cad/you2-revD.scad --variants"
+    echo "    python3 cad/fit.py   cad/you2-revD.scad"
+    echo "    software/.venv/bin/python cad/thickness.py cad/you2-revD.scad"
+fi
+
+[ "$fail" -eq 0 ] || {
+    echo
+    echo "Fix the above, or commit with --no-verify if you mean it."
+    exit 1
+}
+exit 0

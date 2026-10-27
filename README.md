@@ -214,6 +214,12 @@ python3 cad/fit.py   cad/you2-revD.scad   # no two parts share space
 
 Between them and 21 in-model asserts they caught **23 defects renders did not show** — a microphone array overhanging the top face by 2 mm, a driver that never touched its own seal, eight insert holes bored at the insert's own diameter, and two Ø10 × 24 mm horizontal cantilevers that would have needed support towers built from the bare bed inside a sealed cavity.
 
+One command installs a pre-commit hook that runs the fast half of this on every commit — the prose gate and the two reachability tests, 1.7 s together. The mesh gates are minutes and stay manual; a hook that costs two minutes is a hook that gets disabled.
+
+```bash
+git config core.hooksPath .githooks
+```
+
 Model: [cad/you2-revD.scad](cad/you2-revD.scad) · Renders: [cad/renders/revD/](cad/renders/revD/) · **Build document: [docs/build.html](docs/build.html)**
 
 ### The light bar, and why it is off
