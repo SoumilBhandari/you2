@@ -109,6 +109,7 @@ python3 cad/check.py cad/you2-revD.scad     # every part is ONE connected solid
 python3 cad/fit.py   cad/you2-revD.scad     # no two parts share space
 python3 cad/check.py cad/you2-revD.scad --variants   # ...under every switch
 python3 cad/thickness.py cad/you2-revD.scad  # no wall a 0.4 nozzle cannot fill
+git config core.hooksPath .githooks          # once: the fast two on every commit
 python3 cad/docs.py                         # the prose agrees with the model
 python3 cad/render.py                       # regenerate all fifteen images
 ```
@@ -373,9 +374,13 @@ paid for itself on its first run. That is the pattern worth continuing.
    can be one connected solid, clear of every other part, satisfy all
    twenty-one asserts, and still have a 0.3 mm web that no slicer will produce.
    It is the classic FDM failure and this repo is currently blind to it.
-3. **Run the gates on commit.** They only run when someone remembers, and the
-   evidence is that numbers went wrong for weeks at a time. `docs.py --quick`
-   takes about two seconds.
+3. ~~**Run the gates on commit.**~~ Done — `.githooks/pre-commit`, installed
+   with `git config core.hooksPath .githooks`. It runs only what is fast:
+   `docs.py --quick` (0.3 s) on every commit, and the two reachability tests
+   (1.4 s) when `software/` changes. The full suite is 144 s and the mesh gates
+   are minutes, so neither runs — a hook that costs two minutes is a hook that
+   gets disabled, and a disabled hook catches nothing. A CAD commit prints the
+   three slow commands rather than running them.
 4. **Derive `W` and `D`.** Attempted and deliberately not done; the model now
    says why where the constants are. The flange assert wants `W > 151`, but the
    real threshold is `W = 154` for `LED_BAR = true` and `152` for the default —
