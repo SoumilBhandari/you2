@@ -22,7 +22,7 @@ to install the display at all.
 | 7 | mic, panel and speaker gaskets | TPU 95A, 9 g | 5 |
 | 8 | foot | TPU 95A, 47 g | 6 — optional |
 
-730 g total. Every plate fits a 220 × 220 bed. No plate needs support.
+676 g total. Every plate fits a 220 × 220 bed. No plate needs support.
 
 ## Fasteners
 

@@ -181,7 +181,7 @@ Everything else on the object is structural, and only one number in the model is
 | **Voice** | Enclosed 4 Ω driver on a gasketed seat in the skirt, clamped with 20 % squash |
 | **Brain** | Raspberry Pi 5 **2 GB** on brass standoffs — LLM runs on an API |
 | **Power** | Official 27 W USB-C PD, one plug, always on, no battery. Passive cooling — no fan near the mics |
-| **Mass** | 730 g of filament across 11 printed parts, plus ~200 g of optional sand ballast |
+| **Mass** | 676 g of filament across 11 printed parts, plus ~200 g of optional sand ballast |
 
 ![Section](cad/renders/revD/d-section.png)
 
@@ -189,7 +189,7 @@ Everything else on the object is structural, and only one number in the model is
 
 220 × 220 × 250 bed, 0.4 mm nozzle, one material at a time. **No machined parts, no laser cutting, and no thread cut into plastic anywhere** — all 24 are brass heat-set inserts, which need a soldering iron and nothing else. In the default build there is nothing to solder.
 
-Six plates, every one fitting the bed, none needing support. The trick is the shell's orientation: printed **top face down**, the bottom opening faces up so the cavity has no ceiling, the raked face and skirt become steep self-supporting walls, and the four microphone ports print crisp against the plate. Measured rather than asserted, in the model's own plate-1 orientation — 141.6 cm² of bed contact and 30.6 cm² facing downward at more than 60°, spread across 143 separate patches. Only seven of them are larger than 1 cm², and the biggest is 7.2 cm² of shadow-gap ledge that any slicer bridges. No large flat unsupported span anywhere, which is the thing that actually fails.
+Six plates, every one fitting the bed, none needing support. The trick is the shell's orientation: printed **top face down**, the bottom opening faces up so the cavity has no ceiling, the raked face and skirt become steep self-supporting walls, and the four microphone ports print crisp against the plate. Measured rather than asserted, in the model's own plate-1 orientation — 141.6 cm² of bed contact and 30.5 cm² facing downward at more than 60°, spread across 143 separate patches. Only seven of them are larger than 1 cm², and the biggest is 7.2 cm² of shadow-gap ledge that any slicer bridges. No large flat unsupported span anywhere, which is the thing that actually fails.
 
 ![Plate 1 — the shell, top face on the bed](cad/renders/revD/d-plate1.png)
 

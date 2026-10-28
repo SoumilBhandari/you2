@@ -93,7 +93,7 @@ behaviour, but it is a guard rail, not a derivation.
 | `speaker_gasket` | 1 | TPU 95A | 5 | 1 g |
 | `foot` | 1 | TPU 95A | 6 | 45 g |
 
-**730 g** total — 676 g PETG, 54 g TPU. Six plates, every one fitting a
+**676 g** total — 622 g PETG, 54 g TPU. Six plates, every one fitting a
 220 × 220 × 250 bed. Plates 4 and 6 are optional.
 
 24 brass heat-set inserts, 24 screws, 4 standoffs. **≈ $351 in parts.**
@@ -109,6 +109,7 @@ python3 cad/check.py cad/you2-revD.scad     # every part is ONE connected solid
 python3 cad/fit.py   cad/you2-revD.scad     # no two parts share space
 python3 cad/check.py cad/you2-revD.scad --variants   # ...under every switch
 python3 cad/thickness.py cad/you2-revD.scad  # no wall a 0.4 nozzle cannot fill
+software/.venv/bin/python cad/mass.py cad/you2-revD.scad   # no impossible masses
 git config core.hooksPath .githooks          # once: the fast two on every commit
 python3 cad/docs.py                         # the prose agrees with the model
 python3 cad/render.py                       # regenerate all fifteen images
@@ -140,8 +141,17 @@ skirt, assert count, MODE count, part count, plate count, four measured off the
 exported mesh in the plate-1 orientation, and filament, fasteners and money
 summed from the repo's own tables — then errors on any document that disagrees.
 Nothing expected is typed into it. It found 20 wrong claims on its first run and
-10 more when it learned to add up tables, including a 674 g filament headline
-that counted one ballast pod where the table beneath it specifies two.
+10 more when it learned to add up tables.
+
+**It also got one wrong, in the dangerous direction.** The filament headline
+said 674 g and the parts table summed to 676. The gate cannot tell which side is
+wrong, so it reported the disagreement and the headline was "corrected" to 730 —
+because the ballast pod and lid rows gave the PAIR mass in a per-piece column,
+and multiplying by qty 2 counted them twice. 674 had been right all along.
+What caught it was physics, not arithmetic: a printed part cannot weigh more
+than the same part solid, and the pod claimed 49 g against 27 g of solid PETG.
+`cad/mass.py` now checks exactly that, and no table in this repo can claim an
+impossible mass again.
 
 **Never preview.** `cad/render.py` always passes `--render`, because the CSG
 tree exceeds OpenSCAD's preview normaliser, which aborts and writes a **blank
@@ -202,7 +212,7 @@ faces up so the cavity has no ceiling, the raked face and skirt are steep
 self-supporting walls, and the mic ports print crisp against the plate.
 
 Measured in the model's own plate-1 orientation: **141.6 cm² of bed contact and
-30.6 cm² facing downward at more than 60°.** The largest single contribution is
+30.5 cm² facing downward at more than 60°.** The largest single contribution is
 7.2 cm² of 1.2 mm shadow-gap ledge, which bridges; the next largest is 2.7 cm²,
 only seven patches exceed 1 cm² at all, and 6.6 cm² of the total lands in the
 first 20 mm of the print. **No large flat
@@ -365,11 +375,15 @@ enclosure to exist.
 The gates have now caught more than the renders ever did, and each new one has
 paid for itself on its first run. That is the pattern worth continuing.
 
-1. **Put a slicer in the gate.** Filament mass and print time are the last
-   numbers in this project maintained by hand, and they had drifted into three
-   different answers (674 g, 662 g, 730 g) before `docs.py` summed the table.
-   PrusaSlicer and OrcaSlicer both have a CLI that will produce both from an
-   STL. Do that and every number in the build document is derived.
+1. **Put a slicer in the gate.** Print time is now the last number in this
+   project maintained entirely by hand. Mass is half-derived: `cad/mass.py`
+   computes each part's solid volume from its mesh and rejects any claimed mass
+   above it, which is a hard bound rather than an estimate, and it caught a
+   ballast pod claiming 1.82x its own solid mass. What it cannot do is predict
+   the infill, so the claimed figures are still typed. PrusaSlicer and
+   OrcaSlicer both have a CLI that produces mass and time from an STL; neither
+   is installed here, and a gate that cannot be run is not worth writing
+   blind.
 2. **A minimum-feature check.** Nothing here measures wall thickness. A part
    can be one connected solid, clear of every other part, satisfy all
    twenty-one asserts, and still have a 0.3 mm web that no slicer will produce.
