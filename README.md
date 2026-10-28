@@ -208,8 +208,11 @@ Two things that will each cost you an afternoon: the display box ships **15-pin 
 `Status: NoError` means the mesh is manifold. It does not mean the part is one object, and it does not mean anything fits — rev C rendered clean and was a sealed box in two disconnected pieces. And a render draws parts in different colours and lets them pass straight through one another.
 
 ```bash
-python3 cad/check.py cad/you2-revD.scad   # every part is ONE connected solid
+python3 cad/check.py cad/you2-revD.scad --variants   # one connected solid, every switch
 python3 cad/fit.py   cad/you2-revD.scad   # no two parts share space
+python3 cad/thickness.py cad/you2-revD.scad   # no wall a 0.4 nozzle cannot fill
+python3 cad/mass.py  cad/you2-revD.scad   # no part claims an impossible mass
+python3 cad/docs.py                       # the prose agrees with the model
 ```
 
 Between them and 21 in-model asserts they caught **23 defects renders did not show** — a microphone array overhanging the top face by 2 mm, a driver that never touched its own seal, eight insert holes bored at the insert's own diameter, and two Ø10 × 24 mm horizontal cantilevers that would have needed support towers built from the bare bed inside a sealed cavity.

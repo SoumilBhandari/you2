@@ -39,6 +39,8 @@ python3 cad/check.py cad/you2-revD.scad   # every part is ONE connected solid
 python3 cad/check.py cad/you2-revD.scad --variants   # ...under every switch
 python3 cad/fit.py   cad/you2-revD.scad   # no two parts occupy the same space
 python3 cad/docs.py                       # the prose agrees with the model
+python3 cad/thickness.py cad/you2-revD.scad   # no wall a 0.4 nozzle can't fill
+python3 cad/mass.py cad/you2-revD.scad    # no part claims an impossible mass
 python3 cad/render.py                     # regenerate all fifteen images
 ```
 

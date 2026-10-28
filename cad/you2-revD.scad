@@ -942,4 +942,9 @@ else if (MODE == "panel_gasket") panel_gasket();
 else if (MODE == "foot")         foot();
 else if (MODE == "diffuser")     diffuser();
 else if (MODE == "printplate")   printplate();
-else                             assembly(0);
+// NOT `else assembly(0)`. A mistyped MODE used to fall through to the whole
+// device: cad/mass.py asked for "ballast_pod_optional", got a 918 g assembly,
+// and reported a plausible-looking ratio against it. A typo must fail, not
+// quietly answer a different question.
+else assert(false, str("unknown MODE \"", MODE, "\". See the list at the top ",
+                       "of this file — a typo used to render the whole device."));
