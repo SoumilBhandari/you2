@@ -370,6 +370,30 @@ enclosure to exist.
 6. Print the shell. ~400 g, ~31 h at 0.2 mm — closer to 15 h with a 0.6 mm
    nozzle, which nothing on this part suffers from.
 
+### What a clean sweep looks like
+
+Run 2026-10-28, after the gates above. Recording it because "we looked and found
+nothing" is worth exactly as much as the method used, and a future reader
+deserves to know which stones were turned.
+
+| swept | result |
+|---|---|
+| Unused imports | 1 — `Sequence`, live inside a string annotation. Unquoted; not dead. |
+| Module-level defs nothing calls | 0. Six looked dead and all six had call sites the filter was hiding by excluding dotted access. |
+| Names in `__all__` nothing imports | 1 of 204 — `__version__`, which is API by convention. |
+| `meta[...]` keys nothing reads | 13, none of them dead logic; each sits beside the `invalid_at` or confidence cut that does the work. They are provenance, and nothing could display them. `you2 inspect` now can. |
+| `BrainConfig` knobs nothing reads | 0, down from 5. The remaining gap, `barge_in`, is listed in the test's own `UNWIRED_CONFIG`. |
+| `except: pass` that swallows | 8, all typed, all commented, all deliberate — broken pipes, queue races, signal registration off the main thread, an LLM fallback to rules. |
+| Bare `except:` | 0 |
+| Mutable default arguments | 0 |
+| Self-comparisons, repeated boolean operands | 0 |
+| CAD: uncalled modules, unused variables | 0 |
+| `deploy/` paths and shell syntax | all resolve, both scripts parse |
+
+The dead code is gone. What the sweeps keep turning up instead is the shape this
+project actually fails in: something written and never wired to the thing that
+was supposed to consume it.
+
 ### And what to build, as opposed to measure
 
 The gates have now caught more than the renders ever did, and each new one has
