@@ -468,11 +468,7 @@ def test_forgotten_means_forgotten_after_a_kill(tmp_path):
 #: Fields that are deliberately declared and not yet read. Each one is a
 #: promise the code does not keep, so each needs a reason and a home in
 #: docs/next.md — not a quiet pass.
-UNWIRED_CONFIG = {
-    # audio/loop.py barges in unconditionally, so setting this false does
-    # nothing while the docs state interruptibility as a fact.
-    "barge_in",
-}
+UNWIRED_CONFIG: set[str] = set()
 
 
 def test_every_config_field_is_read_somewhere():
@@ -483,8 +479,8 @@ def test_every_config_field_is_read_somewhere():
     not stored, so there was nothing to initialise), interrupt_check_seconds
     (a polling interval replaced by a callback), llm_night_model (documented
     as "consolidation can run a smaller, cheaper model" and never passed to
-    one), and barge_in. Three were deleted, one was wired up, and the last is
-    listed above with its reason.
+    one), and barge_in. Three were deleted and two were wired up, so the
+    allowlist is now empty -- which is the state to keep it in.
 
     docs/next.md asked for this test. Writing it is cheaper than the next
     five.

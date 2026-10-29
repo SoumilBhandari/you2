@@ -19,7 +19,7 @@ from ..config import DEFAULT, BrainConfig
 from .embed import Embedder, HashEmbedder
 from .graph import Graph
 from .neuron import Kind, Neuron, Tier
-from .synapse import Edge, hebbian
+from .synapse import CONDUCTION, Edge, hebbian
 from .vectors import VectorIndex
 
 _SCHEMA = Path(__file__).with_name("schema.sql")
@@ -576,8 +576,13 @@ class Store:
         so the graph does not saturate into uselessness."""
         if src == dst:
             return 0.0
-        if src > dst and Edge(etype) is Edge.ASSOC:
-            src, dst = dst, src            # canonical order for symmetric edges
+        # CONDUCTION declares which edge types are symmetric; this used to
+        # hardcode ASSOC, so CONTRADICTS and ANALOGOUS were declared symmetric
+        # and never canonically ordered -- the same pair written (a,b) and
+        # (b,a) became two edges, each carrying half the learning.
+        kind = Edge(etype)
+        if src > dst and CONDUCTION[kind].symmetric:
+            src, dst = dst, src
         current = self.graph.weight(src, dst, etype)
         new = hebbian(current, a_i, a_j, self.cfg.hebbian_rate)
         self.connect(src, dst, etype, new)

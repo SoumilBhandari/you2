@@ -77,6 +77,11 @@ class Listener:
     tts: TTS = field(default_factory=ToneTTS)
     bus: Bus = BUS
     dwell_s: float = 8.0
+    barge_in: bool = True
+    """Whether speech during playback cancels the reply. Carried as a flag
+    rather than read from config, because this class owns no policy -- but
+    BrainConfig.barge_in documents it as a switch, and until now the loop
+    interrupted unconditionally, so turning it off did nothing at all."""
 
     def __post_init__(self) -> None:
         self._preroll: list[np.ndarray] = []
@@ -120,7 +125,7 @@ class Listener:
             if t < self._speaking_until:
                 speech_during_playback = (speech_during_playback + FRAME_MS
                                           if speaking else 0.0)
-                if speech_during_playback >= BARGE_MS:
+                if speech_during_playback >= BARGE_MS and self.barge_in:
                     self.interrupt()
                     speech_during_playback = 0.0
                     # Fall through: the speech that interrupted is the start of

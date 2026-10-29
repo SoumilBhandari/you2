@@ -174,7 +174,8 @@ def make(cfg: Any, *, bus: Any = None) -> Listener:
         ToneTTS, "tts")
 
     listener = Listener(wake=wake, vad=vad, turn=turn, asr=asr, tts=tts,
-                        bus=bus or BUS, dwell_s=cfg.dwell_seconds)
+                        bus=bus or BUS, dwell_s=cfg.dwell_seconds,
+                        barge_in=cfg.barge_in)
     listener.stages = {"wake": wake_how, "vad": vad_how, "turn": turn_how,
                        "asr": asr_how, "tts": tts_how}    # type: ignore[attr-defined]
     return listener
