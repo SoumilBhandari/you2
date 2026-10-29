@@ -292,6 +292,58 @@ still live. A4 depends on it. Everything in D and E is untouched.
 
 ---
 
+## Round two — what landed, and what it uncovered
+
+Group A is done. The remaining items were implemented, and a five-angle hunt
+for defects *outside* this document found eleven more, each verified by an
+independent agent that tried to refute it.
+
+| | shipped |
+|---|---|
+| **A2** fact stamped with the night that read it | `08d4b7f` — `valid_at` comes from the cited episodes; `resolve` returns `stale` rather than re-superseding. Eight idle nights: 41 neurons climbing → 32 then flat, `user/pref_meet` 10 rows → 2, age drift 60.4 days → 0.00. |
+| **A4** `contrast` read transaction time | `38631bb` — `history_of` orders by `valid_at`, the current value comes from `by_key`, and it counts distinct positions not rows. The feature now fires correctly for the first time: *"changed 1 time in 2mo: was morning, now afternoon"*. |
+| declared-but-unenforced | `63943c1` — `barge_in` is honoured; `strengthen` consults `Conduction.symmetric` instead of hardcoding ASSOC. `UNWIRED_CONFIG` is now empty. |
+
+**New, found by running it rather than reading it:**
+
+| | |
+|---|---|
+| `f488e2c` | *"do I work at Lumen?"* stored that you work at Lumen. Auxiliary inversion leaves the declarative substring intact, and the one question test ran on the rewritten claim, which can never end in `?`. Also: a trailing *"I think"* keyed the milk preference under `pref_think`, where it could never supersede. |
+| `68c7e44` | A promise closed a promise. `is_closure` is a bare word match, so *"I'll get the drawings done by Friday"* opened a loop and closed it — and *"I'll get the numbers sent by Friday"* closed the **drawings** loop from an earlier turn. Present in both the encode path and the night. The rule is tense: a clause that promises cannot be a closure. |
+| `887831d` | Consolidation ran at 19:00 in Los Angeles and 22:00 in New York, because the night window was UTC. The whole module rests on "eight idle hours". |
+| `aecfb68` | *"I bought two kitchen timers at the market today"* was answered *"No timers running."* and then **not remembered** — a router match suppresses encoding. Plus six ways to kill an HTTP worker thread with a malformed body. |
+| `5335150` | Three person-model gates comparing a statistic to a fixed constant. `stance.trend` was mathematically **unreachable past ~333 days** — the ability to notice you souring on something decayed as 1/T in how long it had known you. `notable` rejected an 11-σ weekly rhythm and fired on 3 bad days out of 8. `best_hours` was an unguarded argmax decided by 0.29 σ. |
+| `76fd76b` | The storage ladder measured file size, which SQLite never shrinks, so it never saw its own effect and climbed every rung — reaching `prune_harder` on a budget it had already met. |
+| `ef0ba3f` | ~60% of per-turn graph traversal was spent proving the store holds no `PART_OF` edges. 2,153 → 868 edges walked, 14.5 ms → 7.6 ms per turn. |
+| `ffef28b` | The night reported batches *built* as batches *consolidated*, so an interrupted night read as a complete one; and `Tally.stale` reached nothing. |
+
+### Still open, in rough order
+
+1. **The night thread and a turn share one unsynchronised SQLite connection.**
+   `check_same_thread=False`, no lock between `Brain.say` and `Brain.night`,
+   and `serve` runs the night poller by default. A turn landing inside
+   `persist_graph`'s transaction can be rolled back. The fix is a
+   `threading.RLock` on `Brain` — one device, one brain, so serialising costs
+   nothing.
+2. **An interrupted night never resumes and still marks the day done.** The
+   module docstring claimed a checkpoint; that claim is now corrected rather
+   than implemented. `since` exists and nothing persists a cursor.
+3. **`persist_graph` deletes and re-inserts every edge nightly** — 10.3 s at
+   the ten-year edge count to change a median of 19 edges.
+4. **Barge-in cannot fire in the assembled device.** `converse()` calls
+   `brain.say()` from inside `Listener.run()`'s frame loop, so no frames are
+   pulled while thinking or speaking. The config flag is now honoured; the
+   loop structure still defeats it.
+5. **Object caps truncate long clauses into garbage.** Nineteen patterns bound
+   their object with `.{n,m}?`; past the cap the real fact vanishes and
+   `_THING_STATE` leaves `afternoon_because/state` in its place.
+6. **Conditionals are stored as facts.** *"if I switched to decaf I'd sleep
+   better"* stores a switch to decaf.
+7. **Non-ASCII names collapse.** `_TOKEN` is ASCII-only, so Søren, Renée and
+   René all key as `ren`.
+
+---
+
 ## Not doing
 
 - **Deleting the inert mechanisms.** `workspace_tokens` and `salience_floor`
