@@ -6,9 +6,9 @@
 Output docs/demo.gif
 
 Set Shell       zsh
-Set FontSize    17
-Set Width       1180
-Set Height      760
+Set FontSize    15
+Set Width       1100
+Set Height      620
 Set Padding     26
 Set TypingSpeed 28ms
 Set BorderRadius 8

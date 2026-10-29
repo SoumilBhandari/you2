@@ -2,7 +2,7 @@
 
 <img src="https://capsule-render.vercel.app/api?type=waving&color=0:0A0D0F,55:2C7A70,100:C8A64F&height=200&section=header&text=YOU2&fontSize=78&fontColor=F4F3EF&fontAlignY=35&desc=a%20desk%20assistant%20that%20remembers&descSize=18&descAlign=50&descAlignY=57&animation=fadeIn" width="100%" alt="You2 — a desk assistant that remembers" />
 
-<img src="https://readme-typing-svg.demolab.com?font=IBM+Plex+Mono&weight=500&size=19&pause=1400&duration=3600&color=2C7A70&center=true&vCenter=true&width=700&height=46&lines=Wake%20it%3A%20%22Hey%20Friday%22;The%20model%20is%20a%20download.%20The%20memory%20is%20the%20product.;152%20x%20150%20x%20192%20mm.%2011%20printed%20parts.%20One%20ordinary%20printer.;Six%20gates%2C%20because%20a%20render%20is%20not%20a%20check." alt="" />
+<img src="https://readme-typing-svg.demolab.com?font=IBM+Plex+Mono&weight=500&size=19&pause=900&duration=3400&color=6FC0B3&center=true&vCenter=true&width=700&height=46&lines=Wake%20it%3A%20%22Hey%20Friday%22;The%20model%20is%20a%20download.%20The%20memory%20is%20the%20product.;152%20x%20150%20x%20192%20mm.%2011%20printed%20parts.%20One%20ordinary%20printer.;Six%20gates%2C%20because%20a%20render%20is%20not%20a%20check." alt="" />
 
 <p>
   <a href="https://github.com/SoumilBhandari/you2/actions/workflows/ci.yml"><img alt="gates" src="https://github.com/SoumilBhandari/you2/actions/workflows/ci.yml/badge.svg" /></a>
@@ -37,7 +37,7 @@ A desk-based voice assistant that runs on its own hardware and gets to know you.
 Not a smart speaker. Not a wrapper around someone else's API. A small machine that sits on your desk, listens when you talk to it, answers out loud, and — the actual point — **remembers**. Every conversation makes it a little more yours, and none of it leaves the box.
 
 <div align="center">
-<img src="docs/demo.gif" width="860" alt="Terminal session: you2 why 'where does she live' prints the spreading-activation cascade; you2 inspect 3 prints a memory with its provenance and associations; the prose gate reports every claim agreeing with the model" />
+<img src="docs/demo.gif" width="880" alt="Terminal session: you2 why 'where does she live' prints the spreading-activation cascade; you2 inspect 3 prints a memory with its provenance and associations; the prose gate reports every claim agreeing with the model" />
 <p><i>Retrieval is a cascade, not a vector search — and it prints it. Recorded with <a href="https://github.com/charmbracelet/vhs">VHS</a> from <a href="docs/demo.tape"><code>docs/demo.tape</code></a>, so it re-records deterministically.</i></p>
 </div>
 
