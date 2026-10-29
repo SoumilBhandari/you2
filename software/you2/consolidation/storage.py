@@ -89,19 +89,30 @@ def measure(store: Store) -> Storage:
     out.graph_bytes = store.graph.memory_bytes()
     out.vector_bytes = store.vectors.memory_bytes()
 
-    if store.path != ":memory:" and Path(store.path).exists():
-        out.db_bytes = Path(store.path).stat().st_size
-    else:
-        # dbstat is not always compiled in; fall back to a content estimate so
-        # the number is never silently zero.
-        out.db_bytes = _estimate(store)
-
     try:
         rows = store.conn.execute(
             "SELECT name, SUM(pgsize) b FROM dbstat GROUP BY name").fetchall()
         out.by_table = {r["name"]: int(r["b"]) for r in rows}
     except Exception:      # noqa: BLE001 -- dbstat is optional
         out.by_table = {}
+
+    # Pages *in use*, not the file size. SQLite never returns pages to the
+    # filesystem -- there is no VACUUM anywhere in this project and auto_vacuum
+    # is off -- so st_size cannot fall, however much content is deleted. The
+    # pressure ladder compares this against the budget to decide when to stop
+    # climbing, so measuring the file meant the ladder could never observe its
+    # own effect: it ran every rung every time, compacting episodes and
+    # halving the tier windows, and then pruned the association graph on a
+    # budget it had already met. Page bytes do fall, so the ladder can now
+    # stop when it has done enough.
+    if out.by_table:
+        out.db_bytes = sum(out.by_table.values())
+    elif store.path != ":memory:" and Path(store.path).exists():
+        out.db_bytes = Path(store.path).stat().st_size
+    else:
+        # dbstat is not always compiled in; fall back to a content estimate so
+        # the number is never silently zero.
+        out.db_bytes = _estimate(store)
 
     span = store.conn.execute(
         "SELECT MIN(created_at) a, MAX(created_at) b FROM neurons").fetchone()
@@ -151,6 +162,7 @@ def enforce(store: Store, cfg: BrainConfig, now: float) -> Pressure:
 
     from . import forgetting
 
+    before_rung = measured.total_bytes
     for rung in LADDER:
         if rung == "shrink_hot_window":
             tightened = cfg.merged(hot_tier_days=max(14.0, cfg.hot_tier_days * 0.6))
@@ -170,8 +182,20 @@ def enforce(store: Store, cfg: BrainConfig, now: float) -> Pressure:
             out.freed_bytes += _apply(store, tightened, now, forgetting.decay_and_tier)
 
         out.applied.append(rung)
-        if measure(store).total_bytes <= budget:
+        after = measure(store).total_bytes
+        if after <= budget:
             break
+        # A rung that frees nothing will not free anything on the next pass
+        # either, and the rungs below it are strictly more destructive. The
+        # clearest case is `compact_sooner`: blanking an episode's content
+        # leaves the row, so no page empties and not one byte comes back
+        # without a VACUUM this project never runs. Climbing past a no-op on
+        # to `prune_harder` cost ~64% of the association graph for nothing.
+        if before_rung - after <= 0:
+            store.log("storage_pressure_stalled",
+                      {"rung": rung, "bytes": after, "budget": int(budget)})
+            break
+        before_rung = after
 
     store.log("storage_pressure", out.as_dict())
     return out
