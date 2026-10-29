@@ -239,3 +239,56 @@ def test_the_snapshot_round_trips(store):
     person = build(store, store.cfg, store.clock.now())
     save(store, person)
     assert load_snapshot(store) is not None
+
+
+def test_a_rhythm_is_gated_on_certainty_not_on_size():
+    """The old gate divided by the per-episode standard deviation, which does
+    not shrink as evidence accumulates, and compared to a fixed constant. So
+    it was silent on a planted weekly rhythm measured over a year at 11
+    standard errors, and fired on a bucket sitting on the n=8 floor."""
+    from you2.person.rhythms import Bucket, Rhythms
+
+    r = Rhythms(baseline_valence=-0.0582, spread_valence=0.2378,
+                total=1151, span_days=365.0)
+    r.by_weekday["tuesday"] = Bucket("tuesday", n=225, valence=-0.2356)
+    labels = [label for label, _what, _t in r.notable()]
+    assert "tuesday" in labels, r.notable()
+
+    # A difference too small to matter stays quiet however many observations
+    # produced it.
+    quiet = Rhythms(baseline_valence=0.0, spread_valence=0.2378,
+                    total=5000, span_days=365.0)
+    quiet.by_weekday["friday"] = Bucket("friday", n=4000, valence=0.004)
+    assert quiet.notable() == []
+
+
+def test_best_hours_says_nothing_when_the_parts_are_a_coin_flip():
+    """A bare argmax over three buckets always has a winner. On a real year
+    afternoon beat morning by 0.0035 valence against a standard error of
+    0.012 -- and this is the only rhythm line that reaches the prompt."""
+    from you2.person.rhythms import Bucket, Rhythms
+
+    r = Rhythms(baseline_valence=-0.058, spread_valence=0.2378,
+                total=1151, span_days=365.0)
+    r.by_part["evening"] = Bucket("evening", n=419, valence=-0.1432, arousal=0.5359)
+    r.by_part["afternoon"] = Bucket("afternoon", n=387, valence=-0.0078, arousal=0.5313)
+    r.by_part["morning"] = Bucket("morning", n=345, valence=-0.0116, arousal=0.5301)
+    assert r.best_hours() is None
+
+    r.by_part["afternoon"] = Bucket("afternoon", n=387, valence=0.35, arousal=0.53)
+    assert r.best_hours() == "afternoon"
+
+
+def test_souring_is_still_visible_after_two_years():
+    """_slope fitted one line over the entity's entire history. Valence is
+    bounded, so the largest slope a span of T days can produce is 60/T per
+    month against a fixed DRIFT of 0.18 -- making the gate unreachable past
+    ~333 days, however hard someone sours."""
+    from you2.clock import DAY
+    from you2.person.stance import DRIFT, _slope
+
+    for span in (90, 180, 365, 730):
+        now = span * DAY
+        points = [(d * DAY, -0.8 if d > span - 30 else 0.0) for d in range(span)]
+        trend = _slope(points, now)
+        assert abs(trend) >= DRIFT, f"{span}d span: trend {trend}"

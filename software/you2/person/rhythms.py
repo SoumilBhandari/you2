@@ -21,6 +21,7 @@ refuses to surface it.
 
 from __future__ import annotations
 
+import math
 import statistics
 from dataclasses import dataclass, field
 from typing import Any
@@ -37,7 +38,16 @@ MIN_SAMPLES = 8
 
 #: How far a bucket must sit from the person's own baseline to be worth
 #: mentioning, in standard deviations.
-NOTABLE_Z = 0.85
+#: How many standard errors a bucket must sit from the person's own baseline
+#: before it is worth mentioning. A significance test, not an effect size:
+#: the denominator shrinks as evidence accumulates, so this tightens the gate
+#: when n is small instead of letting eight observations speak as loudly as
+#: eight hundred.
+NOTABLE_T = 2.5
+
+#: ...and a floor on the raw difference, so that a hair-thin gap does not
+#: become "notable" merely because there are thousands of observations.
+NOTABLE_MIN = 0.05
 
 
 @dataclass(slots=True)
@@ -80,25 +90,64 @@ class Rhythms:
         return self.total >= MIN_SAMPLES * 3 and self.span_days >= 21.0
 
     def notable(self, limit: int = 3) -> list[tuple[str, str, float]]:
-        """(bucket, what, z) for buckets that genuinely stand out."""
+        """(bucket, what, t) for buckets that genuinely stand out.
+
+        Gated on how *sure* the difference is, not on how big it is. This
+        divided a bucket mean's deviation by `spread_valence` -- the
+        per-episode population standard deviation, which does not shrink as
+        evidence accumulates -- and compared it to a fixed constant. So the
+        test had no term for n beyond MIN_SAMPLES, which made it maximally
+        permissive exactly where the evidence is thinnest and silent where it
+        is strongest: a planted Tuesday rhythm at 11 standard errors after a
+        year scored 0.75 and stayed quiet, while a bucket sitting on the n=8
+        floor with three bad days scored 1.33 and fired.
+
+        The standard error of a bucket mean is sd/sqrt(n), so dividing by
+        that makes the gate tighten as n falls, which is what MIN_SAMPLES is
+        trying and failing to do on its own. The second test keeps a
+        hair-thin difference quiet once n is enormous.
+        """
         if not self.reliable or self.spread_valence < 1e-6:
             return []
         out: list[tuple[str, str, float]] = []
         for bucket in list(self.by_weekday.values()) + list(self.by_part.values()):
             if not bucket.reliable:
                 continue
-            z = (bucket.valence - self.baseline_valence) / self.spread_valence
-            if abs(z) >= NOTABLE_Z:
-                out.append((bucket.label, "flat" if z < 0 else "good", z))
-        out.sort(key=lambda t: -abs(t[2]))
+            deviation = bucket.valence - self.baseline_valence
+            stderr = self.spread_valence / math.sqrt(bucket.n)
+            t = deviation / stderr if stderr > 0 else 0.0
+            if abs(t) >= NOTABLE_T and abs(deviation) >= NOTABLE_MIN:
+                out.append((bucket.label, "flat" if t < 0 else "good", t))
+        out.sort(key=lambda x: -abs(x[2]))
         return out[:limit]
 
     def best_hours(self) -> str | None:
+        """When they are at their best, or nothing.
+
+        A bare argmax over three buckets always has a winner, and on a real
+        year of data afternoon beat morning by 0.0035 valence against a
+        standard error of 0.012 on either mean -- 0.29 standard errors, which
+        a bootstrap flips about two times in five. Since this is the only
+        rhythm line that reaches the prompt, that is the device asserting a
+        fact about someone's day, every turn, from noise.
+
+        So the winner has to be separated from the runner-up by more than the
+        two means' combined error. Saying nothing is the module's default
+        everywhere else and it is the right answer here too.
+        """
         parts = [b for b in self.by_part.values() if b.reliable]
         if len(parts) < 2:
             return None
-        best = max(parts, key=lambda b: b.valence - 0.3 * abs(b.arousal - 0.5))
-        return best.label if best.n >= MIN_SAMPLES else None
+        ranked = sorted(parts, key=lambda b: b.valence - 0.3 * abs(b.arousal - 0.5),
+                        reverse=True)
+        best, second = ranked[0], ranked[1]
+        if best.n < MIN_SAMPLES or self.spread_valence < 1e-6:
+            return None
+        margin = best.valence - second.valence
+        combined = self.spread_valence * math.sqrt(1.0 / best.n + 1.0 / second.n)
+        if margin < NOTABLE_T * combined:
+            return None
+        return best.label
 
     def brief(self) -> list[str]:
         """Lines for the persona block. Empty when the evidence is thin, which

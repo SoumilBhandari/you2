@@ -103,22 +103,46 @@ def _occurrences(ep: Neuron) -> list[tuple[float, float, float]]:
     return out
 
 
-def _slope(points: list[tuple[float, float]]) -> float:
-    """Least-squares slope in valence per month.
+#: The trend compares this many days against the same span before it.
+#: Bounded on purpose -- see `_slope`.
+TREND_WINDOW = 60.0
 
-    Two points is a line through two points, not a trend, so anything under
-    four observations returns zero rather than a confident number.
+#: Each half of that comparison needs at least this many mentions, or two
+#: offhand remarks in a quiet fortnight read as a change of heart.
+TREND_MIN = 3
+
+
+def _slope(points: list[tuple[float, float]], now: float) -> float:
+    """Change in valence per month, over a bounded recent window.
+
+    Fitting one line over the *entire* history, which this did, makes the
+    answer depend on how long the entity has been known rather than on what
+    recently happened. Valence is bounded in [-1, 1], so a least-squares slope
+    over a span of T days cannot exceed 60/T per month -- and the DRIFT gate
+    is a fixed 0.18. Past ~333 days no history whatsoever can clear it, not
+    even a perfect +1 to -1 ramp:
+
+        span  90d   max |slope| 0.667   reachable
+        span 333d   max |slope| 0.180   reachable, barely
+        span 365d   max |slope| 0.164   UNREACHABLE
+        span 730d   max |slope| 0.082   UNREACHABLE
+
+    So the device's ability to notice you souring on something decayed as 1/T
+    in how long it had known you, which is the exact inverse of the premise.
+
+    Comparing two adjacent windows is what the module docstring already
+    promises -- "more negative than they were two months ago" -- and it is
+    scale-free in span, so DRIFT keeps one meaning at month two and at year
+    three.
     """
-    if len(points) < 4:
+    recent = [v for t, v in points if now - t <= TREND_WINDOW * DAY]
+    before = [v for t, v in points
+              if TREND_WINDOW * DAY < now - t <= 2 * TREND_WINDOW * DAY]
+    if len(recent) < TREND_MIN or len(before) < TREND_MIN:
         return 0.0
-    xs = [t for t, _v in points]
-    ys = [v for _t, v in points]
-    mx, my = statistics.fmean(xs), statistics.fmean(ys)
-    denom = sum((x - mx) ** 2 for x in xs)
-    if denom <= 0.0:
-        return 0.0
-    slope = sum((x - mx) * (y - my) for x, y in points) / denom
-    return slope * 30.0 * DAY          # per month
+    # Per month, so the constant keeps the units it had.
+    return ((statistics.fmean(recent) - statistics.fmean(before))
+            * 30.0 / TREND_WINDOW)
 
 
 def build(store: Store, cfg: BrainConfig, now: float,
@@ -138,7 +162,7 @@ def build(store: Store, cfg: BrainConfig, now: float,
         valences = [v for _t, v, _a in events]
         stance.valence = statistics.fmean(valences)
         stance.arousal = statistics.fmean(a for _t, _v, a in events)
-        stance.trend = _slope([(t, v) for t, v, _a in events])
+        stance.trend = _slope([(t, v) for t, v, _a in events], now)
         out[entity.id] = stance
     return out
 
