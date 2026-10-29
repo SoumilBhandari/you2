@@ -35,7 +35,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Iterable, Sequence
 
-from ..perception.discourse import commitments, is_closure
+from ..perception.discourse import commitments, is_closure, is_question
 from ..substrate.embed import stem, tokenize
 
 # Words that start a sentence and are capitalised for that reason alone.
@@ -281,6 +281,11 @@ _ATTACHMENT = re.compile(
 def topic(phrase: str) -> str:
     """The dimension a claim is about.
 
+    Trims first, because `add()` trims the claim text and every caller built
+    the key from the untrimmed object -- so "I prefer oat milk I think" stored
+    the right sentence under `user/pref_think`, which can never supersede the
+    `user/pref_milk` it was meant to replace.
+
     Take the **last content word of the phrase up to its first attachment**.
     English noun phrases are head-final -- "cow milk" and "oat milk" both
     reduce to `milk` -- but a prepositional phrase hangs off the *end*, and
@@ -294,6 +299,7 @@ def topic(phrase: str) -> str:
     Cutting at the attachment gives `meeting` for both, and as a bonus fixes
     "oat milk in my coffee", which previously keyed on `coffee`.
     """
+    phrase = trim(phrase)
     head = _ATTACHMENT.split(phrase.lower(), maxsplit=1)[0]
     words = tokenize(head) or tokenize(phrase)
     if not words:
@@ -553,6 +559,15 @@ def _facts_in_clause(clause: str, prior: list[str], whole: str, add) -> None:
     """`clause` keeps its original case: three of these patterns need it."""
     low = clause.lower()
     if len(low) < 6:
+        return
+
+    # A question is not a claim. Auxiliary inversion leaves the declarative
+    # substring intact -- "do I work at Lumen?" still contains "i work at
+    # lumen" -- so every first-person pattern below matches a question about
+    # a fact exactly as it matches the fact. The validator could not catch
+    # it either: `undurable` tests the *rewritten* claim, and "the user works
+    # at Lumen" can never end in a question mark.
+    if is_question(clause):
         return
 
     m = _NAME.search(low)

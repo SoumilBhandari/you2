@@ -494,3 +494,39 @@ def test_the_replacement_is_the_last_clause_not_the_longest():
     Longest picked "that's out of date" over "I'm at Lumen now"."""
     from you2.recall.reconsolidate import _restate
     assert _restate("no, that's out of date, I'm at Lumen now") == "I'm at Lumen now"
+
+
+def test_a_question_about_a_fact_is_not_the_fact():
+    """Auxiliary inversion leaves the declarative substring intact, so every
+    first-person pattern matched a question exactly as it matched the claim:
+    "do I work at Lumen?" stored "the user works at Lumen".
+
+    The validator could not catch it either. `undurable` tests the rewritten
+    claim, and "the user works at Lumen" can never end in a question mark --
+    which is why the guard belongs on the clause, not on the output.
+    """
+    for q in ("do I work at Lumen?", "do I live in Lisbon?",
+              "have I switched to oat milk?", "do I hate Anderson?",
+              "did I say I prefer oat milk", "am I allergic to penicillin",
+              "have I got a meeting with Anderson"):
+        assert not rules.extract([q], [1], 0.0).facts, q
+
+    # ...and the declarative forms still land.
+    for claim, key in (("I work at Lumen", "user/employer"),
+                       ("I live in Lisbon", "user/location")):
+        facts = rules.extract([claim], [1], 0.0).facts
+        assert [f for f in facts if f["key"] == key], claim
+
+
+def test_a_trailing_marker_does_not_fork_the_key():
+    """`add()` trimmed the claim and every caller built the key from the
+    untrimmed object, so "I prefer oat milk I think" stored the right sentence
+    under `user/pref_think` -- a key that can never supersede the
+    `user/pref_milk` it was meant to replace."""
+    for text in ("I prefer oat milk",
+                 "I prefer oat milk I think",
+                 "I prefer oat milk, by the way",
+                 "I prefer oat milk you know"):
+        facts = rules.extract([text], [1], 0.0).facts
+        keys = [f["key"] for f in facts]
+        assert "user/pref_milk" in keys, (text, keys)

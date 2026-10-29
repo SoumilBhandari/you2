@@ -274,15 +274,27 @@ def is_closure(text: str) -> bool:
     return bool(_CLOSURE.search(text.lower()))
 
 
+#: A question, with or without the punctuation. ASR does not supply question
+#: marks, and auxiliary inversion is the only signal left: "do I work at
+#: Lumen" still contains the substring "i work at lumen", so a pattern that
+#: matches the latter matches the former too.
+_INTERROGATIVE = re.compile(
+    r"^\s*(what|when|where|who|whom|whose|why|how|which|did|do|does|is|are|"
+    r"am|was|were|can|could|should|would|will|have|has|had|tell me|remind me)\b",
+    re.IGNORECASE)
+
+
+def is_question(text: str) -> bool:
+    return text.strip().endswith("?") or bool(_INTERROGATIVE.match(text))
+
+
 def analyse(text: str, now: float) -> Discourse:
     low = text.lower()
     return Discourse(
         self_reference=self_reference(text),
         explicit=explicit_marker(text),
         valence=valence(text),
-        is_question=text.strip().endswith("?") or bool(
-            re.match(r"^\s*(what|when|where|who|why|how|did|do|does|is|are|was|"
-                     r"were|can|could|should|would|have|has|tell me|remind me)\b", low)),
+        is_question=is_question(text),
         is_closure=is_closure(text),
         commitments=commitments(text, now),
         words=len(_WORD.findall(low)),
