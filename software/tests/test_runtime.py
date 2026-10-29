@@ -518,3 +518,29 @@ def test_every_config_field_is_read_somewhere():
     wired = UNWIRED_CONFIG & read
     assert not wired, (
         f"{sorted(wired)} is wired up now — take it out of UNWIRED_CONFIG")
+
+
+def test_a_promise_is_not_its_own_fulfilment(brain):
+    """`is_closure` is a bare word match over done|finished|sorted|sent|...,
+    so a commitment whose own wording contains one of them opened a loop and
+    closed it in the same encode pass -- the echo scored 1.0 against itself,
+    which beat every genuine candidate."""
+    for text in ("I'll get the drawings done for the garden wall by Friday",
+                 "I'll get the numbers sent to Anderson by Friday",
+                 "I'll have the boiler sorted before winter"):
+        brain.say(text)
+    brain.close()
+    loops = brain.store.by_kind(Kind.LOOP, limit=20, live_only=False)
+    assert loops, "no commitment was recognised at all"
+    assert all(l.invalid_at is None for l in loops), \
+        [(l.content, l.invalid_at) for l in loops]
+
+
+def test_a_later_turn_still_closes_the_loop_it_resolves(brain):
+    brain.say("I'll send Anderson the revised numbers by Friday")
+    brain.say("the weather is grim")
+    brain.say("sent Anderson the revised numbers, that's done")
+    brain.close()
+    loops = brain.store.by_kind(Kind.LOOP, limit=20, live_only=False)
+    assert any(l.invalid_at is not None for l in loops), \
+        "a genuine closure in a later turn must still close"

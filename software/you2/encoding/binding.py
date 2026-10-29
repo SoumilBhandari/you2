@@ -153,6 +153,7 @@ def encode(store: Store, episode: Episode, cfg: BrainConfig | None = None, *,
             store.strengthen(entity_ids[i], entity_ids[j], 0.6, 0.6)
 
     # ---- open loops -------------------------------------------------------
+    just_opened: set[int] = set()
     for s in episode.saliences:
         if s.discourse is None:
             continue
@@ -160,8 +161,10 @@ def encode(store: Store, episode: Episode, cfg: BrainConfig | None = None, *,
             loop = _open_loop(store, c, ep.id, entity_ids, now)
             if loop is not None:
                 out.loops.append(loop)
+                just_opened.add(loop.id)
         if s.discourse.is_closure:
-            out.closed.extend(_close_loops(store, text, now))
+            out.closed.extend(_close_loops(store, text, now,
+                                           exclude=just_opened))
 
     store.log("encode", {
         "episode": ep.id, "salience": round(salience, 3),
@@ -277,8 +280,16 @@ def _open_loop(store: Store, c: Commitment, episode_id: int,
     return loop
 
 
-def _close_loops(store: Store, text: str, now: float) -> list[int]:
+def _close_loops(store: Store, text: str, now: float,
+                 exclude: set[int] | None = None) -> list[int]:
     """Resolve the open loop this utterance settles.
+
+    `exclude` is the set of loops this very utterance just opened. A promise
+    and its fulfilment cannot be the same sentence, and `is_closure` is a bare
+    word match over done|finished|sorted|sent|..., so "I'll get the drawings
+    done by Friday" announced a commitment and resolved it in one pass --
+    with the echo scoring 1.0 against itself, which beat every genuine
+    candidate.
 
     Only the best match closes, not everything above threshold. "That's
     sorted" after discussing three things is genuinely ambiguous, and wrongly
@@ -292,6 +303,8 @@ def _close_loops(store: Store, text: str, now: float) -> list[int]:
     best: tuple[float, Neuron] | None = None
     for loop in store.by_kind(Kind.LOOP, limit=200):
         if loop.invalid_at is not None:
+            continue
+        if exclude and loop.id in exclude:
             continue
         score = _echo(store, loop.content, text)
         if score > CLOSE_ECHO and (best is None or score > best[0]):
