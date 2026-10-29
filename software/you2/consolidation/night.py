@@ -25,8 +25,10 @@ Two operational rules:
 
 **Interruptible within 50 ms.** Someone walking in at 3 a.m. and saying
 "Friday" must never wait for a consolidation batch to finish. Checked between
-batches, and the whole run is checkpointed so an interrupted night resumes
-rather than restarts.
+batches. An interrupted night does NOT resume -- `night.run` takes a `since`
+cursor but nothing persists one, so the next night re-draws from scratch and
+whatever the interrupt dropped waits for the ordinary replay priority to pick
+it up again. See docs/next.md.
 
 **Never silently truncate.** Every cap that drops work logs what it dropped.
 A run that skipped half the backlog and reports "consolidated" is how a
@@ -57,6 +59,11 @@ class NightReport:
     ended_at: float = 0.0
     cycles: int = 0
     batches: int = 0
+    """Batches actually consolidated. Distinct from `batches_built`, which is
+    how many the replay draw produced -- they differ exactly when a night is
+    interrupted, and reporting the denominator as if it were the numerator is
+    how an interrupted night read as a complete one."""
+    batches_built: int = 0
     episodes_replayed: int = 0
     facts: Tally = field(default_factory=Tally)
     entities_new: int = 0
@@ -89,7 +96,8 @@ class NightReport:
     def as_dict(self) -> dict[str, Any]:
         return {
             "at": iso(self.started_at), "cycles": self.cycles,
-            "batches": self.batches, "episodes": self.episodes_replayed,
+            "batches": self.batches, "batches_built": self.batches_built,
+            "episodes": self.episodes_replayed,
             "facts": self.facts.as_dict(), "entities_new": self.entities_new,
             "schemas": self.schemas, "loops_new": self.loops_new,
             "loops_closed": self.loops_closed,
@@ -111,12 +119,13 @@ class NightReport:
         lines = [
             f"night of {iso(self.started_at)}  ({self.seconds:.1f}s"
             + (", interrupted" if self.interrupted else "") + ")",
-            f"  replayed   {self.episodes_replayed} episodes in {self.batches} batches"
+            f"  replayed   {self.episodes_replayed} episodes in "
+            f"{self.batches} of {self.batches_built} batches"
             + (f" ({self.degraded_batches} without the model)"
                if self.degraded_batches else ""),
             f"  facts      {self.facts.new} new, {self.facts.refined} refined, "
             f"{self.facts.reversed_} reversed, {self.facts.restated} restated, "
-            f"{self.facts.conflicts} conflicting",
+            f"{self.facts.conflicts} conflicting, {self.facts.stale} stale",
             f"  structure  {self.entities_new} entities, {self.schemas} schemas, "
             f"{self.loops_new} loops opened, {self.loops_closed} closed",
             f"  synapses   {h.get('edges_before', 0)} -> {h.get('edges_after', 0)} "
@@ -157,7 +166,7 @@ def run(store: Store, llm: Any | None = None, cfg: BrainConfig | None = None, *,
     # ---- NREM / REM cycles -------------------------------------------------
     drawn = replay.sample(store, cfg, now, rng=rng, since=since)
     batches = replay.ripple_batches(store, drawn, cfg)
-    report.batches = len(batches)
+    report.batches_built = len(batches)
 
     # Ceiling, not floor, and the cycle count no longer bounds the work.
     #
@@ -194,6 +203,7 @@ def run(store: Store, llm: Any | None = None, cfg: BrainConfig | None = None, *,
             batch = batches[index]
             index += 1
             result = abstraction.consolidate(store, llm, batch, cfg, now)
+            report.batches += 1
             report.episodes_replayed += len(batch)
             report.entities_new += len(result.entities_new)
             report.loops_new += len(result.loops_new)
@@ -261,6 +271,7 @@ def _merge(into: Tally, other: Tally) -> None:
     into.reversed_ += other.reversed_
     into.conflicts += other.conflicts
     into.distinct += other.distinct
+    into.stale += other.stale
     into.questions.extend(other.questions)
 
 

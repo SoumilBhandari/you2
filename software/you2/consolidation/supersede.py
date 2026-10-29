@@ -92,7 +92,7 @@ class Tally:
     def as_dict(self) -> dict[str, int]:
         return {"new": self.new, "restated": self.restated, "refined": self.refined,
                 "reversed": self.reversed_, "conflicts": self.conflicts,
-                "distinct": self.distinct}
+                "distinct": self.distinct, "stale": self.stale}
 
 
 def resolve(store: Store, llm: Model | None, key: str, text: str,
