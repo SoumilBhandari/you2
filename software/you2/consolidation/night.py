@@ -426,12 +426,17 @@ def build_profile(store: Store, cfg: BrainConfig, now: float,
 
 
 def due(store: Store, cfg: BrainConfig, now: float) -> bool:
-    """Has tonight's run already happened?"""
-    from ..clock import day_key, hour_of_day
-    hour = hour_of_day(now)
+    """Has tonight's run already happened?
+
+    Local time, not UTC. `night_start_hour` and `night_end_hour` are a claim
+    about when the person is asleep, and the eight-idle-hours premise this
+    module is built on only holds if the window lands there.
+    """
+    from ..clock import local_day_key, local_hour
+    hour = local_hour(now)
     if not (cfg.night_start_hour <= hour < cfg.night_end_hour):
         return False
     for row in store.journal("night", limit=3):
-        if day_key(row["ts"]) == day_key(now):
+        if local_day_key(row["ts"]) == local_day_key(now):
             return False
     return True

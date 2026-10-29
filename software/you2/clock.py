@@ -91,6 +91,28 @@ def day_key(t: float) -> str:
     return datetime.fromtimestamp(t, tz=timezone.utc).strftime("%Y-%m-%d")
 
 
+#: The two below read the machine's own zone instead of UTC, and only the
+#: night window uses them.
+#:
+#: Everything else here is deliberately UTC: a recurrence bucket, an age tag
+#: and the eval harness all want a stable answer that does not move with where
+#: the device is sitting. But "consolidate between 02:00 and 06:00" is a claim
+#: about when *the person* is asleep, and in UTC that window lands at 19:00 in
+#: Los Angeles and 22:00 in New York -- which is the middle of the evening,
+#: exactly when a desk device is most likely to be spoken to.
+
+
+def local_hour(t: float) -> int:
+    return datetime.fromtimestamp(t).hour
+
+
+def local_day_key(t: float) -> str:
+    """Which local day a moment belongs to. The night window straddles
+    midnight in most zones, so the already-ran check has to agree with
+    `local_hour` about where the day boundary is."""
+    return datetime.fromtimestamp(t).strftime("%Y-%m-%d")
+
+
 def weekday(t: float) -> str:
     return datetime.fromtimestamp(t, tz=timezone.utc).strftime("%A").lower()
 

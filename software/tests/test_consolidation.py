@@ -624,3 +624,30 @@ def test_compaction_re_embeds_or_the_block_fills_with_one_sentence(store):
     stale = recall(store, "Marta draft", now=now)
     assert not [i for i in stale.items
                 if "kestrel migration, test team" in i.line]
+
+
+def test_the_night_window_is_the_persons_night_not_utc(tmp_path, monkeypatch):
+    """night_start_hour/night_end_hour are a claim about when the person is
+    asleep. Read as UTC they land at 19:00 in Los Angeles and 22:00 in New
+    York -- the evening, which is when a desk device is most spoken to, and
+    the opposite of the eight-idle-hours premise the module is built on."""
+    import time
+    from you2 import BrainConfig
+    from you2.clock import local_hour
+    from you2.consolidation.night import due
+    from you2.substrate.store import Store
+
+    cfg = BrainConfig(db_path=str(tmp_path / "n.db"))
+    store = Store(cfg)
+    try:
+        # Walk a whole day in one-hour steps and collect the local hours the
+        # window opens on. It must be exactly the configured range, whatever
+        # zone the machine running this is in.
+        base = time.time()
+        opened = {local_hour(base + h * 3600)
+                  for h in range(26)
+                  if due(store, cfg, base + h * 3600)}
+        assert opened == set(range(cfg.night_start_hour, cfg.night_end_hour)), \
+            sorted(opened)
+    finally:
+        store.close()
