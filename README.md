@@ -2,7 +2,7 @@
 
 <img src="https://capsule-render.vercel.app/api?type=waving&color=0:0A0D0F,55:2C7A70,100:C8A64F&height=200&section=header&text=YOU2&fontSize=78&fontColor=F4F3EF&fontAlignY=35&desc=a%20desk%20assistant%20that%20remembers&descSize=18&descAlign=50&descAlignY=57&animation=fadeIn" width="100%" alt="You2 — a desk assistant that remembers" />
 
-<img src="https://readme-typing-svg.demolab.com?font=IBM+Plex+Mono&weight=500&size=19&pause=900&duration=3400&color=6FC0B3&center=true&vCenter=true&width=700&height=46&lines=Wake%20it%3A%20%22Hey%20Friday%22;The%20model%20is%20a%20download.%20The%20memory%20is%20the%20product.;152%20x%20150%20x%20192%20mm.%2011%20printed%20parts.%20One%20ordinary%20printer.;Six%20gates%2C%20because%20a%20render%20is%20not%20a%20check." alt="" />
+<img src="https://readme-typing-svg.demolab.com?font=IBM+Plex+Mono&weight=500&size=19&pause=900&duration=3400&color=6FC0B3&center=true&vCenter=true&width=700&height=46&lines=Wake%20it%3A%20%22Hey%20Friday%22;The%20model%20is%20a%20download.%20The%20memory%20is%20the%20product.;152%20x%20150%20x%20192%20mm.%2011%20printed%20parts.%20One%20ordinary%20printer.;Five%20gates%2C%20because%20a%20render%20is%20not%20a%20check." alt="" />
 
 <p>
   <a href="https://github.com/SoumilBhandari/you2/actions/workflows/ci.yml"><img alt="gates" src="https://github.com/SoumilBhandari/you2/actions/workflows/ci.yml/badge.svg" /></a>
@@ -236,7 +236,7 @@ DSI rather than DPI is not an aesthetic choice. The Pi 5 has two spare 4-lane MI
 
 Two things that will each cost you an afternoon: the display box ships **15-pin cables and a Pi 5 needs 22-pin** (wrong cable = black screen, no error), and the panel must be **fed 5 V separately** because the DSI ribbon can't supply enough current.
 
-### Two gates, because a render lies
+### Five gates, because a render lies
 
 `Status: NoError` means the mesh is manifold. It does not mean the part is one object, and it does not mean anything fits — rev C rendered clean and was a sealed box in two disconnected pieces. And a render draws parts in different colours and lets them pass straight through one another.
 

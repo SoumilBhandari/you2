@@ -136,10 +136,12 @@ footer{border-top:1px solid var(--rule);padding-top:22px;color:var(--ink-3);font
   <p>Almost nothing about the size was chosen. The display carrier sets the face length, the driver box sets
   the skirt, the mic array sets the depth, and the fastener flange sets the width — the model derives
   the rest and refuses to render if a measurement makes it unbuildable.</p>
-  <div class="note"><strong>Three gates run over this model, and they all pass.</strong>
+  <div class="note"><strong>Five gates run over this model, and they all pass.</strong>
   <code>cad/check.py</code> proves every part is a single connected solid; <code>cad/fit.py</code>
-  proves no two parts occupy the same space; and twenty-one asserts inside the model itself check the
-  things neither can see — that the display posts compress their gasket by 20 % rather than floating
+  proves no two parts occupy the same space; <code>cad/thickness.py</code> refuses a wall a 0.4 mm
+  nozzle cannot fill; <code>cad/mass.py</code> refuses a part claiming more mass than its own volume
+  allows; <code>cad/docs.py</code> refuses a document that disagrees with the model; and twenty-one
+  asserts inside the model itself check the things none of them can see — that the display posts compress their gasket by 20 % rather than floating
   above it, that the driver clamp's webs clear the driver box, that the microphone array lands on the top face
   instead of overhanging its front edge, and that every plate still fits the bed. Between them they
   caught twenty-three defects that renders did not show — including two Ø10 × 24 mm

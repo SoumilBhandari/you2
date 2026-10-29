@@ -41,7 +41,7 @@ python3 cad/fit.py   cad/you2-revD.scad   # no two parts occupy the same space
 python3 cad/docs.py                       # the prose agrees with the model
 python3 cad/thickness.py cad/you2-revD.scad   # no wall a 0.4 nozzle can't fill
 python3 cad/mass.py cad/you2-revD.scad    # no part claims an impossible mass
-python3 cad/render.py                     # regenerate all fifteen images
+python3 cad/render.py                     # regenerate all nineteen images
 ```
 
 **Run `--variants`.** The model has three switches and only one configuration
@@ -49,17 +49,21 @@ was ever gated. `LED_BAR = true` was broken for as long as it has existed: the
 shell exported with a chip floating at each side, every assert passed, and the
 documentation said both variants were clean.
 
-The first two begin by proving they can fail — `check.py` on a mesh it knows is
-two pieces, `fit.py` on an overlap of known volume. A gate that has only ever
-passed is not evidence.
+Each of them begins by proving it can fail — `check.py` on a mesh it knows is
+two pieces, `fit.py` on an overlap whose volume is known by arithmetic,
+`thickness.py` on a plate of known thickness, `mass.py` on a part whose claimed
+mass exceeds solid, `docs.py` on a fabricated claim it must catch. A gate that
+has only ever passed is not evidence.
 
-The third one exists because neither of the others reads English, and every
-defect found since rev D landed has been a sentence. It derives the numbers from
-the model and errors on any document that disagrees.
+`docs.py` exists because none of the others reads English, and every defect
+found since rev D landed has been a sentence. It derives the numbers from the
+model and errors on any document that disagrees — including this one, which is
+why the counts in this paragraph are not maintained by hand.
 
-Run all three before every print, and **add an assert whenever you add a feature
-that depends on a dimension**. There are 16 in the model now; between them and
-the two geometry gates they caught 23 defects that renders did not show.
+Run all five before every print, and **add an assert whenever you add a feature
+that depends on a dimension**. There are 21 asserts in the model now; between
+them and the two geometry gates they caught 23 defects that renders did not
+show.
 
 ## MODE
 

@@ -24,7 +24,7 @@ Adding a claim: put the number in FACTS with a derivation, and a pattern in
 CHECKS. If you cannot derive it from the model, it does not belong here — a
 hand-maintained expected value is the thing this file exists to replace.
 """
-import argparse, math, os, re, struct, subprocess, sys, tempfile
+import argparse, importlib.util, math, os, re, struct, subprocess, sys, tempfile
 from urllib.parse import unquote
 from collections import defaultdict
 
@@ -73,7 +73,44 @@ def source_facts():
         m = re.search(r"^%s\s*=\s*([\d.]+)" % re.escape(name), body, re.M)
         return float(m.group(1))
 
+    # How many gates there are, asked of the gates. Every one of them opens
+    # "<something> gate for the You2 enclosure." in its docstring, and
+    # render.py -- which is not a gate -- opens "Renders the You2 enclosure."
+    # so it falls out on its own. Counting the files rather than keeping a
+    # number here is the whole policy of this file: four documents disagreed
+    # about this one, the README's own section header among them, and all four
+    # were written at a moment when they were right.
+    cad = os.path.join(ROOT, "cad")
+    gates = [n for n in sorted(os.listdir(cad)) if n.endswith(".py")
+             # re.search with re.M, not re.match: the docstring is on line 2,
+             # behind the shebang. Anchored at position 0 this counted zero
+             # gates, which did not fail -- it quietly declared all four of
+             # the documents below wrong against a ground truth of nothing.
+             and re.search(r'^"""\w[\w -]* gate for the You2 enclosure\.',
+                           open(os.path.join(cad, n), errors="replace").read(400),
+                           re.M)]
+    # So: refuse to grade on a derivation that collapsed. A gate count of zero
+    # is not a repo with no gates, it is a broken reading of this directory,
+    # and the difference matters because the second one prints four confident
+    # WRONGs at correct documents.
+    assert gates, ("found no gate scripts in cad/ -- the docstring convention "
+                   "they are counted by must have changed; fix this derivation "
+                   "before trusting anything below")
+
+    # render.py's own tables, read by importing it rather than by parsing it.
+    # Its views are 9 hand-aimed cameras plus a loop over the 6 print plates,
+    # and only 4 of them get a light twin, so the total is not a number anyone
+    # should be re-deriving in prose. Two documents said fifteen, which was
+    # true until the light twins existed -- and I added those myself, in the
+    # commit that put a light/dark pair in the README.
+    spec = importlib.util.spec_from_file_location("_render",
+                                                  os.path.join(cad, "render.py"))
+    rmod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(rmod)
+
     return {"asserts": len(re.findall(r"\bassert\s*\(", body)),
+            "gates": len(gates),
+            "renders": len(rmod.VIEWS) + len(rmod.LIGHT_VIEWS),
             "modes": len(re.findall(r"MODE ==", disp)),
             "parts": len(re.findall(r'"', parts)) // 2,
             "plates": max(int(x) for x in re.findall(r"PLATE == (\d+)", src)),
@@ -260,6 +297,14 @@ def CHECKS(f):
          r"<h3>(\d+|[A-Za-z]+) parts, two materials", eq("parts")),
         ("plate count",
          r"(\d+|[a-z]+) plates\b", eq("plates")),
+        # [A-Za-z] because the stale ones were sentence-initial: "Two gates,
+        # because a render lies" sat directly above a block that runs five
+        # commands. "mesh gates", "both gates" and "the gates" each capture a
+        # word num() cannot parse, and scan() drops those as not-a-claim.
+        ("gate count",
+         r"(\d+|[A-Za-z]+) gates\b", eq("gates")),
+        ("render count",
+         r"(\d+|[a-z]+) images\b", eq("renders")),
         # A bare "N x N x N" also describes the bed (220x220x250), the driver
         # box (50x45x22) and rev C (134x125x165), none of which are wrong. The
         # discriminator is overlap: a triple sharing two values with the device
@@ -367,6 +412,44 @@ def decoded_lines(text, claims):
             yield from claims(decoded, lineno=i)
 
 
+def self_test(f):
+    """Catch a wrong number that was planted, before reporting none were found.
+
+    This was the only gate here without a control, and it is the one that most
+    needed one. Every pattern in CHECKS is deliberately tight, because a loose
+    one cries wolf -- but a pattern tightened until it no longer matches is
+    indistinguishable, from the outside, from ten documents that all agree.
+    Both print "every claim agrees with the model".
+
+    Two things are planted. A plain claim, which exercises the patterns and the
+    comparison, and a percent-encoded badge, which exercises the decode pass --
+    the one that existed for an afternoon before anyone checked whether a URL
+    it could not read was a URL with a wrong number in it.
+    """
+    want = f["gates"] + 1
+    probe = (f"a document claiming {want} gates\n"
+             f'<img src="https://img.shields.io/badge/printed%20parts-{f["parts"] + 1}-1D2226" />\n')
+
+    # Through scan() on a real file, not by re-running the patterns here. The
+    # first version of this control did the latter and it was theatre: delete
+    # the decode pass from scan() entirely and the control still passed, because
+    # it was never calling the code it claimed to be protecting. It only caught
+    # a pattern that stopped matching, which is half the failure.
+    path = os.path.join(tempfile.mkdtemp(), "planted.md")
+    with open(path, "w") as g:
+        g.write(probe)
+    caught = {label for _rel, _line, label, _text, _want in scan(f, [path])}
+
+    missed = {"gate count", "printed-part badge"} - caught
+    if missed:
+        print("  HARNESS BROKEN  planted a wrong number and this gate did not see it")
+        for label in sorted(missed):
+            print(f"                  {label} matched nothing it should have failed")
+        print("  a clean report below would mean nothing — refusing to run")
+        return False
+    return True
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--quick", action="store_true",
@@ -379,6 +462,9 @@ def main():
         for k, v in f.items():
             print(f"  {k:<12} {v}")
         return 0
+
+    if not self_test(f):
+        return 2
 
     skip = {"bed contact", "bed contact, restated", "downfacing area",
             "largest downfacing patch"} if a.quick else set()

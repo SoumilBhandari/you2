@@ -117,11 +117,14 @@ no machining, and lower down than the plate ever was.
 ## 3. rev D
 
 `cad/you2-revD.scad` — parametric, self-sizing, and it asserts its own
-buildability. Two gates run over it: `cad/check.py` proves every part is a
-single connected solid, and `cad/fit.py` proves no two parts occupy the same
-space. Between them they caught nine defects that renders and asserts both
-missed, including a driver that never touched its own seal and a microphone
-array that overhung the front edge of the top face.
+buildability. Five gates run over it: `cad/check.py` proves every part is a
+single connected solid, `cad/fit.py` proves no two parts occupy the same space,
+`cad/thickness.py` refuses a wall a 0.4 mm nozzle cannot fill, `cad/mass.py`
+refuses a part claiming more mass than its own volume allows, and `cad/docs.py`
+refuses a document that disagrees with the model. The first two alone caught
+nine defects that renders and asserts both missed, including a driver that never
+touched its own seal and a microphone array that overhung the front edge of the
+top face.
 
 **The complete build document — every part, plate, fastener and step — is
 [`docs/build.html`](build.html).**

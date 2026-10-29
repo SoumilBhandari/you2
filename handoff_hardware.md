@@ -112,7 +112,7 @@ python3 cad/thickness.py cad/you2-revD.scad  # no wall a 0.4 nozzle cannot fill
 software/.venv/bin/python cad/mass.py cad/you2-revD.scad   # no impossible masses
 git config core.hooksPath .githooks          # once: the fast two on every commit
 python3 cad/docs.py                         # the prose agrees with the model
-python3 cad/render.py                       # regenerate all fifteen images
+python3 cad/render.py                       # regenerate all nineteen images
 ```
 
 All three pass, under all five switch combinations, and 21 asserts inside the

@@ -33,13 +33,14 @@ jobs:
   gates:
     name: cad gates
     runs-on: ubuntu-latest
-    # The four gates below are 8 seconds of work together, measured; the rest
-    # of this job is checkout, python and an 84 MB download. The cap is not a
-    # guess at how slow a shared runner might be, it is a tripwire. If a future
-    # OpenSCAD stops defaulting to Manifold these gates go back to taking
-    # hours, and they should fail at 15 minutes saying so rather than squat on
-    # the queue until the 6-hour job default kills them. See the long note in
-    # .github/actions/openscad for what that cost the first time.
+    # Measured on this runner: 54 seconds for the whole job, of which 36 is
+    # fetching and extracting OpenSCAD and 11 is the four gates. The one that
+    # had been running for four hours and twenty minutes now takes 7 seconds.
+    # The cap is not a guess at how slow a shared runner might be, it is a
+    # tripwire: if a future OpenSCAD stops defaulting to Manifold these gates
+    # go back to taking hours, and they should fail at 15 minutes saying so
+    # rather than squat on the queue until the 6-hour job default kills them.
+    # See the long note in .github/actions/openscad for the first version.
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
