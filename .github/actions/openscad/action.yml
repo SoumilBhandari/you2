@@ -1,0 +1,76 @@
+name: openscad
+description: Install an OpenSCAD whose boolean backend is Manifold, not CGAL Nef.
+
+# Why this exists instead of `apt-get install openscad`
+# ----------------------------------------------------
+# Ubuntu ships OpenSCAD 2021.01. That version does intersections and
+# differences with CGAL Nef polyhedra. Manifold became the default backend
+# afterwards, and for the meshes in this repo the difference is not a
+# percentage.
+#
+# Measured, same fourteen pairs, same model:
+#
+#     cad/fit.py, OpenSCAD 2026.06 (Manifold)   5.3 seconds
+#     cad/fit.py, OpenSCAD 2021.01 (CGAL Nef)   still running at 4h 20m
+#
+# It was not stuck. It was doing the same arithmetic the slow way, on a shell
+# with tens of thousands of facets, fourteen times. The run was cancelled at
+# the four-hour mark; the 6-hour job default would have killed it eventually
+# and the badge would have read "failing" for a reason that had nothing to do
+# with the model.
+#
+# So: the official AppImage, pinned by digest.
+#
+# Snapshots are retained for about a year — the oldest on the server today is
+# a day short of twelve months. When this pin finally 404s, the fix is to pick
+# a newer filename from https://files.openscad.org/snapshots/ and update both
+# VERSION and SHA256 below. The step says so out loud when it happens, because
+# a download failure here reads like a network blip and is not one.
+
+inputs:
+  version:
+    description: Snapshot date, as it appears in the filename.
+    default: "2026.10.27"
+  sha256:
+    description: Digest of that AppImage, from the published .sha256 beside it.
+    default: "13be4bac3aa25fcb2b7065cef5a02a5bb258fdac65f4eb49399e529d3d9468e3"
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        VERSION: ${{ inputs.version }}
+        SHA256: ${{ inputs.sha256 }}
+      run: |
+        set -euo pipefail
+        FILE="OpenSCAD-${VERSION}-x86_64.AppImage"
+        URL="https://files.openscad.org/snapshots/${FILE}"
+        DEST="${RUNNER_TEMP}/openscad"
+        mkdir -p "$DEST"
+        cd "$DEST"
+
+        if ! curl -fsSL --retry 3 --retry-delay 5 "$URL" -o openscad.AppImage; then
+          echo "::error::could not fetch ${URL}"
+          echo "::error::If this is a 404, snapshot ${VERSION} has aged out of the"
+          echo "::error::server's ~1-year retention. Pick a current filename from"
+          echo "::error::https://files.openscad.org/snapshots/ and update the"
+          echo "::error::version and sha256 defaults in .github/actions/openscad."
+          exit 1
+        fi
+
+        # Pinned, so a swapped build cannot quietly change what the gates mean.
+        echo "${SHA256}  openscad.AppImage" | sha256sum -c -
+
+        # --appimage-extract rather than running the AppImage directly: mounting
+        # one needs libfuse2, which ubuntu-latest no longer ships. Extraction
+        # needs nothing.
+        chmod +x openscad.AppImage
+        ./openscad.AppImage --appimage-extract > /dev/null
+        sudo ln -sf "${DEST}/squashfs-root/AppRun" /usr/local/bin/openscad
+
+        # No X display on a runner. Exports do not need one, but Qt tries to
+        # open one anyway unless told otherwise.
+        echo "QT_QPA_PLATFORM=offscreen" >> "$GITHUB_ENV"
+
+        openscad --version

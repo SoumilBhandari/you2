@@ -33,18 +33,24 @@ jobs:
   gates:
     name: cad gates
     runs-on: ubuntu-latest
+    # The four gates below are 8 seconds of work together, measured; the rest
+    # of this job is checkout, python and an 84 MB download. The cap is not a
+    # guess at how slow a shared runner might be, it is a tripwire. If a future
+    # OpenSCAD stops defaulting to Manifold these gates go back to taking
+    # hours, and they should fail at 15 minutes saying so rather than squat on
+    # the queue until the 6-hour job default kills them. See the long note in
+    # .github/actions/openscad for what that cost the first time.
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: install openscad and numpy
+      - uses: ./.github/actions/openscad
+      - name: numpy
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq openscad
           python -m pip install --upgrade pip
           pip install "numpy>=1.24"
-          openscad --version
 
       # The prose gate. Under a second, and the one that has caught the most:
       # thirty wrong claims across six documents so far.
@@ -85,11 +91,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: install openscad and numpy
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq openscad
-          pip install "numpy>=1.24"
+      - uses: ./.github/actions/openscad
+      - name: numpy
+        run: pip install "numpy>=1.24"
 
       - name: every part is one solid, under every switch
         run: python3 cad/check.py cad/you2-revD.scad --variants
