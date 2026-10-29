@@ -90,6 +90,16 @@ def relevant_keys(store: Store, batch: Batch) -> list[str]:
     return keys[:KEY_HINTS]
 
 
+def _said_at(store: Store, cites: list[int], now: float) -> float:
+    """The latest moment any cited episode was recorded.
+
+    The latest rather than the earliest: a claim assembled from a
+    conversation in March and one in June became true in June.
+    """
+    times = [n.created_at for n in store.get_many(cites).values()]
+    return max(times) if times else now
+
+
 def consolidate(store: Store, llm: Any | None, batch: Batch,
                 cfg: BrainConfig, now: float) -> BatchResult:
     out = BatchResult(episodes=[n.id for n in batch.episodes])
@@ -167,8 +177,15 @@ def consolidate(store: Store, llm: Any | None, batch: Batch,
             confidence = float(candidate.get("confidence", 0.7))
         except (TypeError, ValueError):
             confidence = 0.7
+        # When the claim was actually said, not when the night read it. The
+        # citing episodes are right here and carry the dates; without this
+        # every fact is stamped with the consolidation clock, age tags drift
+        # by however long the material sat unreplayed, and a re-read of old
+        # episodes looks exactly like a fresh change of mind.
+        asserted_at = _said_at(store, cites, now)
         resolution = supersede.resolve(store, llm, key, text, cites,
-                                       confidence, now, cfg)
+                                       confidence, now, cfg,
+                                       asserted_at=asserted_at)
         out.tally.record(resolution)
         if resolution.fact is not None:
             produced.update(cites)

@@ -32,6 +32,13 @@ from ..substrate.synapse import Edge
 #: Weight on a supersedes edge. Conduction for this type is 0.20, so the
 #: dead fact is reachable for "what did I used to think" and essentially
 #: unreachable in ordinary retrieval.
+#: How much older than the held fact a claim may be and still be treated as
+#: news. Replay re-reads episodes from the same day in different batches, so
+#: an exact comparison would reject the second half of a genuine same-day
+#: change; a few minutes of slack keeps those while still rejecting a
+#: re-reading of last month.
+STALE_SLACK = 600.0
+
 SUPERSEDE_WEIGHT = 1.0
 CONTRADICT_WEIGHT = 0.9
 SUPPORT_WEIGHT = 0.7
@@ -58,6 +65,9 @@ class Tally:
     reversed_: int = 0
     conflicts: int = 0
     distinct: int = 0
+    stale: int = 0
+    """Claims re-read from episodes older than the fact already held. Should
+    be large on a re-run and zero on fresh material."""
     questions: list[str] = field(default_factory=list)
 
     def record(self, r: Resolution) -> None:
@@ -74,6 +84,8 @@ class Tally:
                 self.conflicts += 1
                 if r.question:
                     self.questions.append(r.question)
+            case "stale":
+                self.stale += 1
             case "distinct":
                 self.distinct += 1
 
@@ -85,12 +97,28 @@ class Tally:
 
 def resolve(store: Store, llm: Model | None, key: str, text: str,
             cites: list[int], confidence: float, now: float,
-            cfg: BrainConfig) -> Resolution:
-    """Decide what a candidate fact does to the fact already holding its key."""
+            cfg: BrainConfig, asserted_at: float | None = None) -> Resolution:
+    """Decide what a candidate fact does to the fact already holding its key.
+
+    `asserted_at` is when the claim was *said*; `now` is when consolidation
+    happened to read it. They are not the same and conflating them is what
+    made the night non-idempotent: replay re-draws the same episodes on a
+    later night, the extractor re-emits both sides of an old change, and
+    `resolve` runs the reversal branch again on claims it already settled.
+    """
+    said_at = now if asserted_at is None else asserted_at
     existing = store.by_key(key)
     if existing is None:
         return Resolution("new", fact=_create(store, key, text, cites,
-                                              confidence, now))
+                                              confidence, now, said_at))
+
+    # Older news than what we already hold. Re-superseding on this would
+    # manufacture a fresh pair of versions every night from the same two
+    # episodes, and the version count is what `engine.contrast` reads --
+    # which is how the device came to say "this has changed 9 times in 7mo"
+    # about a preference stated exactly twice.
+    if said_at < (existing.valid_at or existing.created_at) - STALE_SLACK:
+        return Resolution("stale", why="already holding a later statement")
 
     rel, why, question = _judge(llm, existing, text, now, cfg)
 
@@ -98,7 +126,7 @@ def resolve(store: Store, llm: Model | None, key: str, text: str,
         return _restate(store, existing, cites, now, why)
 
     if rel in ("refinement", "reversal"):
-        fact = _create(store, key, text, cites, confidence, now)
+        fact = _create(store, key, text, cites, confidence, now, said_at)
         # Inherit accumulated learning: the dimension has been discussed
         # before, so the replacement should not start from a cold base.
         fact.storage_strength = max(fact.storage_strength,
@@ -118,7 +146,7 @@ def resolve(store: Store, llm: Model | None, key: str, text: str,
     if rel == "conflict":
         # Both stay valid. Retrieval will surface the contradiction, which is
         # the honest behaviour until the user settles it.
-        fact = _create(store, key, text, cites, confidence * 0.8, now)
+        fact = _create(store, key, text, cites, confidence * 0.8, now, said_at)
         store.connect(fact.id, existing.id, Edge.CONTRADICTS, CONTRADICT_WEIGHT, at=now)
         q = question or (f"You said \"{existing.text()}\" and later "
                          f"\"{text}\". Which is right?")
@@ -236,10 +264,15 @@ def _judge(llm: Model | None, existing: Neuron, text: str,
 
 
 def _create(store: Store, key: str, text: str, cites: list[int],
-            confidence: float, now: float) -> Neuron:
+            confidence: float, now: float,
+            asserted_at: float | None = None) -> Neuron:
+    """`created_at` is when we wrote it down; `valid_at` is when it became
+    true. Only the second one is a fact about the person, and it is the one
+    every age tag and every arc claim is computed from."""
     fact = store.add(Neuron(
         kind=Kind.FACT, key=key, content=text, created_at=now, last_access=now,
-        valid_at=now, confidence=max(0.1, min(1.0, confidence)),
+        valid_at=now if asserted_at is None else asserted_at,
+        confidence=max(0.1, min(1.0, confidence)),
         salience=0.6, storage_strength=2.0,
         meta={"cites": sorted(set(cites))},
     ))
