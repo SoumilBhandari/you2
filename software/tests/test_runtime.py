@@ -636,3 +636,55 @@ def test_inspect_renders_a_real_neuron(brain, capsys):
     assert "invalidated because" in out and "a premise died" in out
     assert "#0" not in out.split("association")[-1], \
         "edges rendered as #0 — the Neighbour tuple was read as an object"
+
+
+def test_a_turn_and_a_night_do_not_interleave(tmp_path):
+    """Store opens SQLite with check_same_thread=False and `serve` runs the
+    night on its own thread by default, so a turn and a consolidation shared
+    one connection and one set of in-RAM indexes with nothing between them.
+    A turn landing inside persist_graph's transaction -- which empties and
+    rewrites the whole edge table -- went back with it.
+
+    Unlocked, this shape produced 293 exceptions over 20 s of HTTP traffic:
+    DatabaseError, IntegrityError, InterfaceError, IndexError, ValueError.
+    """
+    import threading
+    from you2 import BrainConfig
+    from you2.llm import FakeLLM
+    from you2.runtime.pipeline import Brain
+
+    brain = Brain(BrainConfig(db_path=str(tmp_path / "race.db")), llm=FakeLLM())
+    errors: list[BaseException] = []
+    done = threading.Event()
+
+    def talk() -> None:
+        i = 0
+        try:
+            while not done.is_set() and i < 60:
+                brain.say(f"the garden wall needs rebuilding, note {i}")
+                i += 1
+        except BaseException as exc:         # noqa: BLE001 -- that is the test
+            errors.append(exc)
+
+    def consolidate() -> None:
+        try:
+            for _ in range(6):
+                if done.is_set():
+                    break
+                brain.night()
+        except BaseException as exc:         # noqa: BLE001
+            errors.append(exc)
+
+    threads = [threading.Thread(target=talk) for _ in range(2)]
+    threads.append(threading.Thread(target=consolidate))
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(timeout=120)
+    done.set()
+
+    assert not errors, errors
+    assert brain.store.conn.execute(
+        "pragma integrity_check").fetchone()[0] == "ok"
+    brain.close()
+    brain.close_store()

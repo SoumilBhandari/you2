@@ -11,6 +11,7 @@ you which stage to attack, instead of sending you board-shopping.
 
 from __future__ import annotations
 
+import threading
 import time
 from dataclasses import dataclass, field
 from typing import Any, Iterator
@@ -107,6 +108,14 @@ class Brain:
         #: brain reads it back, so unsubscribing every consumer changes
         #: nothing -- the visualisation observes state, it never creates it.
         self.bus = bus or BUS
+        #: One device, one brain, one connection. `Store` opens SQLite with
+        #: check_same_thread=False and `serve` runs the night on its own
+        #: thread by default, so without this a turn and a consolidation
+        #: interleave on the same connection and the same in-RAM indexes --
+        #: and a turn landing inside `persist_graph`'s transaction, which
+        #: empties and rewrites the whole edge table, is rolled back with it.
+        #: Serialising costs nothing: there is only ever one person talking.
+        self._lock = threading.RLock()
         self.bus.state_changed(State.IDLE)
 
     # -------------------------------------------------------------- session
@@ -120,6 +129,10 @@ class Brain:
 
     def close(self, now: float | None = None) -> None:
         """End the session: flush the open episode and write it."""
+        with self._lock:
+            self._close(now)
+
+    def _close(self, now: float | None = None) -> None:
         now = now if now is not None else self.clock.now()
         episode = self.segmenter.flush()
         if episode is not None:
@@ -139,6 +152,14 @@ class Brain:
     def say(self, text: str, *, now: float | None = None,
             prosody: Prosody | None = None, source: str = "speech",
             wake: bool = True) -> Reply:
+        """One turn, start to finish. Serialised against the night."""
+        with self._lock:
+            return self._say(text, now=now, prosody=prosody, source=source,
+                             wake=wake)
+
+    def _say(self, text: str, *, now: float | None = None,
+             prosody: Prosody | None = None, source: str = "speech",
+             wake: bool = True) -> Reply:
         now = now if now is not None else self.clock.now()
         timing = Timing()
         timing.start()
@@ -322,6 +343,13 @@ class Brain:
 
     def night(self, *, now: float | None = None, interrupt=None,
               seed: int | None = None) -> night.NightReport:
+        """Consolidate. Holds the brain for the duration, so a turn arriving
+        mid-night waits rather than interleaving on the same connection."""
+        with self._lock:
+            return self._night(now=now, interrupt=interrupt, seed=seed)
+
+    def _night(self, *, now: float | None = None, interrupt=None,
+               seed: int | None = None) -> night.NightReport:
         now = now if now is not None else self.clock.now()
         self.close(now)
         self.bus.state_changed(State.DREAMING)
@@ -345,10 +373,15 @@ class Brain:
     # ----------------------------------------------------------------- misc
 
     def why(self, text: str, *, now: float | None = None) -> str:
-        now = now if now is not None else self.clock.now()
-        return self._retrieve(text, now).explain()
+        with self._lock:
+            now = now if now is not None else self.clock.now()
+            return self._retrieve(text, now).explain()
 
     def stats(self) -> dict[str, Any]:
+        with self._lock:
+            return self._stats()
+
+    def _stats(self) -> dict[str, Any]:
         out = self.store.stats()
         out["profile_tokens"] = len(self.profile) // 4
         out["precision"] = self.store.precision_by_type()
