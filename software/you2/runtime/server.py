@@ -87,11 +87,20 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:  # noqa: N802
         route = urlparse(self.path).path.rstrip("/") or "/"
-        length = int(self.headers.get("Content-Length") or 0)
+        # Everything a client controls has to be able to be wrong. This
+        # returning 400 on bad JSON was already the intent; the header, the
+        # body's *type*, and the field types escaped it, and each one killed
+        # the worker thread and left the client with no response at all.
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+        except (TypeError, ValueError):
+            return self._json({"error": "bad content-length"}, 400)
         try:
             payload = json.loads(self.rfile.read(length) or b"{}")
         except json.JSONDecodeError:
             return self._json({"error": "bad json"}, 400)
+        if not isinstance(payload, dict):
+            return self._json({"error": "body must be a json object"}, 400)
 
         if self.brain is None:
             return self._json({"error": "no brain"}, 503)
@@ -113,8 +122,11 @@ class Handler(BaseHTTPRequestHandler):
                                **report.as_dict()})
         if route == "/api/rate":
             from ..discovery import verdict
-            verdict(self.brain.store, int(payload["insight"]),
-                    bool(payload.get("useful")))
+            try:
+                insight_id = int(payload["insight"])
+            except (KeyError, TypeError, ValueError):
+                return self._json({"error": "insight must be an integer"}, 400)
+            verdict(self.brain.store, insight_id, bool(payload.get("useful")))
             return self._json({"ok": True})
         return self._json({"error": "not found"}, 404)
 

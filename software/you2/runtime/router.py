@@ -28,12 +28,23 @@ from ..substrate.store import Store
 _TIME = re.compile(r"\b(what(?:'s| is) the time|what time is it|"
                    r"what(?:'s| is) (today'?s )?(the )?date|what day is it)\b", re.I)
 
+#: `remind me` needs a temporal preposition, or "remind me 3 things I said"
+#: becomes a three-second timer.
 _SET_TIMER = re.compile(
-    r"\b(?:set (?:a )?timer|remind me|timer)\s+(?:for\s+)?"
+    r"\b(?:set (?:a )?timer|remind me|timer)\s+(?:for|in|after)\s+"
     r"(\d+)\s*(second|sec|minute|min|hour|hr)s?\b", re.I)
 
-_LIST_TIMERS = re.compile(r"\b(what timers|any timers|timers)\b", re.I)
-_CANCEL_TIMER = re.compile(r"\b(cancel|stop|clear)\s+(the\s+)?timers?\b", re.I)
+#: Anchored to the head of a clause, and without the bare `timers`
+#: alternative. The router short-circuits before the memory-answerable branch
+#: and before the model, and a turn it claims is never encoded -- so an
+#: unanchored pattern here does not merely answer oddly, it silently refuses
+#: to remember the sentence. "I bought two kitchen timers at the market today"
+#: was answered "No timers running." and then dropped.
+_CLAUSE = r"(?:^|[.!?;,]\s*)\s*"
+_LIST_TIMERS = re.compile(
+    _CLAUSE + r"(?:what|any|which|list(?: the)?|how many)\s+timers?\b", re.I)
+_CANCEL_TIMER = re.compile(
+    _CLAUSE + r"(?:cancel|stop|clear)\s+(?:the\s+|my\s+|all\s+)?timers?\b", re.I)
 
 _UNITS = {"second": 1.0, "sec": 1.0, "minute": MINUTE, "min": MINUTE,
           "hour": HOUR, "hr": HOUR}
@@ -65,7 +76,7 @@ class Router:
 
     def route(self, store: Store, text: str, ws: Workspace | None,
               cfg: BrainConfig, now: float | None = None,
-              recent: "Sequence[str]" = ()) -> Routed:
+              recent: Sequence[str] = ()) -> Routed:
         now = now if now is not None else self.clock.now()
 
         if _TIME.search(text):
