@@ -317,30 +317,40 @@ independent agent that tried to refute it.
 | `ef0ba3f` | ~60% of per-turn graph traversal was spent proving the store holds no `PART_OF` edges. 2,153 → 868 edges walked, 14.5 ms → 7.6 ms per turn. |
 | `ffef28b` | The night reported batches *built* as batches *consolidated*, so an interrupted night read as a complete one; and `Tally.stale` reached nothing. |
 
+Also shipped after that table was written:
+
+| | |
+|---|---|
+| `503af57` | **A turn during a night was rolled back with it.** One connection, `check_same_thread=False`, no lock, and `serve` runs the night by default. Over 20 s of concurrent HTTP: **293 failed requests and 293 server-side exceptions** (`DatabaseError`, `IntegrityError`, `InterfaceError`, `IndexError`) → **zero**, integrity ok. The night was also being starved: 18 completed consolidations became 251. |
+| `1435a00` | *"if I switched to decaf I'd sleep better"* stored a switch to decaf — the protasis reached the patterns as one clause. And the ASCII-only tokenizer collapsed Søren, Renée and René onto one key, so three people's claims scored as restatements of each other. |
+| `6ab1143` | *"I moved to Lisbon"* stored `user/employer = "the user works at Lisbon"`; removing that exposed a second reading storing it as a preference switch. The verb is ambiguous and now stores nothing. |
+
 ### Still open, in rough order
 
-1. **The night thread and a turn share one unsynchronised SQLite connection.**
-   `check_same_thread=False`, no lock between `Brain.say` and `Brain.night`,
-   and `serve` runs the night poller by default. A turn landing inside
-   `persist_graph`'s transaction can be rolled back. The fix is a
-   `threading.RLock` on `Brain` — one device, one brain, so serialising costs
-   nothing.
-2. **An interrupted night never resumes and still marks the day done.** The
+1. **An interrupted night never resumes and still marks the day done.** The
    module docstring claimed a checkpoint; that claim is now corrected rather
    than implemented. `since` exists and nothing persists a cursor.
-3. **`persist_graph` deletes and re-inserts every edge nightly** — 10.3 s at
+2. **`persist_graph` deletes and re-inserts every edge nightly** — 10.3 s at
    the ten-year edge count to change a median of 19 edges.
-4. **Barge-in cannot fire in the assembled device.** `converse()` calls
+3. **Barge-in cannot fire in the assembled device.** `converse()` calls
    `brain.say()` from inside `Listener.run()`'s frame loop, so no frames are
    pulled while thinking or speaking. The config flag is now honoured; the
    loop structure still defeats it.
-5. **Object caps truncate long clauses into garbage.** Nineteen patterns bound
+4. **Object caps truncate long clauses into garbage.** Nineteen patterns bound
    their object with `.{n,m}?`; past the cap the real fact vanishes and
    `_THING_STATE` leaves `afternoon_because/state` in its place.
-6. **Conditionals are stored as facts.** *"if I switched to decaf I'd sleep
-   better"* stores a switch to decaf.
-7. **Non-ASCII names collapse.** `_TOKEN` is ASCII-only, so Søren, Renée and
-   René all key as `ren`.
+5. **The journal is still 70% of the store**, and `cp brain.db` is still not a
+   WAL-safe backup, and there is still no schema migration path. Group E is
+   untouched.
+
+**A note on how these were found, because it is the reusable part.** Almost
+every defect above is a rule that is true of the corpus the code was written
+against and false of speech: a question matches every first-person pattern
+because inversion leaves the declarative substring intact; a promise closes a
+promise because the closure test is a bare word match; three separate gates
+compare a sample statistic to a fixed constant. The labelled corpus scores
+1.00 with every one of them live. Probing with sentences nobody wrote the
+rules against is what found them, and it costs one afternoon.
 
 ---
 
