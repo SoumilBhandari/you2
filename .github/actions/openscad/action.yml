@@ -69,8 +69,44 @@ runs:
         ./openscad.AppImage --appimage-extract > /dev/null
         sudo ln -sf "${DEST}/squashfs-root/AppRun" /usr/local/bin/openscad
 
-        # No X display on a runner. Exports do not need one, but Qt tries to
-        # open one anyway unless told otherwise.
+        # An AppImage bundles its application libraries but deliberately not
+        # the graphics stack, which has to match the host driver. `apt-get
+        # install openscad` used to pull these in as dependencies; taking the
+        # binary straight from upstream means asking for them by name. The
+        # first attempt died on libEGL.so.1 at `openscad --version`.
+        #
+        # Installed one at a time and failures ignored on purpose: this list
+        # has to survive Ubuntu renaming or dropping a package between runner
+        # images, and a single unavailable name must not take the job down.
+        # The ldd check below is the authority on whether the set was enough.
+        sudo apt-get update -qq
+        for lib in libegl1 libgl1 libglx-mesa0 libopengl0 libglu1-mesa \
+                   libxkbcommon0 libxkbcommon-x11-0 libdbus-1-3 \
+                   libfontconfig1 libfreetype6 libharfbuzz0b \
+                   libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
+                   libxcb-randr0 libxcb-render-util0 libxcb-shape0 \
+                   libxcb-xinerama0 libxcb-xkb1 libxi6 libxrender1; do
+          sudo apt-get install -y -qq --no-install-recommends "$lib" \
+            > /dev/null 2>&1 || echo "note: no package $lib on this image"
+        done
+
+        # No X display on a runner. Exports do not need one, but Qt opens one
+        # anyway unless told not to.
         echo "QT_QPA_PLATFORM=offscreen" >> "$GITHUB_ENV"
+        export QT_QPA_PLATFORM=offscreen
+
+        # Say what is missing, all of it, rather than letting the next run
+        # discover one more name. A bare exit 127 from `--version` names a
+        # single library and hides the rest of the list behind it.
+        BIN="${DEST}/squashfs-root/usr/bin/openscad"
+        [ -x "$BIN" ] || BIN=$(find "${DEST}/squashfs-root" -type f -name openscad -perm -u+x | head -1)
+        MISSING=$(ldd "$BIN" 2>/dev/null | grep "not found" | awk '{print $1}' | sort -u || true)
+        if [ -n "$MISSING" ]; then
+          echo "::error::the AppImage still cannot resolve:"
+          echo "$MISSING" | while read -r m; do echo "::error::  $m"; done
+          echo "::error::add the package providing each to the loop in"
+          echo "::error::.github/actions/openscad (apt-file search <name> finds it)"
+          exit 1
+        fi
 
         openscad --version

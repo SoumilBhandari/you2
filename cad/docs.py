@@ -25,6 +25,7 @@ CHECKS. If you cannot derive it from the model, it does not belong here — a
 hand-maintained expected value is the thing this file exists to replace.
 """
 import argparse, math, os, re, struct, subprocess, sys, tempfile
+from urllib.parse import unquote
 from collections import defaultdict
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -247,6 +248,14 @@ def CHECKS(f):
          r"(?<![\w-])(\d+|[a-z]+(?:-[a-z]+)?) (?:in-model )?asserts?\b", eq("asserts")),
         ("printed-part count",
          r"(\d+|[a-z]+) printed parts\b", eq("parts")),
+        # A shields.io badge reads "label-message-colour", so its number comes
+        # after the words rather than before them, and the whole thing is
+        # percent-encoded. Both badges in the README were already graded — but
+        # only through their alt text, which is plain. Change the URL alone and
+        # the badge renders "printed parts | 99" over an alt that still says
+        # eleven, and this gate called the repo clean. See decoded_lines().
+        ("printed-part badge",
+         r"badge/printed parts-(\d+)", eq("parts")),
         ("parts in a heading",
          r"<h3>(\d+|[A-Za-z]+) parts, two materials", eq("parts")),
         ("plate count",
@@ -320,17 +329,42 @@ def scan(f, files):
         # assertion, so that file is quarantined rather than silently wrong.
         text = open(path, errors="replace").read()
         flat = text.replace("\n", " ")
-        for label, pat, (ok, want) in CHECKS(f):
-            for m in re.finditer(pat, flat):
-                got = m.group(1)
-                try:
-                    good = ok(got)
-                except (KeyError, ValueError, TypeError):
-                    continue              # unparseable capture, not a claim
-                if not good:
-                    line = text.count("\n", 0, m.start()) + 1
-                    bad.append((rel, line, label, " ".join(m.group(0).split()), want()))
+        checks = CHECKS(f)
+
+        def claims(hay, lineno=None):
+            for label, pat, (ok, want) in checks:
+                for m in re.finditer(pat, hay):
+                    got = m.group(1)
+                    try:
+                        good = ok(got)
+                    except (KeyError, ValueError, TypeError):
+                        continue          # unparseable capture, not a claim
+                    if not good:
+                        at = lineno or text.count("\n", 0, m.start()) + 1
+                        yield (rel, at, label, " ".join(m.group(0).split()), want())
+
+        bad += list(claims(flat))
+        bad += list(decoded_lines(text, claims))
     return sorted(set(bad))
+
+
+def decoded_lines(text, claims):
+    """Grade the claims that only exist percent-encoded, i.e. inside a URL.
+
+    A badge's visible number is in its query string, where "152 x 150 x 192"
+    is spelled "152%20%C3%97%20150%20%C3%97%20192" and no pattern here can see
+    it. Decoding is per line and only for lines that actually contain a '%',
+    which across the ten gated documents is five lines, all of them in the
+    README's header. Per line rather than whole-file because decoding shortens
+    the text, so offsets into it no longer locate anything, and a gate that
+    reports the wrong line number is most of the way to being ignored.
+    """
+    for i, line in enumerate(text.splitlines(), 1):
+        if "%" not in line:
+            continue
+        decoded = unquote(line)
+        if decoded != line:
+            yield from claims(decoded, lineno=i)
 
 
 def main():
