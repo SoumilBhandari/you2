@@ -575,3 +575,29 @@ def test_two_people_whose_names_differ_only_in_accent_get_different_keys():
     assert tokenize("the garden wall needs rebuilding") == \
         tokenize("the garden wall needs rebuilding")
     assert tokenize("Anderson")[0] == "anderson"
+
+
+def test_moving_house_is_not_a_job_and_not_a_preference():
+    """"I moved to Lumen" and "I moved to Lisbon" are the same sentence to a
+    regex. `_JOINED` read the second as employment (user/employer = "the user
+    works at Lisbon") and, once that was removed, `_SHIFT_BARE` read it as a
+    preference switch (user/pref_lisbon). Both are confident and wrong, and a
+    wrong fact about where someone works or what they prefer is worse than a
+    missing one."""
+    assert not rules.extract(["I moved to Lisbon"], [1], 0.0).facts
+
+    # The unambiguous verbs are untouched, in all three families.
+    for text, key in (("I joined Lumen", "user/employer"),
+                      ("I started at Lumen", "user/employer"),
+                      ("I'm at Lumen now", "user/employer"),
+                      ("I work at Lumen", "user/employer"),
+                      ("I've switched to oat milk", "user/pref_milk"),
+                      ("I changed to decaf", "user/pref_decaf"),
+                      ("I live in Lisbon", "user/location")):
+        keys = [f["key"] for f in rules.extract([text], [1], 0.0).facts]
+        assert key in keys, (text, keys)
+
+    # ...including "moved" where the dimension is named, which is not ambiguous.
+    keys = [f["key"] for f in
+            rules.extract(["I moved my meetings to the afternoon"], [1], 0.0).facts]
+    assert "user/pref_meet" in keys, keys

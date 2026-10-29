@@ -156,9 +156,14 @@ _SHIFT_NAMED = re.compile(
     r"\bi(?:'ve| have)?\s+(?:just\s+|now\s+)?"
     r"(?:moved|switched|changed|shifted)\s+my\s+([\w-]{3,20})\s+to\s+"
     r"(.{2,50}?)(?:[.,;!?]|$)")
+#: No "moved" here, unlike _SHIFT_NAMED above. With the dimension named,
+#: "I moved my meetings to the afternoon" is unambiguous. Bare, it is not:
+#: "I moved to Lisbon" is a relocation, and reading it as a preference switch
+#: stored `user/pref_lisbon = "the user has switched to Lisbon"`. Switched and
+#: changed do not have that second reading.
 _SHIFT_BARE = re.compile(
     r"\bi(?:'ve| have)?\s+(?:just\s+|now\s+)?"
-    r"(?:moved|switched|changed)\s+(?:over\s+)?to\s+(.{2,50}?)(?:[.,;!?]|$)")
+    r"(?:switched|changed)\s+(?:over\s+)?to\s+(.{2,50}?)(?:[.,;!?]|$)")
 
 #: Somebody else's preference, which must land under *their* subject. A
 #: third-party opinion filed under `user/` is the most damaging extraction
@@ -181,8 +186,14 @@ _ROLE = re.compile(
 #: and "I'm at the dentist" do not become employers.
 _AT_EMPLOYER = re.compile(
     r"\bi(?:'m| am)\s+(?:now\s+)?at\s+([\w'-]{3,30}?)(?:\s+now)?(?:[.,;!?]|$)")
+#: "joined" and "started at" name an employer and nothing else. "moved to"
+#: does not -- "I moved to Lumen" and "I moved to Lisbon" are the same
+#: sentence to a regex, and the second stored `user/employer = "the user works
+#: at Lisbon"`. A wrong fact about where someone works is worse than a missing
+#: one, and this module's own rule is that when nothing qualifies, the safe
+#: outcome is to say nothing.
 _JOINED = re.compile(
-    r"\bi(?:'ve| have)?\s+(?:just\s+)?(?:joined|started at|moved to)\s+"
+    r"\bi(?:'ve| have)?\s+(?:just\s+)?(?:joined|started at)\s+"
     r"([\w'-]{3,30}?)(?:[.,;!?]|$)")
 
 # Episodes join their turns with " / ", so a pattern that spans the join
