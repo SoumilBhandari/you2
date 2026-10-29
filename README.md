@@ -265,3 +265,27 @@ Things that are easy to lose sight of once you're deep in it:
 7. **A render is not a check.** `Status: NoError` says the mesh is manifold, nothing more. Run `cad/check.py` and `cad/fit.py` before every print, and add an assert whenever you add a feature that depends on a dimension.
 8. **Measure before you print, not before you assemble.** Every part dimension here came from a datasheet. The faceplate is 56 g and confirms four of the seven numbers that matter.
 9. **The audio stays on USB.** The reSpeaker has an I2S mode. Taking it would re-impose the GPIO conflict that USB freed you from, to chase milliseconds that aren't the bottleneck — ASR is.
+
+---
+
+## Licence
+
+MIT — see [LICENSE](LICENSE). Use it, change it, sell it; just keep the notice.
+
+Two things that are *not* covered by it, because they are not in this repo:
+the speech models you supply yourself (Moonshine for ASR, Piper for TTS —
+`piper1-gpl` is GPL-3.0 and you install it separately), and whichever model
+answers on the hot path, which is one `base_url` away and may be local or not.
+
+## Where to start reading
+
+| | |
+|---|---|
+| the design, and why each mechanism is there | [docs/brain.md](docs/brain.md) |
+| the software, running in ten seconds | [software/README.md](software/README.md) |
+| building the thing | [docs/bom.md](docs/bom.md), [deploy/](deploy/) |
+| what is known to be wrong, with measurements | [docs/next.md](docs/next.md) |
+
+That last one is not a disclaimer. Every item in it is a bug found by running
+the system and measuring it, written down with the number that found it — which
+is the only honest way to hand over a project that is still moving.

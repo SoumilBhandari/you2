@@ -293,13 +293,10 @@ Its own headline: *a day of memory lost to any restart, a correction guard
 that is a no-op for the 71% of facts that are about the person, and compiled
 inferences spoken as things they said.*
 
-Full output: the run's `journal.jsonl` under
-`~/.claude/projects/.../subagents/workflows/wf_ba23e852-da4/`, one line per
-agent. Re-run with edited post-processing (agents replay from cache):
-
-```bash
-Workflow({scriptPath: "<scratchpad>/brain-audit.js", resumeFromRunId: "wf_ba23e852-da4"})
-```
+The findings that survived are written up where they belong rather than left
+in a log: the live ones in [docs/next.md](docs/next.md), the corrected design
+claims in [docs/brain.md](docs/brain.md) §19. Nothing below depends on having
+the raw run.
 
 **Findings verified and fixed:** the compaction re-embed, "forget that", the
 prosody normalisation, the embedder identity, `Kind.AFFECT`, the inert token
