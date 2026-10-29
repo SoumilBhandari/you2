@@ -530,3 +530,48 @@ def test_a_trailing_marker_does_not_fork_the_key():
         facts = rules.extract([text], [1], 0.0).facts
         keys = [f["key"] for f in facts]
         assert "user/pref_milk" in keys, (text, keys)
+
+
+def test_a_supposition_is_not_a_report():
+    """_SPLIT had no boundary at a subordinating conjunction, so the protasis
+    reached the patterns as one clause and _SHIFT_BARE read it as an
+    accomplished change, swallowing the apodosis into the object:
+    "if I switched to decaf I would sleep better" stored
+    user/pref_better = "the user has switched to decaf I would sleep better".
+
+    undurable's hypothetical test could not catch it: it anchors on ^if, and
+    by then the claim has been rewritten to start "the user has switched"."""
+    for text in ("if I switched to decaf I would sleep better",
+                 "if I moved to Lisbon I'd be much happier",
+                 "unless I move I will stay at Lumen",
+                 "supposing I took the Kestrel job I'd be travelling"):
+        assert not rules.extract([text], [1], 0.0).facts, text
+
+    # The indicative forms are untouched.
+    assert rules.extract(["I switched to decaf"], [1], 0.0).facts
+
+
+def test_two_people_whose_names_differ_only_in_accent_get_different_keys():
+    """_TOKEN is ASCII-only, so every non-ASCII letter was a token boundary
+    and _subject_key takes the last token: Søren, Renée and René all keyed as
+    `ren`, which makes three people's claims look like restatements of each
+    other. Müller keyed as `ller`, Nuñez as `ez`."""
+    from you2.substrate.embed import tokenize
+
+    assert tokenize("Søren")[0] == "soren"
+    assert tokenize("Renée")[0] == "renee"
+    assert tokenize("René")[0] == "rene"
+    assert tokenize("Müller")[0] == "muller"
+    assert tokenize("Łukasz")[0] == "lukasz"
+
+    keys = set()
+    for name in ("Søren", "Renée", "René"):
+        facts = rules.extract([f"{name} is the project manager"], [1], 0.0).facts
+        assert facts, name
+        keys.add(facts[0]["key"])
+    assert len(keys) == 3, keys
+
+    # ASCII input must come out byte-identical, or every stored vector moves.
+    assert tokenize("the garden wall needs rebuilding") == \
+        tokenize("the garden wall needs rebuilding")
+    assert tokenize("Anderson")[0] == "anderson"

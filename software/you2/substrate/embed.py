@@ -21,6 +21,8 @@ import hashlib
 import re
 from typing import Protocol, Sequence, runtime_checkable
 
+import unicodedata
+
 import numpy as np
 
 _TOKEN = re.compile(r"[a-z0-9']+")
@@ -81,9 +83,45 @@ def stem(word: str) -> str:
     return word
 
 
+#: Letters NFKD leaves alone because they are not a base plus a combining
+#: mark. Lower case only; `_fold` runs before `.lower()` but these are matched
+#: in both cases below.
+_FOLD_MAP = {
+    "ø": "o", "Ø": "O", "æ": "ae", "Æ": "AE", "œ": "oe", "Œ": "OE",
+    "ß": "ss", "đ": "d", "Đ": "D", "ð": "d", "Ð": "D", "þ": "th", "Þ": "TH",
+    "ł": "l", "Ł": "L", "ı": "i", "ŋ": "n", "ħ": "h", "ĸ": "k",
+}
+
+
+def _fold(text: str) -> str:
+    """Strip accents so a name tokenises as the name.
+
+    `_TOKEN` is ASCII-only, so every non-ASCII letter was a token boundary:
+    `tokenize("Søren")` gave `["s", "ren"]` and `_subject_key` takes the last
+    token, so Søren, Renée and René all keyed as `ren` — three different
+    people sharing one subject, which makes their claims look like
+    restatements of each other. Müller keyed as `ller`, Nuñez as `ez`.
+
+    NFKD then dropping combining marks, which leaves ASCII input byte-identical
+    — so a store that has only ever seen ASCII keeps every vector it has, and
+    the embedder fingerprint does not move.
+
+    NFKD alone is not enough: the stroked and ligature letters are distinct
+    code points rather than a base plus a mark, so ø, æ, ß and ł survive it
+    untouched and still split the token. Hence the explicit map.
+    """
+    if text.isascii():
+        return text
+    folded = "".join(c for c in unicodedata.normalize("NFKD", text)
+                     if not unicodedata.combining(c))
+    if folded.isascii():
+        return folded
+    return "".join(_FOLD_MAP.get(c, c) for c in folded)
+
+
 def tokenize(text: str) -> list[str]:
     out = []
-    for raw in _TOKEN.findall(text.lower()):
+    for raw in _TOKEN.findall(_fold(text).lower()):
         if raw in _STOP or len(raw) == 1:
             continue
         out.append(stem(raw))

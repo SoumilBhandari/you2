@@ -197,6 +197,9 @@ _JOINED = re.compile(
 # into two fragments that mean nothing apart.
 _SPLIT = re.compile(
     r"(?<=[.!?])\s+|\s*/\s*|\s*\|\s*|;\s*|\s+[—–]\s+|\s+-\s+"
+    # The apodosis of a conditional starts a new clause, so that the
+    # supposition can be dropped without taking the rest of the line with it.
+    r"|\s+(?=i\s+(?:would|'d|will|'ll|might|could)\b)"
     r"|,\s+(?:and\s+|but\s+|though\s+|although\s+|so\s+|then\s+)?"
     r"(?=i\b|i'|the\s|my\s|we\b|we')"
     # A conjunction followed by a fresh subject is a clause boundary too, and
@@ -206,6 +209,21 @@ _SPLIT = re.compile(
     # chips" is not two clauses.
     r"|\s+and\s+(?=i\b|i'|he\b|she\b|they\b|it\b|we\b|the\s|my\s)",
     re.IGNORECASE)
+
+#: A clause opening with one of these is a supposition, not a report. Without
+#: a boundary here, "if I switched to decaf I would sleep better" reached the
+#: patterns as ONE clause and `_SHIFT_BARE` read the protasis as an
+#: accomplished change, swallowing the apodosis into the object:
+#:
+#:     user/pref_better = "the user has switched to decaf I would sleep better"
+#:
+#: The validator could not catch it either: `undurable`'s hypothetical test
+#: anchors on `^\s*if`, and by then the claim has been rewritten to start
+#: "the user has switched...". So the tense has to be read where the clause
+#: still exists.
+_SUPPOSITION = re.compile(
+    r"^\s*(?:if|unless|whenever|suppose|supposing|in case|assuming|"
+    r"were i|had i|should i)\b", re.IGNORECASE)
 
 #: A bare pronoun object carries no dimension: "I'm allergic to it" keyed
 #: `user/allergic_x` and stored a claim naming no allergen, which is a fact
@@ -568,6 +586,11 @@ def _facts_in_clause(clause: str, prior: list[str], whole: str, add) -> None:
     # it either: `undurable` tests the *rewritten* claim, and "the user works
     # at Lumen" can never end in a question mark.
     if is_question(clause):
+        return
+
+    # A supposition is not a claim about what is. Entities are still read from
+    # it by the caller -- "if I moved to Lisbon" does tell us Lisbon matters.
+    if _SUPPOSITION.match(clause):
         return
 
     m = _NAME.search(low)
