@@ -162,7 +162,12 @@ def encode(store: Store, episode: Episode, cfg: BrainConfig | None = None, *,
             if loop is not None:
                 out.loops.append(loop)
                 just_opened.add(loop.id)
-        if s.discourse.is_closure:
+        # A clause that makes a promise is not a report of one kept, whatever
+        # closure keyword it happens to contain. Without the tense test, "I'll
+        # get the numbers sent to Anderson by Friday" closed an *earlier*
+        # commitment that echoed it -- the exclusion set below protects the
+        # loop this clause just opened, and cannot protect the others.
+        if s.discourse.is_closure and not s.discourse.commitments:
             out.closed.extend(_close_loops(store, text, now,
                                            exclude=just_opened))
 

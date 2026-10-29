@@ -711,13 +711,21 @@ def extract(texts: Iterable[str], ids: Iterable[int], now: float) -> Extracted:
                 e["cites"] = [nid]
                 e["note"] = ""
                 seen_entities[key] = e
+        made_a_promise = False
         for c in commitments(text, now):
             days = None
             if c.expected_by is not None:
                 days = round((c.expected_by - now) / 86400.0, 1)
             out.loops.append({"text": c.text, "cites": [nid], "days": days,
                               "confidence": c.confidence})
-        if is_closure(text):
+            made_a_promise = True
+        # A promise is not a report of one kept. `is_closure` is a bare word
+        # match over done|finished|sorted|sent|..., so "I'll get the drawings
+        # done by Friday" announced a commitment and claimed a closure in the
+        # same breath -- and `_close_loops` then picked whichever open loop
+        # echoed it best, which was sometimes a *different* commitment. The
+        # tense is the whole signal: this clause is about the future.
+        if is_closure(text) and not made_a_promise:
             out.closed.append(text)
 
     out.entities = list(seen_entities.values())

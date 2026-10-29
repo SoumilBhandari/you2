@@ -520,6 +520,22 @@ def test_every_config_field_is_read_somewhere():
         f"{sorted(wired)} is wired up now — take it out of UNWIRED_CONFIG")
 
 
+def test_a_promise_does_not_close_an_earlier_promise(brain):
+    """A clause that makes a commitment is not a report of one kept, whatever
+    closure keyword it contains. Excluding only the loop the clause just
+    opened was not enough: "I'll get the numbers sent to Anderson by Friday"
+    closed the *drawings* commitment from an earlier turn, because the echo
+    matched on the shared "I'll get the ... by Friday" frame."""
+    brain.say("I'll get the drawings done for the garden wall by Friday")
+    brain.say("the weather is grim")
+    brain.say("I'll get the numbers sent to Anderson by Friday")
+    brain.close()
+    loops = brain.store.by_kind(Kind.LOOP, limit=20, live_only=False)
+    assert len(loops) >= 2, [l.content for l in loops]
+    assert all(l.invalid_at is None for l in loops), \
+        [(l.content, l.invalid_at) for l in loops]
+
+
 def test_a_promise_is_not_its_own_fulfilment(brain):
     """`is_closure` is a bare word match over done|finished|sorted|sent|...,
     so a commitment whose own wording contains one of them opened a loop and

@@ -202,8 +202,15 @@ def consolidate(store: Store, llm: Any | None, batch: Batch,
         if created is not None:
             out.loops_new.append(created)
 
+    # Same rule as the encode path: a commitment and its resolution cannot be
+    # the same statement. The extractor emits `loops` and `closed` from one
+    # batch, and `is_closure` is a bare word match, so without this a
+    # commitment phrased "I'll get the drawings done by Friday" is opened and
+    # closed inside a single consolidation.
+    opened_now = set(out.loops_new)
     for closure in payload.get("closed") or []:
-        out.loops_closed.extend(_close(store, str(closure), now))
+        out.loops_closed.extend(_close(store, str(closure), now,
+                                       exclude=opened_now))
 
     # ---- bookkeeping -------------------------------------------------------
     if produced:
@@ -276,9 +283,10 @@ def _open_loop(store: Store, text: str, cites: list[int], days: Any,
     return loop.id
 
 
-def _close(store: Store, text: str, now: float) -> list[int]:
+def _close(store: Store, text: str, now: float,
+           exclude: set[int] | None = None) -> list[int]:
     from ..encoding.binding import _close_loops
-    return _close_loops(store, text, now)
+    return _close_loops(store, text, now, exclude=exclude)
 
 
 def induce_schema(store: Store, cfg: BrainConfig, now: float,
