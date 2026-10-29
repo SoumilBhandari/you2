@@ -256,9 +256,17 @@ class Store:
 
     def history_of(self, key: str) -> list[Neuron]:
         """Every version of a fact, newest first. 'You used to...' is
-        valuable, which is why supersession invalidates rather than deletes."""
+        valuable, which is why supersession invalidates rather than deletes.
+
+        Ordered by when each version became *true*, not by when consolidation
+        wrote it down. Those differ by however long the material sat
+        unreplayed, and among versions written on one night the transaction
+        order is arbitrary -- which put a superseded row at history[0] and had
+        `contrast` render "was X, now X".
+        """
         rows = self.conn.execute(
-            f"SELECT {_NEURON_COLS} FROM neurons WHERE key=? ORDER BY created_at DESC",
+            f"SELECT {_NEURON_COLS} FROM neurons WHERE key=? "
+            "ORDER BY COALESCE(valid_at, created_at) DESC, id DESC",
             (key,)).fetchall()
         return [Neuron.from_row(r) for r in rows]
 

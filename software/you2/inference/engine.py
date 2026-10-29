@@ -212,14 +212,26 @@ def contrast(store: Store, anchors: Sequence[int], cfg: BrainConfig,
         history = store.history_of(n.key)
         if len(history) < 2:
             continue
-        span = (history[0].created_at - history[-1].created_at) / DAY
+        # The current value is the live one, not whichever row sorts first.
+        current = store.by_key(n.key) or history[0]
+        oldest = history[-1]
+        if current.id == oldest.id:
+            continue
+        span = ((current.valid_at or current.created_at)
+                - (oldest.valid_at or oldest.created_at)) / DAY
         if span < 14.0:
             continue
+        # Distinct positions, not rows. Two rows saying the same thing are one
+        # opinion recorded twice, and counting them is how "changed 9 times"
+        # was said about a preference stated twice.
+        positions = len({h.text().strip().lower() for h in history})
+        if positions < 2:
+            continue
         out.append(Inference(
-            claim=(f"this has changed {len(history) - 1} time"
-                   f"{'s' if len(history) > 2 else ''} in {ago(span * DAY)}: "
-                   f"was \"{history[-1].text()}\", now \"{history[0].text()}\""),
-            kind="contrast", premises=[h.id for h in history[:4]],
+            claim=(f"this has changed {positions - 1} time"
+                   f"{'s' if positions > 2 else ''} in {ago(span * DAY)}: "
+                   f"was \"{oldest.text()}\", now \"{current.text()}\""),
+            kind="contrast", premises=[current.id, oldest.id],
             confidence=RELIABILITY["contrast"], cost="graph",
             derivation=[f"#{h.id} @ {ago(now - h.created_at)}" for h in history[:4]],
         ))
