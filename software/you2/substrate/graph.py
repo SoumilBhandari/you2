@@ -38,7 +38,7 @@ def canonical(a: int, b: int, code: int, backward: bool) -> tuple[int, int, int]
 class Graph:
     __slots__ = ("_idx", "_nodes", "_indptr", "_indices", "_weights",
                  "_etypes", "_back", "_ov", "_shadow", "_edges", "_n_csr",
-                 "hops_truncated")
+                 "_codes_present", "hops_truncated")
 
     def __init__(self) -> None:
         self._idx: dict[int, int] = {}
@@ -55,6 +55,7 @@ class Graph:
         # canonical key -> current weight, for every overlay edge
         self._edges: dict[tuple[int, int, int], float] = {}
         self._n_csr = 0
+        self._codes_present: set[int] = set()
         #: Times `hops` gave up on its visit budget. Surfaced in `stats()`
         #: rather than swallowed: a cap that drops work says what it dropped,
         #: and a rising count here means the graph is densifying faster than
@@ -104,6 +105,7 @@ class Graph:
         self._ov.clear()
         self._shadow.clear()
         self._edges.clear()
+        self._codes_present = set(int(c) for c in self._etypes.tolist())
 
     # -------------------------------------------------------------- mutate
 
@@ -115,6 +117,7 @@ class Graph:
         key = (src, dst, code)
         existed = key in self._edges
         self._edges[key] = weight
+        self._codes_present.add(code)
         if not existed:
             if self._in_csr(src, dst, code):
                 self._shadow.add(key)
@@ -208,6 +211,22 @@ class Graph:
         return removed
 
     # ------------------------------------------------------------ traverse
+
+    def has_type(self, code: int) -> bool:
+        """Does the graph hold any edge of this type at all?
+
+        Cheap, conservative and worth having because `neighbours` takes no
+        type filter: every caller that wants one walks a node's entire
+        adjacency and throws the rest away in Python. `transitive` and
+        `inherit` run over all twelve workspace winners on every turn looking
+        for PART_OF, CAUSES and INHERITS -- and a store built only from
+        conversation holds none of those, so roughly half of all per-turn
+        edge traversal was spent proving that for the Nth time.
+
+        Only ever grows within a session, so a false `True` costs exactly the
+        work that was being done before and a false `False` is impossible.
+        """
+        return code in self._codes_present
 
     def neighbours(self, node: int) -> Iterator[Neighbour]:
         i = self._idx.get(node)

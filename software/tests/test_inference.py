@@ -361,3 +361,50 @@ def test_a_claim_about_a_change_is_not_broken_by_the_change(store):
     tms.invalidate(store, old.id, now)
     assert store.get(arc.id).is_live, "the change claim is about the change"
     assert tms.audit(store) == []
+
+
+def test_inference_does_not_walk_the_graph_looking_for_types_it_has_none_of():
+    """`Graph.neighbours` takes no type filter, so a caller wanting one type
+    walks a node's whole adjacency and discards the rest. `transitive` and
+    `inherit` do that for PART_OF, CAUSES and INHERITS on every winner on
+    every turn -- and a store built only from conversation holds none of
+    them, so it was ~60% of per-turn traversal spent proving an absence."""
+    from you2 import BrainConfig, SimClock
+    from you2.llm import FakeLLM
+    from you2.runtime.pipeline import Brain
+    from you2.substrate import graph as gmod
+    from you2.substrate.synapse import Edge
+
+    clock = SimClock()
+    brain = Brain(BrainConfig(db_path=":memory:"), clock=clock, llm=FakeLLM())
+    try:
+        for text in ("I had lunch with David Anderson about Kestrel",
+                     "the garden wall needs rebuilding before winter",
+                     "Marta is drawing up plans for the wall",
+                     "Kestrel keeps slipping"):
+            brain.say(text)
+            clock.advance(hours=2)
+        brain.close()
+
+        part_of = list(Edge).index(Edge.PART_OF)
+        assert not brain.store.graph.has_type(part_of), \
+            "fixture built an edge type this test assumes is absent"
+
+        seen = [0]
+        original = gmod.Graph.neighbours
+
+        def counted(self, node):
+            for n in original(self, node):
+                seen[0] += 1
+                yield n
+
+        gmod.Graph.neighbours = counted
+        try:
+            brain.say("how is the garden wall going")
+        finally:
+            gmod.Graph.neighbours = original
+
+        directed = brain.store.graph.edge_count * 2
+        assert seen[0] <= directed * 1.5, (seen[0], directed)
+    finally:
+        brain.close_store()

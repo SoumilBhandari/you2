@@ -119,12 +119,22 @@ def transitive(store: Store, anchors: Sequence[int], cfg: BrainConfig,
     not inference; it is spreading activation with a straight face.
     """
     out: list[Inference] = []
+    # Nothing to chain if the store holds none of these types, and a store
+    # built only from conversation usually holds none. `neighbours` takes no
+    # type filter, so without this every winner's whole adjacency is walked
+    # once per composable type on every turn, to find nothing.
+    types = {e: list(Edge).index(e) for e in TRANSITIVE}
+    live = {e: c for e, c in types.items() if store.graph.has_type(c)}
+    if not live:
+        return out
     for anchor in anchors:
         start = store.get(anchor)
         if start is None:
             continue
         for edge_type, phrase in TRANSITIVE.items():
-            code = list(Edge).index(edge_type)
+            code = types[edge_type]
+            if edge_type not in live:
+                continue
             frontier: list[tuple[int, float, list[int]]] = [(anchor, 1.0, [anchor])]
             for depth in range(max_depth):
                 nxt: list[tuple[int, float, list[int]]] = []
@@ -163,6 +173,10 @@ def inherit(store: Store, anchors: Sequence[int], cfg: BrainConfig) -> list[Infe
     out: list[Inference] = []
     part_of = list(Edge).index(Edge.PART_OF)
     about = list(Edge).index(Edge.ABOUT)
+    # Inheritance needs a part_of edge to inherit along; without one there is
+    # nothing to find, however many anchors are examined.
+    if not store.graph.has_type(part_of):
+        return out
 
     for anchor in anchors:
         child = store.get(anchor)
