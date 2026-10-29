@@ -1,12 +1,45 @@
-# YOU2
+<div align="center">
 
-A desk-based voice assistant that runs entirely on its own hardware and gets to know you. You wake it by saying **"Hey Friday"**.
+<img src="https://capsule-render.vercel.app/api?type=waving&color=0:0A0D0F,55:2C7A70,100:C8A64F&height=200&section=header&text=YOU2&fontSize=78&fontColor=F4F3EF&fontAlignY=35&desc=a%20desk%20assistant%20that%20remembers&descSize=18&descAlign=50&descAlignY=57&animation=fadeIn" width="100%" alt="You2 — a desk assistant that remembers" />
+
+<img src="https://readme-typing-svg.demolab.com?font=IBM+Plex+Mono&weight=500&size=19&pause=1400&duration=3600&color=2C7A70&center=true&vCenter=true&width=700&height=46&lines=Wake%20it%3A%20%22Hey%20Friday%22;The%20model%20is%20a%20download.%20The%20memory%20is%20the%20product.;152%20x%20150%20x%20192%20mm.%2011%20printed%20parts.%20One%20ordinary%20printer.;Six%20gates%2C%20because%20a%20render%20is%20not%20a%20check." alt="" />
+
+<p>
+  <a href="https://github.com/SoumilBhandari/you2/actions/workflows/ci.yml"><img alt="gates" src="https://github.com/SoumilBhandari/you2/actions/workflows/ci.yml/badge.svg" /></a>
+  <a href="LICENSE"><img alt="MIT" src="https://img.shields.io/badge/licence-MIT-2C7A70?style=flat-square" /></a>
+  <img alt="Python 3.11+" src="https://img.shields.io/badge/python-3.11%2B-2C7A70?style=flat-square&logo=python&logoColor=white" />
+  <img alt="OpenSCAD" src="https://img.shields.io/badge/CAD-OpenSCAD-C8A64F?style=flat-square" />
+  <img alt="152 x 150 x 192 mm" src="https://img.shields.io/badge/152%20%C3%97%20150%20%C3%97%20192-mm-1D2226?style=flat-square" />
+  <img alt="11 printed parts" src="https://img.shields.io/badge/printed%20parts-11-1D2226?style=flat-square" />
+</p>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="cad/renders/revD/d-hero.png" />
+  <source media="(prefers-color-scheme: light)" srcset="cad/renders/revD/d-hero-light.png" />
+  <img src="cad/renders/revD/d-hero.png" width="560" alt="The You2 enclosure: a wedge with a 22 degree raked face carrying a round display, four microphone ports on top, and a speaker grille in the skirt below" />
+</picture>
+
+<p><code>one round eye</code> &nbsp;·&nbsp; <code>four mics up top</code> &nbsp;·&nbsp; <code>one speaker forward</code> &nbsp;·&nbsp; <code>no fan</code></p>
+
+<a href="docs/build.html"><b>Build document</b></a> &nbsp;·&nbsp;
+<a href="docs/design.md"><b>Design</b></a> &nbsp;·&nbsp;
+<a href="docs/brain.md"><b>The brain</b></a> &nbsp;·&nbsp;
+<a href="handoff_hardware.md"><b>State of play</b></a>
+
+<img src="https://skillicons.dev/icons?i=python,raspberrypi,sqlite,githubactions,bash,linux&theme=dark" alt="Python · Raspberry Pi · SQLite · GitHub Actions · Bash · Linux" />
+
+</div>
+
+---
+
+A desk-based voice assistant that runs on its own hardware and gets to know you. You wake it by saying **"Hey Friday"**.
 
 Not a smart speaker. Not a wrapper around someone else's API. A small machine that sits on your desk, listens when you talk to it, answers out loud, and — the actual point — **remembers**. Every conversation makes it a little more yours, and none of it leaves the box.
 
-![You2](cad/renders/revD/d-hero.png)
-
-`152 × 150 × 192 mm` · one round eye · four mics up top · one speaker forward · no cloud
+<div align="center">
+<img src="docs/demo.gif" width="860" alt="Terminal session: you2 why 'where does she live' prints the spreading-activation cascade; you2 inspect 3 prints a memory with its provenance and associations; the prose gate reports every claim agreeing with the model" />
+<p><i>Retrieval is a cascade, not a vector search — and it prints it. Recorded with <a href="https://github.com/charmbracelet/vhs">VHS</a> from <a href="docs/demo.tape"><code>docs/demo.tape</code></a>, so it re-records deterministically.</i></p>
+</div>
 
 ---
 

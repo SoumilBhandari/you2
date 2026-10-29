@@ -1,0 +1,66 @@
+name: gates
+
+# The badge this produces is the point. A build badge that links to nothing is
+# decoration; this one goes red when the prose stops matching the model, which
+# is how every defect in this repo has actually arrived.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  tests:
+    name: tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: install
+        working-directory: software
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+      - name: pytest
+        working-directory: software
+        run: python -m pytest -q
+
+  gates:
+    name: cad gates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: install openscad and numpy
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq openscad
+          python -m pip install --upgrade pip
+          pip install "numpy>=1.24"
+          openscad --version
+
+      # The prose gate. Under a second, and it is the one that has caught the
+      # most: thirty wrong claims across six documents so far.
+      - name: the documents agree with the model
+        run: python3 cad/docs.py --quick
+
+      # Every part is one connected solid, under every switch combination. This
+      # is the check that rev C would have failed, and that LED_BAR = true did
+      # fail for as long as the switch existed.
+      - name: every part is one solid, every variant
+        run: python3 cad/check.py cad/you2-revD.scad --variants
+
+      - name: no two parts share space
+        run: python3 cad/fit.py cad/you2-revD.scad
+
+      - name: no part claims an impossible mass
+        run: python3 cad/mass.py cad/you2-revD.scad
+
+      # Sampled, so it is given a real ray budget rather than the default.
+      - name: no wall a 0.4 mm nozzle cannot fill
+        run: python3 cad/thickness.py cad/you2-revD.scad --rays 6000

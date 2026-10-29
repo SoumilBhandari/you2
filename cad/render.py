@@ -25,6 +25,15 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCAD = os.path.join(ROOT, "cad", "you2-revD.scad")
 OUT = os.path.join(ROOT, "cad", "renders", "revD")
 SCHEME = "Tomorrow Night"
+#: The light twin of the same scheme: identical teal and gold on a near-white
+#: ground rather than near-black. The README swaps between them with
+#: prefers-color-scheme, so a reader on a light theme does not get a black
+#: rectangle sitting in the page. Cornfield, OpenSCAD's own light default,
+#: renders the object yellow and matches nothing else here.
+SCHEME_LIGHT = "Tomorrow"
+#: Only the views the README actually embeds get a light twin — rendering all
+#: fifteen twice doubles a slow job for images nobody displays.
+LIGHT_VIEWS = {"d-hero", "d-exploded", "d-section", "d-plate1"}
 
 #  name        mode        tz    rot x   z    dist  size        extra -D
 #  tz is the camera target height: half the object, so it sits centred without
@@ -46,22 +55,24 @@ for n in range(1, 7):
                   [f"PLATE={n}"]))
 
 
-def render(name, mode, tz, rx, rz, dist, size, extra):
-    path = os.path.join(OUT, name + ".png")
+def render(name, mode, tz, rx, rz, dist, size, extra, light=False):
+    path = os.path.join(OUT, name + ("-light" if light else "") + ".png")
     cmd = ["openscad", "-o", path, "--render",
            f"--imgsize={size[0]},{size[1]}",
            f"--camera=0,0,{tz},{rx},0,{rz},{dist}",
-           f"--colorscheme={SCHEME}", "-D", f'MODE="{mode}"']
+           f"--colorscheme={SCHEME_LIGHT if light else SCHEME}",
+           "-D", f'MODE="{mode}"']
     for d in extra:
         cmd += ["-D", d]
     cmd.append(SCAD)
     r = subprocess.run(cmd, capture_output=True, text=True)
     err = [l for l in (r.stderr or "").splitlines() if "ERROR" in l]
     kb = os.path.getsize(path) // 1024 if os.path.exists(path) else 0
+    label = name + ("-light" if light else "")
     # A blank 1400x1150 PNG of flat background compresses to a few KB. Anything
     # under 8 KB is the preview-normaliser failure, not a render.
     ok = kb >= 8 and not err
-    print(f"  {'ok  ' if ok else 'FAIL'} {name:<12} {kb:>4} KB"
+    print(f"  {'ok  ' if ok else 'FAIL'} {label:<18} {kb:>4} KB"
           + ("   " + err[0][:90] if err else "")
           + ("   BLANK — did this run with --render?" if kb and kb < 8 else ""))
     return ok
@@ -82,9 +93,11 @@ def main():
     if not want:
         print("no view matched; --list to see them")
         return 2
-    bad = sum(not render(*v) for v in want)
+    jobs = [(v, False) for v in want]
+    jobs += [(v, True) for v in want if v[0] in LIGHT_VIEWS]
+    bad = sum(not render(*v, light=light) for v, light in jobs)
     print()
-    print(f"{len(want) - bad}/{len(want)} rendered into cad/renders/revD/")
+    print(f"{len(jobs) - bad}/{len(jobs)} rendered into cad/renders/revD/")
     return 1 if bad else 0
 
 
