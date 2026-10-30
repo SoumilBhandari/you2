@@ -17,7 +17,7 @@ across the hardware docs. The working tree should be clean; if it is not,
 something is in flight.
 
 What it *has* been through is a design pass that treats it as an engineering
-problem rather than a costing exercise, and two mechanical gates that catch the
+problem rather than a costing exercise, and four mechanical gates that catch the
 class of defect a render cannot show.
 
 The one-line version:
@@ -413,12 +413,18 @@ paid for itself on its first run. That is the pattern worth continuing.
    twenty-one asserts, and still have a 0.3 mm web that no slicer will produce.
    It is the classic FDM failure and this repo is currently blind to it.
 3. ~~**Run the gates on commit.**~~ Done — `.githooks/pre-commit`, installed
-   with `git config core.hooksPath .githooks`. It runs only what is fast:
-   `docs.py --quick` (0.3 s) on every commit, and the two reachability tests
-   (1.4 s) when `software/` changes. The full suite is 144 s and the mesh gates
-   are minutes, so neither runs — a hook that costs two minutes is a hook that
-   gets disabled, and a disabled hook catches nothing. A CAD commit prints the
-   three slow commands rather than running them.
+   with `git config core.hooksPath .githooks`. `docs.py --quick` (0.1 s) on
+   every commit, the two reachability tests (1.0 s) when `software/` changes,
+   and `check.py`, `fit.py` and `mass.py` (8 s together) when `cad/` does. The
+   full suite stays out at 112 s, and so does `thickness.py` at 26 s.
+
+   Those last three were excluded for months on the grounds that the mesh
+   gates were "minutes". That was a measurement of Ubuntu's OpenSCAD 2021.01,
+   whose booleans go through CGAL Nef polyhedra, and nobody re-took it after
+   Manifold became the default — `fit.py` is 5 s on a current build and was
+   still running after 4 h 20 m on the old one in CI. The hook checks the
+   OpenSCAD version and falls back to printing the commands if it finds one
+   older than 2023, because on that build it really would take hours.
 4. **Derive `W` and `D`.** Attempted and deliberately not done; the model now
    says why where the constants are. The flange assert wants `W > 151`, but the
    real threshold is `W = 154` for `LED_BAR = true` and `152` for the default —

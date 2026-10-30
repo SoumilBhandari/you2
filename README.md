@@ -250,7 +250,7 @@ python3 cad/docs.py                       # the prose agrees with the model
 
 Between them and 21 in-model asserts they caught **23 defects renders did not show** — a microphone array overhanging the top face by 2 mm, a driver that never touched its own seal, eight insert holes bored at the insert's own diameter, and two Ø10 × 24 mm horizontal cantilevers that would have needed support towers built from the bare bed inside a sealed cavity.
 
-One command installs a pre-commit hook that runs the fast half of this on every commit — the prose gate and the two reachability tests, 1.7 s together. The mesh gates are minutes and stay manual; a hook that costs two minutes is a hook that gets disabled.
+One command installs a pre-commit hook. It runs the prose gate and the two reachability tests on every commit, 1.1 s together, and the three fast mesh gates on commits that touch `cad/`, 8 s more. Only `thickness.py` stays manual, at 26 s. That split used to be much harsher — the mesh gates were excluded as "minutes", which was true of Ubuntu's OpenSCAD 2021.01 and its CGAL-Nef booleans and not of any build since. CI runs all five on every push, in about two minutes.
 
 ```bash
 git config core.hooksPath .githooks

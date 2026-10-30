@@ -33,14 +33,14 @@ jobs:
   gates:
     name: cad gates
     runs-on: ubuntu-latest
-    # Measured on this runner: 54 seconds for the whole job, of which 36 is
-    # fetching and extracting OpenSCAD and 11 is the four gates. The one that
-    # had been running for four hours and twenty minutes now takes 7 seconds.
+    # Measured on this runner, every step below plus setup: about two minutes.
     # The cap is not a guess at how slow a shared runner might be, it is a
-    # tripwire: if a future OpenSCAD stops defaulting to Manifold these gates
-    # go back to taking hours, and they should fail at 15 minutes saying so
+    # tripwire. Ubuntu's own OpenSCAD package does booleans with CGAL Nef
+    # polyhedra and `fit.py` was still running on it at four hours and twenty
+    # minutes; if a future upstream build stops defaulting to Manifold these
+    # gates go back to that, and they should fail at 15 minutes saying so
     # rather than squat on the queue until the 6-hour job default kills them.
-    # See the long note in .github/actions/openscad for the first version.
+    # See the long note in .github/actions/openscad.
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
@@ -53,15 +53,16 @@ jobs:
           python -m pip install --upgrade pip
           pip install "numpy>=1.24"
 
-      # The prose gate. Under a second, and the one that has caught the most:
-      # thirty wrong claims across six documents so far.
+      # The prose gate, in full rather than --quick: the four mesh-derived
+      # claims (bed contact, downfacing area) cost a couple of seconds here
+      # and are the ones nobody can check by eye. 1 s.
       - name: the documents agree with the model
-        run: python3 cad/docs.py --quick
+        run: python3 cad/docs.py
 
-      # Every part is one connected solid. This is the check rev C would have
-      # failed. The DEFAULT variant only — see the note on the nightly job.
-      - name: every part is one solid
-        run: python3 cad/check.py cad/you2-revD.scad
+      # --variants, not the default alone. LED_BAR = true was broken for as
+      # long as it existed because only one configuration was ever gated. 13 s.
+      - name: every part is one solid, under every switch
+        run: python3 cad/check.py cad/you2-revD.scad --variants
 
       - name: no two parts share space
         run: python3 cad/fit.py cad/you2-revD.scad
@@ -69,35 +70,23 @@ jobs:
       - name: no part claims an impossible mass
         run: python3 cad/mass.py cad/you2-revD.scad
 
-  # The exhaustive sweep, on a schedule instead of on every push.
-  #
-  # The first version ran `check.py --variants` and a 6000-ray thickness pass
-  # per push. That is 55 OpenSCAD exports plus ray-casting 70k facets eight
-  # times, and it was still going at 24 minutes on a shared runner while four
-  # more pushes queued behind it. CI nobody waits for is CI nobody reads, which
-  # is the same failure as the pre-commit hook that costs two minutes.
-  #
-  # Nothing is dropped, only moved. The variant sweep catches a configuration
-  # that stops building, which is a thing that happens over weeks, not between
-  # two commits on a Tuesday.
-  sweep:
-    name: full sweep (nightly)
-    # Schedule and manual ONLY. `!= pull_request` still let it run on every
-    # push, which is the thing this split exists to stop.
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - uses: ./.github/actions/openscad
-      - name: numpy
-        run: pip install "numpy>=1.24"
-
-      - name: every part is one solid, under every switch
-        run: python3 cad/check.py cad/you2-revD.scad --variants
-
+      # 57 s, and the slowest thing here by a factor of four. It stays on the
+      # push path anyway: a 0.3 mm web is the classic FDM failure and it is
+      # invisible to every other gate, because the part is still one solid and
+      # still does not intersect anything.
       - name: no wall a 0.4 mm nozzle cannot fill
         run: python3 cad/thickness.py cad/you2-revD.scad --rays 6000
+
+# Why there is no separate nightly job any more
+# --------------------------------------------
+# There was one, holding `check.py --variants` and the 6000-ray wall pass,
+# because together they were "still going at 24 minutes" on a shared runner.
+# That measurement was taken against Ubuntu's OpenSCAD 2021.01 and it was a
+# property of the boolean backend, not of the gates. On the pinned upstream
+# build the same two steps are 13 s and 57 s, so the whole suite now runs on
+# every push and nothing is deferred.
+#
+# The weekly schedule above is kept for a different reason that is still true:
+# the OpenSCAD AppImage is pinned to a dated snapshot, upstream keeps those for
+# about a year, and a repo nobody has pushed to for a month should still find
+# out that its pin has 404'd.

@@ -17,7 +17,7 @@ human re-deriving them by hand is exactly the step that failed. So: derive them
 from the model, once, and make disagreement an error.
 
     python3 cad/docs.py            # the whole repo
-    python3 cad/docs.py --quick    # skip the two facts that need a mesh export
+    python3 cad/docs.py --quick    # skip the four claims that need a mesh export
     python3 cad/docs.py --facts    # just print the ground truth and stop
 
 Adding a claim: put the number in FACTS with a derivation, and a pattern in
@@ -301,6 +301,14 @@ def CHECKS(f):
         # because a render lies" sat directly above a block that runs five
         # commands. "mesh gates", "both gates" and "the gates" each capture a
         # word num() cannot parse, and scan() drops those as not-a-claim.
+        #
+        # Known blind spot, left open deliberately: an adjective between the
+        # number and the noun defeats this, and "two mechanical gates" in
+        # handoff_hardware.md was wrong for weeks behind exactly that. The
+        # pattern is not loosened to \w+ because "the two geometry gates"
+        # appears in two documents as a true claim about a subset, and a
+        # looser pattern would read its 2 against the total and report a
+        # correct sentence as wrong. Crying wolf costs more than this miss.
         ("gate count",
          r"(\d+|[A-Za-z]+) gates\b", eq("gates")),
         ("render count",
@@ -480,7 +488,7 @@ def self_test(f):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--quick", action="store_true",
-                    help="skip the facts that need a mesh export (~20 s)")
+                    help="skip the four claims that need a mesh export")
     ap.add_argument("--facts", action="store_true", help="print ground truth and stop")
     a = ap.parse_args()
 

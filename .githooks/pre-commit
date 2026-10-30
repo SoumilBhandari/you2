@@ -1,18 +1,28 @@
 #!/bin/sh
-# Pre-commit gate. Fast checks only, on purpose.
+# Pre-commit gate. Everything here is measured and nothing here is slow.
 #
 # Every defect this project has shipped and then found was drift: a number in
 # prose that stopped matching the model, a config knob nothing read, a meta key
 # nothing could display. All three are caught by checks that run in under two
 # seconds, and none of them is caught by a human remembering.
 #
-# What deliberately does NOT run here:
-#   the full test suite      144 s
-#   check.py --variants      minutes (five OpenSCAD exports per part)
-#   fit.py / thickness.py    minutes
-# A hook that costs two minutes is a hook that gets disabled, and a disabled
-# hook catches nothing. Those stay manual and are listed at the end of a CAD
-# commit as a reminder.
+# The mesh gates DO run here, on commits that touch cad/, and that is a
+# reversal. They were excluded because they were "minutes" -- which was true
+# of OpenSCAD 2021.01, whose booleans go through CGAL Nef polyhedra. Measured
+# on a build that defaults to Manifold:
+#
+#   check.py      1.5 s        fit.py    5.1 s        mass.py   1.3 s
+#   check.py --variants  7.1 s           thickness.py  25.7 s
+#
+# So three of them together cost 8 seconds and there was never a reason to
+# skip them; the reason was a number nobody re-measured after the backend
+# changed under it. There is a version guard below, because on an older
+# OpenSCAD this hook really would take hours.
+#
+# What still deliberately does NOT run here:
+#   the full test suite      112 s, against 1 s for the two tests that matter
+#   check.py --variants      7 s, and CI runs it on every push
+#   thickness.py             26 s, which is too long to pay per commit
 #
 # Install:  git config core.hooksPath .githooks
 # Skip once: git commit --no-verify
@@ -25,7 +35,7 @@ staged=$(git diff --cached --name-only --diff-filter=ACM)
 
 fail=0
 
-# The prose gate: numbers in six documents against the model. 0.3 s.
+# The prose gate: numbers in ten documents against the model. 0.1 s.
 if command -v python3 >/dev/null 2>&1; then
     if ! python3 cad/docs.py --quick >/tmp/you2-docs.$$ 2>&1; then
         echo "pre-commit: the prose disagrees with the model"
@@ -35,7 +45,7 @@ if command -v python3 >/dev/null 2>&1; then
     rm -f /tmp/you2-docs.$$
 fi
 
-# Reachability: a config knob nothing reads, a meta key nothing can show. 1.4 s.
+# Reachability: a config knob nothing reads, a meta key nothing can show. 1.0 s.
 if echo "$staged" | grep -q '^software/'; then
     py=software/.venv/bin/python
     [ -x "$py" ] || py=$(command -v python3)
@@ -50,12 +60,42 @@ if echo "$staged" | grep -q '^software/'; then
     rm -f /tmp/you2-reach.$$
 fi
 
-# Slow gates are not run. Say so rather than letting them be forgotten.
+# The mesh gates, on CAD commits only. 8 s for the three of them.
 if echo "$staged" | grep -qE '^cad/.*\.scad$'; then
-    echo "pre-commit: CAD changed — the mesh gates are NOT run by this hook:"
-    echo "    python3 cad/check.py cad/you2-revD.scad --variants"
-    echo "    python3 cad/fit.py   cad/you2-revD.scad"
-    echo "    software/.venv/bin/python cad/thickness.py cad/you2-revD.scad"
+    # Manifold became OpenSCAD's default boolean backend in 2023. Before that
+    # these three are not 8 seconds, they are hours -- `fit.py` on 2021.01 was
+    # still running after four hours and twenty minutes on a CI runner. Refuse
+    # rather than hang, and say which gates went unrun.
+    year=""
+    if command -v openscad >/dev/null 2>&1; then
+        year=$(openscad --version 2>&1 \
+               | sed -n 's/.*version \([0-9][0-9][0-9][0-9]\).*/\1/p' | head -1)
+    fi
+    if [ -z "$year" ] || [ "$year" -lt 2023 ]; then
+        echo "pre-commit: CAD changed, but no OpenSCAD newer than 2023 found."
+        echo "  On a CGAL-Nef build these take hours, so they are NOT run:"
+        echo "    python3 cad/check.py cad/you2-revD.scad --variants"
+        echo "    python3 cad/fit.py   cad/you2-revD.scad"
+        echo "    python3 cad/mass.py  cad/you2-revD.scad"
+        echo "  CI runs all of them on every push regardless."
+    else
+        for gate in \
+            "check.py cad/you2-revD.scad:a part is in more than one piece" \
+            "fit.py cad/you2-revD.scad:two parts occupy the same space" \
+            "mass.py cad/you2-revD.scad:a part claims an impossible mass"
+        do
+            cmd=${gate%%:*}
+            why=${gate#*:}
+            if ! python3 cad/$cmd >/tmp/you2-mesh.$$ 2>&1; then
+                echo "pre-commit: $why"
+                sed 's/^/  /' /tmp/you2-mesh.$$
+                fail=1
+            fi
+            rm -f /tmp/you2-mesh.$$
+        done
+    fi
+    # Still not run, and worth saying rather than quietly dropping.
+    echo "pre-commit: not run (26 s) — python3 cad/thickness.py cad/you2-revD.scad"
 fi
 
 [ "$fail" -eq 0 ] || {
