@@ -59,7 +59,7 @@ def echo_facts():
     m = re.search(r"OVERALL\s*=\s*(\d+) x (\d+) x (\d+)", txt)
     s = re.search(r"skirt\s*=\s*([\d.]+) mm, driver centre z = ([\d.]+)", txt)
     return {"W": int(m.group(1)), "D": int(m.group(2)), "H": int(m.group(3)),
-            "skirt": float(s.group(1)), "spk_z": float(s.group(2))}
+            "skirt": float(s.group(1))}
 
 
 def source_facts():
@@ -305,6 +305,15 @@ def CHECKS(f):
          r"(\d+|[A-Za-z]+) gates\b", eq("gates")),
         ("render count",
          r"(\d+|[a-z]+) images\b", eq("renders")),
+        ("MODE entry count",
+         r"(\d+|[A-Za-z]+) entries\b", eq("modes")),
+        # Anchored on the verb, because rev C's 46 mm skirt is still quoted in
+        # hardware-plan.md as the thing the driver would not fit into, and that
+        # sentence is correct. "fits a 46 mm skirt" is not a claim about this
+        # model; "over a", "sets the" and "drives the" are.
+        ("skirt height",
+         r"(?:over|sets|drives)(?: the| a)? (\d+(?:\.\d+)?) ?mm skirt",
+         eq("skirt", 0.05)),
         # A bare "N x N x N" also describes the bed (220x220x250), the driver
         # box (50x45x22) and rev C (134x125x165), none of which are wrong. The
         # discriminator is overlap: a triple sharing two values with the device
@@ -439,6 +448,24 @@ def self_test(f):
     with open(path, "w") as g:
         g.write(probe)
     caught = {label for _rel, _line, label, _text, _want in scan(f, [path])}
+
+    # Every derived fact must be graded by something. This file's own docstring
+    # says a number that cannot be derived does not belong in FACTS; the
+    # converse was never enforced, and three facts had quietly stopped being
+    # used -- modes, skirt and spk_z. Two of them had claims in the documents
+    # that nothing was comparing against, and the third had no claim anywhere.
+    # Read out of the CHECKS block's own source, so adding a fact and
+    # forgetting the pattern fails here instead of looking like agreement.
+    src = open(__file__, errors="replace").read()
+    checks_src = src[src.index("def CHECKS("):src.index("def scan(")]
+    ungraded = sorted(k for k in f if k not in ("W", "D", "H")
+                      and f'"{k}"' not in checks_src)
+    if ungraded:
+        print("  HARNESS BROKEN  facts derived from the model that nothing grades:")
+        for k in ungraded:
+            print(f"                  {k} = {f[k]!r}")
+        print("  either add a pattern in CHECKS or drop the fact — refusing to run")
+        return False
 
     missed = {"gate count", "printed-part badge"} - caught
     if missed:
